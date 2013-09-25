@@ -21,6 +21,7 @@ import com.ning.arecibo.metrics.guice.AreciboMetricsModule;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
 import com.ning.metrics.collector.endpoint.resources.ScribeModule;
+import com.ning.metrics.collector.hadoop.writer.EventSpoolWriterModule;
 import com.ning.metrics.collector.hadoop.writer.HdfsModule;
 import com.ning.metrics.collector.nagios.CollectorServiceCheck;
 import com.ning.metrics.collector.nagios.NagiosMonitor;
@@ -35,6 +36,7 @@ import com.google.inject.servlet.ServletModule;
 import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
 import com.yammer.metrics.guice.InstrumentationModule;
+
 import org.atmosphere.guice.GuiceManagedAtmosphereServlet;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.skife.config.ConfigurationObjectFactory;
@@ -42,6 +44,7 @@ import org.weakref.jmx.guice.ExportBuilder;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
+
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 
@@ -67,6 +70,7 @@ public class ServerModule extends ServletModule
         installJaxrsSupport(config);
         installScribe();
         installPersistentSink();
+        installEventSpoolWriter(config);
         installHDFS();
         installRealtimeSink();
 
@@ -151,6 +155,10 @@ public class ServerModule extends ServletModule
     protected void installPersistentSink()
     {
         install(new EventCollectorModule());
+    }
+    
+    protected void installEventSpoolWriter(final CollectorConfig config){
+        install(new EventSpoolWriterModule(config));
     }
 
     protected void installHDFS()

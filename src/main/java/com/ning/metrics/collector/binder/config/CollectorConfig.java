@@ -410,4 +410,8 @@ public interface CollectorConfig
     @Config("collector.arecibo.profile")
     @Default("com.ning.arecibo.jmx:name=AreciboProfile")
     String getAreciboProfile();
+    
+    @Config("collector.spoolWriter.classes")
+    @Default("com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory")
+    String getSpoolWriterClassNames();
 }

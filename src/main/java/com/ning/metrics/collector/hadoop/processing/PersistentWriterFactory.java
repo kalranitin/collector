@@ -31,10 +31,10 @@ public interface PersistentWriterFactory
      * @param stats             stats object to count flushes
      * @param serializationType serialization type to use
      * @param eventName         event name
-     * @param hdfsDir           output directory
+     * @param eventOutputDirectory           output directory
      * @return eventWriter specific to an event type and serialization type
      */
-    EventWriter createPersistentWriter(final WriterStats stats, final SerializationType serializationType, final String eventName, final String hdfsDir);
+    EventWriter createPersistentWriter(final WriterStats stats, final SerializationType serializationType, final String eventName, final String eventOutputDirectory);
 
     /**
      * In case the EventWriter responsible for a certain queue goes away (e.g. collector restarted),

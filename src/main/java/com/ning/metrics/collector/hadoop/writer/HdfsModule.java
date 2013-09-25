@@ -16,11 +16,12 @@
 
 package com.ning.metrics.collector.hadoop.writer;
 
+import com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory;
+import com.ning.metrics.serialization.hadoop.FileSystemAccess;
+
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory;
-import com.ning.metrics.collector.hadoop.processing.PersistentWriterFactory;
-import com.ning.metrics.serialization.hadoop.FileSystemAccess;
+
 import org.weakref.jmx.guice.ExportBuilder;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -34,7 +35,7 @@ public class HdfsModule implements Module
     {
         final ExportBuilder builder = MBeanModule.newExporter(binder);
 
-        binder.bind(PersistentWriterFactory.class).to(HadoopWriterFactory.class);
+//        binder.bind(PersistentWriterFactory.class).to(HadoopWriterFactory.class);
         builder.export(HadoopWriterFactory.class).as("com.ning.metrics.collector:name=HDFSWriter");
 
         // HDFS raw access

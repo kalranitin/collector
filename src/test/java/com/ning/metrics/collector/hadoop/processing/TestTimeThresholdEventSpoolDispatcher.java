@@ -16,16 +16,15 @@
 
 package com.ning.metrics.collector.hadoop.processing;
 
-import com.google.inject.Inject;
-import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.guice.EventCollectorModule;
-import com.ning.metrics.collector.hadoop.writer.HdfsModule;
 import com.ning.metrics.collector.realtime.RealTimeQueueTestModule;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.ThriftEnvelopeEvent;
-import com.ning.metrics.serialization.hadoop.FileSystemAccess;
 import com.ning.metrics.serialization.thrift.ThriftEnvelope;
 import com.ning.metrics.serialization.thrift.ThriftField;
+
+import com.google.inject.Inject;
+
 import org.joda.time.DateTime;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -35,7 +34,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-@Guice(modules = {ConfigTestModule.class, EventCollectorModule.class, HdfsModule.class, RealTimeQueueTestModule.class})
+@Guice(modules = {ConfigTestModule.class, EventCollectorModule.class, MockEventSpoolWriterModule.class, RealTimeQueueTestModule.class})
 public class TestTimeThresholdEventSpoolDispatcher
 {
     @Inject
