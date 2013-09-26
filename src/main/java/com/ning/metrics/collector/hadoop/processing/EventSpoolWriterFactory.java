@@ -24,9 +24,7 @@ import com.ning.metrics.serialization.writer.EventWriter;
 import com.ning.metrics.serialization.writer.SyncType;
 import com.ning.metrics.serialization.writer.ThresholdEventWriter;
 
-import com.google.common.collect.Collections2;
 import com.google.inject.Inject;
-import com.mogwee.executors.Executors;
 import com.mogwee.executors.FailsafeScheduledExecutor;
 import com.mogwee.executors.LoggingExecutor;
 import com.mogwee.executors.NamedThreadFactory;
