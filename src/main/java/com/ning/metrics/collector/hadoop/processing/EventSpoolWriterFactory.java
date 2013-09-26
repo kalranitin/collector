@@ -1,3 +1,18 @@
+/*
+ * Copyright 2010-2013 Ning, Inc.
+ *
+ * Ning licenses this file to you under the Apache License, version 2.0
+ * (the "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at:
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
 package com.ning.metrics.collector.hadoop.processing;
 
 import com.ning.arecibo.jmx.Monitored;
@@ -9,8 +24,12 @@ import com.ning.metrics.serialization.writer.EventWriter;
 import com.ning.metrics.serialization.writer.SyncType;
 import com.ning.metrics.serialization.writer.ThresholdEventWriter;
 
+import com.google.common.collect.Collections2;
 import com.google.inject.Inject;
+import com.mogwee.executors.Executors;
 import com.mogwee.executors.FailsafeScheduledExecutor;
+import com.mogwee.executors.LoggingExecutor;
+import com.mogwee.executors.NamedThreadFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +40,10 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class EventSpoolWriterFactory implements PersistentWriterFactory
@@ -30,6 +53,9 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     private final AtomicBoolean flushEnabled;
     private final Set<EventSpoolProcessor> eventSpoolProcessorSet;
     private long cutoffTime = 7200000L;
+    private final int NTHREDS = 10;
+    private final int executorShutdownTimeOut = 5;
+    private final ExecutorService executorService;
     
     @Inject
     public EventSpoolWriterFactory(final Set<EventSpoolProcessor> eventSpoolProcessorSet, final CollectorConfig config)
@@ -37,6 +63,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
         this.eventSpoolProcessorSet = eventSpoolProcessorSet;
         this.config = config;
         this.flushEnabled = new AtomicBoolean(config.isFlushEnabled());
+        executorService = new LoggingExecutor(0, NTHREDS , 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory("EventSpool-Processor-Threads"));
     }
 
     @Override
@@ -57,12 +84,22 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
 
                 try {
                     final String outputPath = spoolManager.toHadoopPath(flushCount);
-                    for(EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
+                    for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
                     {
-                        eventSpoolProcessor.processEventFile(file, outputPath);
+                        executorService.submit(new Callable<Boolean>() {
+
+                            @Override
+                            public Boolean call() throws Exception
+                            {
+                                eventSpoolProcessor.processEventFile(file, outputPath);
+                                return true;
+                            }
+                            
+                        });
+                        
                     }
                 }
-                catch (IOException e) {
+                catch (Exception e) {
                     handler.onError(e, file);
                     // Increment flush count in case the file was created on HDFS
                     flushCount++;
@@ -129,6 +166,16 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     @Override
     public void close()
     {
+        executorService.shutdown();
+        
+        try {
+            executorService.awaitTermination(executorShutdownTimeOut, TimeUnit.SECONDS);
+        }
+        catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+        executorService.shutdownNow();
+        
         log.info("Processing old files and quarantine directories");
         try {
             processLeftBelowFiles();

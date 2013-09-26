@@ -35,7 +35,6 @@ public class HdfsModule implements Module
     {
         final ExportBuilder builder = MBeanModule.newExporter(binder);
 
-//        binder.bind(PersistentWriterFactory.class).to(HadoopWriterFactory.class);
         builder.export(HadoopWriterFactory.class).as("com.ning.metrics.collector:name=HDFSWriter");
 
         // HDFS raw access
