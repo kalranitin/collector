@@ -87,47 +87,10 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                     return; // Flush Disabled?
                 }
                 
-                final String outputPath = spoolManager.toHadoopPath(flushCount);
-                for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
-                {
-                    callerFutureList.add(executorService.submit(new Callable<Boolean>() {
-
-                        @Override
-                        public Boolean call() throws Exception
-                        {
-                            try {
-                                eventSpoolProcessor.processEventFile(eventName, serializationType, file, outputPath);
-                            }
-                            catch (IOException e) {
-                                return false;
-                            }
-                            return true;
-                        }
-                        
-                    }));
-                    
-                }
-
-                AtomicBoolean executionResult = new AtomicBoolean(true);
+                final String outputPath = spoolManager.toHadoopPath(flushCount);                
                 
-                try {
-                    for(Future<Boolean> future : callerFutureList)
-                    {
-                        // Making sure that all tasks have been executed
-                        if(!future.get())
-                        {
-                            executionResult.set(false);
-                        }
-                    }
-                }
-                catch (InterruptedException e) {
-                    executionResult.set(false);
-                }
-                catch (ExecutionException e) {
-                    executionResult.set(false);
-                }
-                
-                if(!executionResult.get())
+                // If the processors are not able to process the file then handle error
+                if(!executeSpoolProcessors(spoolManager, file, outputPath))
                 {
                     handler.onError(new RuntimeException("Execution Failed!"), file);
                     // Increment flush count in case the file was created on HDFS
@@ -178,12 +141,9 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
 
                 incrementFlushCount(flushesPerEvent, spoolManager.getEventName());
                 final String outputPath = spoolManager.toHadoopPath(flushesPerEvent.get(spoolManager.getEventName()));
-                for(EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
-                {
-                    eventSpoolProcessor.processEventFile(spoolManager.getEventName(), spoolManager.getSerializationType(), file, outputPath);
-                }
-
-                if (!file.delete()) {
+                
+                // Make sure all the processors process the file and the file is deleted.
+                if (!executeSpoolProcessors(spoolManager,file,outputPath) && !file.delete()) {
                     log.warn(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
                 }
             }
@@ -191,10 +151,68 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
 
         LocalSpoolManager.cleanupOldSpoolDirectories(potentialOldDirectories);
     }
+    
+    /*
+     * Execute the processors in parallel for the given file and event
+     * */
+    private boolean executeSpoolProcessors(final LocalSpoolManager spoolManager, final File file, final String outputPath)
+    {
+        List<Future<Boolean>> callerFutureList = new ArrayList<Future<Boolean>>();
+        boolean executionResult = true;
+        for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
+        {
+            callerFutureList.add(executorService.submit(new Callable<Boolean>() {
+
+                @Override
+                public Boolean call() throws Exception
+                {
+                    try {
+                        eventSpoolProcessor.processEventFile(spoolManager.getEventName(), spoolManager.getSerializationType(), file, outputPath);
+                    }
+                    catch (IOException e) {
+                        return false;
+                    }
+                    return true;
+                }
+                
+            }));
+            
+        }
+        
+        
+        
+        try {
+            for(Future<Boolean> future : callerFutureList)
+            {
+                // Making sure that all tasks have been executed
+                if(!future.get())
+                {
+                    executionResult = false;
+                }
+            }
+        }
+        catch (InterruptedException e) {
+            executionResult = false;
+        }
+        catch (ExecutionException e) {
+            executionResult = false;
+        }
+        
+        return executionResult;
+    }
 
     @Override
     public void close()
     {
+        log.info("Processing old files and quarantine directories");
+        try {
+            processLeftBelowFiles();
+        }
+        catch (IOException e) {
+            log.warn("Got IOException trying to process left below files: " + e.getLocalizedMessage());
+        }
+        
+        log.info("Shutting Down Executor Service");
         executorService.shutdown();
         
         try {
@@ -205,14 +223,6 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
         }
         executorService.shutdownNow();
         
-        log.info("Processing old files and quarantine directories");
-        try {
-            processLeftBelowFiles();
-        }
-        catch (IOException e) {
-            log.warn("Got IOException trying to process left below files: " + e.getLocalizedMessage());
-        }
-
         // Give some time for the flush to happen
         final File spoolDirectory = new File(config.getSpoolDirectoryName());
         int nbOfSleeps = 0;
