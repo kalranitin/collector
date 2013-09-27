@@ -35,12 +35,17 @@ import org.weakref.jmx.Managed;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -51,8 +56,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     private final AtomicBoolean flushEnabled;
     private final Set<EventSpoolProcessor> eventSpoolProcessorSet;
     private long cutoffTime = 7200000L;
-    private final int NTHREDS = 10;
-    private final int executorShutdownTimeOut = 5;
+    private final int executorShutdownTimeOut;
     private final ExecutorService executorService;
     
     @Inject
@@ -61,7 +65,8 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
         this.eventSpoolProcessorSet = eventSpoolProcessorSet;
         this.config = config;
         this.flushEnabled = new AtomicBoolean(config.isFlushEnabled());
-        executorService = new LoggingExecutor(0, NTHREDS , 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory("EventSpool-Processor-Threads"));
+        this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
+        executorService = new LoggingExecutor(0, config.getFileProcessorThreadCount() , 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory("EventSpool-Processor-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     @Override
@@ -76,29 +81,55 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             @Override
             public void handle(final File file, final CallbackHandler handler)
             {
+                List<Future<Boolean>> callerFutureList = new ArrayList<Future<Boolean>>();
+                
                 if (!flushEnabled.get()) {
                     return; // Flush Disabled?
                 }
+                
+                final String outputPath = spoolManager.toHadoopPath(flushCount);
+                for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
+                {
+                    callerFutureList.add(executorService.submit(new Callable<Boolean>() {
 
-                try {
-                    final String outputPath = spoolManager.toHadoopPath(flushCount);
-                    for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
-                    {
-                        executorService.submit(new Callable<Boolean>() {
-
-                            @Override
-                            public Boolean call() throws Exception
-                            {
+                        @Override
+                        public Boolean call() throws Exception
+                        {
+                            try {
                                 eventSpoolProcessor.processEventFile(file, outputPath);
-                                return true;
                             }
-                            
-                        });
+                            catch (IOException e) {
+                                return false;
+                            }
+                            return true;
+                        }
                         
+                    }));
+                    
+                }
+
+                AtomicBoolean executionResult = new AtomicBoolean(true);
+                
+                try {
+                    for(Future<Boolean> future : callerFutureList)
+                    {
+                        // Making sure that all tasks have been executed
+                        if(!future.get())
+                        {
+                            executionResult.set(false);
+                        }
                     }
                 }
-                catch (Exception e) {
-                    handler.onError(e, file);
+                catch (InterruptedException e) {
+                    executionResult.set(false);
+                }
+                catch (ExecutionException e) {
+                    executionResult.set(false);
+                }
+                
+                if(!executionResult.get())
+                {
+                    handler.onError(new RuntimeException("Execution Failed!"), file);
                     // Increment flush count in case the file was created on HDFS
                     flushCount++;
                     return;

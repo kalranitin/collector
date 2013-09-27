@@ -414,4 +414,12 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.classes")
     @Default("com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory")
     String getSpoolWriterClassNames();
+    
+    @Config("collector.spoolWriter.fileprocessor.threads.count")
+    @Default("10")
+    int getFileProcessorThreadCount();
+    
+    @Config("collector.spoolWriter.executor.shutdown.waitTime")
+    @Default("5")
+    int getSpoolWriterExecutorShutdownTime();
 }
