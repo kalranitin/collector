@@ -420,6 +420,6 @@ public interface CollectorConfig
     int getFileProcessorThreadCount();
     
     @Config("collector.spoolWriter.executor.shutdown.waitTime")
-    @Default("5")
-    int getSpoolWriterExecutorShutdownTime();
+    @Default("5s")
+    TimeSpan getSpoolWriterExecutorShutdownTime();
 }

@@ -29,6 +29,7 @@ import com.mogwee.executors.FailsafeScheduledExecutor;
 import com.mogwee.executors.LoggingExecutor;
 import com.mogwee.executors.NamedThreadFactory;
 
+import org.skife.config.TimeSpan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.weakref.jmx.Managed;
@@ -56,7 +57,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     private final AtomicBoolean flushEnabled;
     private final Set<EventSpoolProcessor> eventSpoolProcessorSet;
     private long cutoffTime = 7200000L;
-    private final int executorShutdownTimeOut;
+    private final TimeSpan executorShutdownTimeOut;
     private final ExecutorService executorService;
     
     @Inject
@@ -216,7 +217,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
         executorService.shutdown();
         
         try {
-            executorService.awaitTermination(executorShutdownTimeOut, TimeUnit.SECONDS);
+            executorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
         }
         catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
