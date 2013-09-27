@@ -16,18 +16,11 @@
 
 package com.ning.metrics.collector.hadoop.processing;
 
-import com.google.inject.Inject;
-import com.mogwee.executors.FailsafeScheduledExecutor;
-
 import com.ning.arecibo.jmx.Monitored;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.serialization.hadoop.FileSystemAccess;
-import com.ning.metrics.serialization.writer.CallbackHandler;
-import com.ning.metrics.serialization.writer.DiskSpoolEventWriter;
-import com.ning.metrics.serialization.writer.EventHandler;
-import com.ning.metrics.serialization.writer.EventWriter;
-import com.ning.metrics.serialization.writer.SyncType;
-import com.ning.metrics.serialization.writer.ThresholdEventWriter;
+
+import com.google.inject.Inject;
 
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
@@ -36,8 +29,6 @@ import org.weakref.jmx.Managed;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class HadoopWriterFactory implements EventSpoolProcessor
@@ -57,7 +48,7 @@ public class HadoopWriterFactory implements EventSpoolProcessor
     }
     
     @Override
-    public void processEventFile(final File file, final String hadoopOutputPath) throws IOException{
+    public void processEventFile(final String eventName, final SerializationType serializationType,  final File file, final String hadoopOutputPath) throws IOException{
         pushFileToHadoop(file, hadoopOutputPath); 
     }
     

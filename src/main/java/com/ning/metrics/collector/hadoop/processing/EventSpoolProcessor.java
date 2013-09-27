@@ -31,7 +31,7 @@ import java.util.concurrent.Callable;
  */
 public interface EventSpoolProcessor
 {
-    public void processEventFile(final File file, final String outputPath) throws IOException;
+    public void processEventFile(final String eventName, final SerializationType serializationType, final File file, final String outputPath) throws IOException;
     public void close();
     public String getProcessorName();
 }

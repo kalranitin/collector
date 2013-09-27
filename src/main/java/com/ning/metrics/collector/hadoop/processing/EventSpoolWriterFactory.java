@@ -96,7 +96,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                         public Boolean call() throws Exception
                         {
                             try {
-                                eventSpoolProcessor.processEventFile(file, outputPath);
+                                eventSpoolProcessor.processEventFile(eventName, serializationType, file, outputPath);
                             }
                             catch (IOException e) {
                                 return false;
@@ -180,7 +180,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 final String outputPath = spoolManager.toHadoopPath(flushesPerEvent.get(spoolManager.getEventName()));
                 for(EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
                 {
-                    eventSpoolProcessor.processEventFile(file, outputPath);
+                    eventSpoolProcessor.processEventFile(spoolManager.getEventName(), spoolManager.getSerializationType(), file, outputPath);
                 }
 
                 if (!file.delete()) {
