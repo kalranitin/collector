@@ -161,7 +161,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 
                 // Make sure the file is deleted.
                 if (!file.delete()) {
-                    log.info(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
+                    log.warn(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
                 }
             }
         }
