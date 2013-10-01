@@ -18,11 +18,13 @@ package com.ning.metrics.collector;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 
+import org.skife.config.TimeSpan;
 import org.testng.Assert;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.TimeUnit;
 
 public abstract class FastCollectorConfig implements CollectorConfig
 {
@@ -77,6 +79,12 @@ public abstract class FastCollectorConfig implements CollectorConfig
     public int getFlushIntervalInSeconds()
     {
         return 1;
+    }
+    
+    @Override
+    public TimeSpan getEventFlushTime()
+    {
+        return new TimeSpan(1, TimeUnit.SECONDS);
     }
 
     /**

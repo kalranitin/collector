@@ -27,6 +27,8 @@ import com.google.inject.Inject;
 
 import org.joda.time.DateTime;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
@@ -43,7 +45,14 @@ public class TestSizeThresholdEventSpoolDispatcher
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception
     {
+        System.setProperty("collector.spoolWriter.MockEvent.flushTime", "1s");
         dispatcher.getStats().clear();
+    }
+    
+    @AfterClass(alwaysRun = true)
+    public void shutdown() throws Exception
+    {
+        //dispatcher.shutdown();
     }
 
     @Test(groups = "slow")

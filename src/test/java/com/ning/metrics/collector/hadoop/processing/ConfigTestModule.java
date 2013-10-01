@@ -22,6 +22,8 @@ import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFact
 
 import com.google.inject.AbstractModule;
 
+import org.skife.config.ConfigurationObjectFactory;
+
 public class ConfigTestModule extends AbstractModule
 {
     @Override
@@ -33,7 +35,10 @@ public class ConfigTestModule extends AbstractModule
         final String hadoopPath = System.getProperty("java.io.tmpdir") + "/collector-tests-hdfs-" + System.currentTimeMillis();
         System.setProperty("collector.event-output-directory", hadoopPath);
 
-        final CollectorConfig collectorConfig = new CollectorConfigurationObjectFactory(System.getProperties()).build(FastCollectorConfig.class);
+        ConfigurationObjectFactory configFactory = new CollectorConfigurationObjectFactory(System.getProperties());
+        bind(ConfigurationObjectFactory.class).toInstance(configFactory);
+        
+        final CollectorConfig collectorConfig = configFactory.build(FastCollectorConfig.class);
         bind(CollectorConfig.class).toInstance(collectorConfig);
     }
 }

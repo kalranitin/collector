@@ -304,6 +304,7 @@
         <dependency>
             <groupId>org.skife.config</groupId>
             <artifactId>config-magic</artifactId>
+            <version>0.17</version>
         </dependency>
         <dependency>
             <!-- For Hadoop and ActiveMQ -->

@@ -24,11 +24,13 @@ import com.ning.metrics.serialization.writer.EventWriter;
 import com.ning.metrics.serialization.writer.SyncType;
 import com.ning.metrics.serialization.writer.ThresholdEventWriter;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.mogwee.executors.FailsafeScheduledExecutor;
 import com.mogwee.executors.LoggingExecutor;
 import com.mogwee.executors.NamedThreadFactory;
 
+import org.skife.config.ConfigurationObjectFactory;
 import org.skife.config.TimeSpan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -59,12 +62,14 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     private long cutoffTime = 7200000L;
     private final TimeSpan executorShutdownTimeOut;
     private final ExecutorService executorService;
+    private final ConfigurationObjectFactory configFactory;
     
     @Inject
-    public EventSpoolWriterFactory(final Set<EventSpoolProcessor> eventSpoolProcessorSet, final CollectorConfig config)
+    public EventSpoolWriterFactory(final Set<EventSpoolProcessor> eventSpoolProcessorSet, final CollectorConfig config, final ConfigurationObjectFactory configFactory)
     {
         this.eventSpoolProcessorSet = eventSpoolProcessorSet;
         this.config = config;
+        this.configFactory = configFactory;
         this.flushEnabled = new AtomicBoolean(config.isFlushEnabled());
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
         executorService = new LoggingExecutor(0, config.getFileProcessorThreadCount() , 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory("EventSpool-Processor-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
@@ -75,6 +80,10 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     {
         final LocalSpoolManager spoolManager = new LocalSpoolManager(config, eventName, serializationType, eventOutputDirectory);
 
+        final Map<String,String> replacements = ImmutableMap.of("eventName", eventName);
+
+        final CollectorConfig replacementConfig = configFactory.buildWithReplacements(CollectorConfig.class, replacements);        
+        
         final EventWriter eventWriter = new DiskSpoolEventWriter(new EventHandler()
         {
             private int flushCount = 0;
@@ -82,8 +91,6 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             @Override
             public void handle(final File file, final CallbackHandler handler)
             {
-                List<Future<Boolean>> callerFutureList = new ArrayList<Future<Boolean>>();
-                
                 if (!flushEnabled.get()) {
                     return; // Flush Disabled?
                 }
@@ -99,12 +106,16 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                     return;
                 }
 
+                log.info("Calling Handler Success ... deleting the file!");
                 handler.onSuccess(file);
                 stats.registerHdfsFlush();
                 flushCount++;
             }
-        }, spoolManager.getSpoolDirectoryPath(), config.isFlushEnabled(), config.getFlushIntervalInSeconds(), new FailsafeScheduledExecutor(1, eventOutputDirectory + "-EventSpool-writer"),
-            SyncType.valueOf(config.getSyncType()), config.getSyncBatchSize(), config.getCompressionCodec(), serializationType.getSerializer());
+        }, spoolManager.getSpoolDirectoryPath(), config.isFlushEnabled(), 
+        TimeUnit.SECONDS.convert(replacementConfig.getEventFlushTime().getPeriod(), replacementConfig.getEventFlushTime().getUnit()), 
+        new FailsafeScheduledExecutor(1, eventOutputDirectory + "-EventSpool-writer"), SyncType.valueOf(config.getSyncType()), 
+        config.getSyncBatchSize(), config.getCompressionCodec(), serializationType.getSerializer());
+        
         return new ThresholdEventWriter(eventWriter, config.getMaxUncommittedWriteCount(), config.getMaxUncommittedPeriodInSeconds());
     }
 
@@ -121,7 +132,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     @Managed(description = "Process all local files files")
     public void processLeftBelowFiles() throws IOException
     {
-        log.info("Processing files left below");
+        log.info("Processing files left below ----- "+config.getSpoolDirectoryName());
         // We are going to flush all files that are not being written (not in the _tmp directory) and then delete
         // empty directories. We can't distinguish older directories vs ones currently in use except by timestamp.
         // We record candidates first, delete the files, and then delete the empty directories among the candidates.
@@ -129,8 +140,10 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
 
         final HashMap<String, Integer> flushesPerEvent = new HashMap<String, Integer>();
         for (final File oldDirectory : potentialOldDirectories) {
+            log.info(String.format("Processing the directory %s",oldDirectory.getAbsolutePath()));
             // Ignore _tmp, files may be corrupted (not closed properly)
             for (final File file : LocalSpoolManager.findFilesInSpoolDirectory(oldDirectory)) {
+                log.info(String.format("Processing file %s in the directory the directory %s",file.getAbsolutePath(), oldDirectory.getAbsolutePath()));
                 final LocalSpoolManager spoolManager;
                 try {
                     spoolManager = new LocalSpoolManager(config, oldDirectory);
@@ -143,9 +156,12 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 incrementFlushCount(flushesPerEvent, spoolManager.getEventName());
                 final String outputPath = spoolManager.toHadoopPath(flushesPerEvent.get(spoolManager.getEventName()));
                 
-                // Make sure all the processors process the file and the file is deleted.
-                if (!executeSpoolProcessors(spoolManager,file,outputPath) && !file.delete()) {
-                    log.warn(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
+                // Execute the file in parallel using all spool processors
+                executeSpoolProcessors(spoolManager,file,outputPath);
+                
+                // Make sure the file is deleted.
+                if (!file.delete()) {
+                    log.info(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
                 }
             }
         }
@@ -160,17 +176,24 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     {
         List<Future<Boolean>> callerFutureList = new ArrayList<Future<Boolean>>();
         boolean executionResult = true;
+        log.info("Starting Spool Porcess");
         for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
         {
+            log.info("Submitting task for "+eventSpoolProcessor.getProcessorName());
             callerFutureList.add(executorService.submit(new Callable<Boolean>() {
 
                 @Override
                 public Boolean call() throws Exception
                 {
                     try {
+                        log.info(String.format("Processing Event %s via spooler %s at path %s ",spoolManager.getEventName(),eventSpoolProcessor.getProcessorName(),outputPath));
+                        
                         eventSpoolProcessor.processEventFile(spoolManager.getEventName(), spoolManager.getSerializationType(), file, outputPath);
+                        
+                        log.info(String.format("Completed Processing Event  %s via spooler %s",spoolManager.getEventName(),eventSpoolProcessor.getProcessorName()));
                     }
                     catch (IOException e) {
+                        log.error("Exception occurred while processing event "+spoolManager.getEventName()+" for spooler "+eventSpoolProcessor.getProcessorName(),e);
                         return false;
                     }
                     return true;
@@ -180,12 +203,15 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             
         }
         
+        log.info("Spool Porcess Completed, now waiting for the parallel task to complete.");
+        
         
         
         try {
             for(Future<Boolean> future : callerFutureList)
             {
                 // Making sure that all tasks have been executed
+                log.info("Execution Result is "+future.get());
                 if(!future.get())
                 {
                     executionResult = false;
@@ -198,54 +224,57 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
         catch (ExecutionException e) {
             executionResult = false;
         }
-        
+        log.info("Parallel Spool Execution Completed with result as "+executionResult);
         return executionResult;
     }
 
     @Override
     public void close()
     {
-        log.info("Processing old files and quarantine directories");
-        try {
-            processLeftBelowFiles();
-        }
-        catch (IOException e) {
-            log.warn("Got IOException trying to process left below files: " + e.getLocalizedMessage());
-        }
-        
-        log.info("Shutting Down Executor Service");
-        executorService.shutdown();
-        
-        try {
-            executorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
-        }
-        catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-        }
-        executorService.shutdownNow();
-        
-        // Give some time for the flush to happen
-        final File spoolDirectory = new File(config.getSpoolDirectoryName());
-        int nbOfSleeps = 0;
-        int numberOfLocalFiles = LocalSpoolManager.findFilesInSpoolDirectory(spoolDirectory).size();
-        while (numberOfLocalFiles > 0 && nbOfSleeps < 10) {
-            log.info(String.format("%d more files are left to be flushed, sleeping to give them a chance", numberOfLocalFiles));
+        try{
+            log.info("Processing old files and quarantine directories");
             try {
-                Thread.sleep(5000L);
-                numberOfLocalFiles = LocalSpoolManager.findFilesInSpoolDirectory(spoolDirectory).size();
-                nbOfSleeps++;
+                processLeftBelowFiles();
             }
-            catch (InterruptedException e) {
-                log.warn(String.format("Interrupted while waiting for files to be flushed to HDFS. This means that [%s] still contains data!", config.getSpoolDirectoryName()));
-                break;
+            catch (IOException e) {
+                log.warn("Got IOException trying to process left below files: " + e.getLocalizedMessage());
             }
-        }
+            
+            // Give some time for the flush to happen
+            final File spoolDirectory = new File(config.getSpoolDirectoryName());
+            int nbOfSleeps = 0;
+            int numberOfLocalFiles = LocalSpoolManager.findFilesInSpoolDirectory(spoolDirectory).size();
+            while (numberOfLocalFiles > 0 && nbOfSleeps < 10) {
+                log.info(String.format("%d more files are left to be flushed, sleeping to give them a chance in [%s]", numberOfLocalFiles, spoolDirectory));
+                try {
+                    Thread.sleep(5000L);
+                    numberOfLocalFiles = LocalSpoolManager.findFilesInSpoolDirectory(spoolDirectory).size();
+                    nbOfSleeps++;
+                }
+                catch (InterruptedException e) {
+                    log.warn(String.format("Interrupted while waiting for files to be flushed to HDFS. This means that [%s] still contains data!", config.getSpoolDirectoryName()));
+                    break;
+                }
+            }
 
-        if (numberOfLocalFiles > 0) {
-            log.warn(String.format("Giving up while waiting for files to be flushed to HDFS. Files not flushed: %s", LocalSpoolManager.findFilesInSpoolDirectory(spoolDirectory)));
+            if (numberOfLocalFiles > 0) {
+                log.warn(String.format("Giving up while waiting for files to be flushed to HDFS. Files not flushed: %s", LocalSpoolManager.findFilesInSpoolDirectory(spoolDirectory)));
+            }
+            else {
+                log.info("All local files have been flushed");
+            }
         }
-        else {
-            log.info("All local files have been flushed");
+        finally{
+            log.info("Shutting Down Executor Service");
+            executorService.shutdown();
+            
+            try {
+                executorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
+            }
+            catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+            executorService.shutdownNow();
         }
     }
     

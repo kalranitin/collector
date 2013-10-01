@@ -16,16 +16,20 @@
 package com.ning.metrics.collector.hadoop.processing;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
+import com.ning.metrics.serialization.hadoop.FileSystemAccess;
 
 import com.google.inject.Inject;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
+import org.skife.config.ConfigurationObjectFactory;
 import org.testng.Assert;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,13 +39,32 @@ public class TestEventSpoolWriterFactory
 {
     @Inject
     CollectorConfig config;
+    
+    @Inject
+    ConfigurationObjectFactory configFactory;
 
     File spoolDirectory;
     File tmpDirectory;
     File lockDirectory;
     File quarantineDirectory;
 
+    private final Map<String, File> hdfs = new HashMap<String, File>();
+    
     private static final long CUTOFF_TIME = 1000;
+    
+    class NoWriteHadoopWriterFactory extends HadoopWriterFactory
+    {
+        public NoWriteHadoopWriterFactory(final FileSystemAccess hdfsAccess, final CollectorConfig config)
+        {
+            super(hdfsAccess, config);
+        }
+
+        @Override
+        protected void pushFileToHadoop(final File file, final String outputPath) throws IOException
+        {
+            hdfs.put(outputPath, file);
+        }
+    }
     
  // Poor man's way of ensuring that tests are run serially (conflicts with tmp spool dir)
     @Test(groups = "slow")
@@ -62,7 +85,7 @@ public class TestEventSpoolWriterFactory
 
     private void testProcessLeftBelowFilesAllClean() throws Exception
     {
-        final EventSpoolWriterFactory factory = new EventSpoolWriterFactory(new HashSet<EventSpoolProcessor>(), config);
+        final EventSpoolWriterFactory factory = new EventSpoolWriterFactory(new HashSet<EventSpoolProcessor>(Arrays.asList(new NoWriteHadoopWriterFactory(null, config))), config, configFactory);
         factory.setCutoffTime(CUTOFF_TIME);
 
         FileUtils.touch(new File(lockDirectory.getPath() + "/some_file_which_should_be_sent_1"));
@@ -76,6 +99,7 @@ public class TestEventSpoolWriterFactory
         Assert.assertTrue(quarantineDirectory.exists());
 
         Thread.sleep(2 * CUTOFF_TIME);
+        
         factory.processLeftBelowFiles();
 
         // All files should have been sent
@@ -83,12 +107,15 @@ public class TestEventSpoolWriterFactory
         Assert.assertFalse(tmpDirectory.exists());
         Assert.assertFalse(lockDirectory.exists());
         Assert.assertFalse(quarantineDirectory.exists());
+        
+     // We could even test the mapping in HDFS here (with the keys)
+        Assert.assertEquals(hdfs.values().size(), 3);
 
     }
 
     private void testProcessLeftBelowFilesTooSoon() throws Exception
     {
-        final EventSpoolWriterFactory factory = new EventSpoolWriterFactory(new HashSet<EventSpoolProcessor>(), config);
+        final EventSpoolWriterFactory factory = new EventSpoolWriterFactory(new HashSet<EventSpoolProcessor>(Arrays.asList(new NoWriteHadoopWriterFactory(null, config))), config, configFactory);
         factory.setCutoffTime(CUTOFF_TIME);
 
         FileUtils.touch(new File(lockDirectory.getPath() + "/some_file_which_should_be_sent_1"));
@@ -102,6 +129,7 @@ public class TestEventSpoolWriterFactory
         Assert.assertTrue(quarantineDirectory.exists());
 
         // No sleep!
+        
         factory.processLeftBelowFiles();
 
         // No file should have been sent
@@ -110,12 +138,15 @@ public class TestEventSpoolWriterFactory
         Assert.assertTrue(tmpDirectory.exists());
         Assert.assertTrue(lockDirectory.exists());
         Assert.assertTrue(quarantineDirectory.exists());
+        
+     // We could even test the mapping in HDFS here (with the keys)
+        Assert.assertEquals(hdfs.values().size(), 0);
 
     }
 
     public void testProcessLeftBelowFilesWithFilesRemaining() throws Exception
     {
-        final EventSpoolWriterFactory factory = new EventSpoolWriterFactory(new HashSet<EventSpoolProcessor>(), config);
+        final EventSpoolWriterFactory factory = new EventSpoolWriterFactory(new HashSet<EventSpoolProcessor>(Arrays.asList(new NoWriteHadoopWriterFactory(null, config))), config, configFactory);
         factory.setCutoffTime(CUTOFF_TIME);
 
         FileUtils.touch(new File(tmpDirectory.getPath() + "/dont_touch_me"));
@@ -130,6 +161,7 @@ public class TestEventSpoolWriterFactory
         Assert.assertTrue(quarantineDirectory.exists());
 
         Thread.sleep(2 * CUTOFF_TIME);
+        
         factory.processLeftBelowFiles();
 
         // The file in /_tmp should no have been sent
@@ -138,6 +170,9 @@ public class TestEventSpoolWriterFactory
         Assert.assertTrue(tmpDirectory.exists());
         Assert.assertFalse(lockDirectory.exists());
         Assert.assertFalse(quarantineDirectory.exists());
+        
+     // We could even test the mapping in HDFS here (with the keys)
+        Assert.assertEquals(hdfs.values().size(), 3);
 
     }
 
@@ -159,6 +194,7 @@ public class TestEventSpoolWriterFactory
     
     private void tearDown()
     {
+       hdfs.clear();
        FileUtils.deleteQuietly(spoolDirectory);
     }
 

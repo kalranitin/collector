@@ -41,8 +41,8 @@ public class RealTimeQueueTestModule extends AbstractModule
         bind(Collection.class).annotatedWith(Names.named("sentEvents")).toInstance(sentEvents);
 
         bind(GlobalEventQueueStats.class).asEagerSingleton();
-        ConfigurationObjectFactory configFactory = new CollectorConfigurationObjectFactory(System.getProperties());
-        bind(ConfigurationObjectFactory.class).toInstance(configFactory);
+        /*ConfigurationObjectFactory configFactory = new CollectorConfigurationObjectFactory(System.getProperties());
+        bind(ConfigurationObjectFactory.class).toInstance(configFactory);*/
 
         final EventQueueConnectionFactory factory = new EventQueueConnectionFactory()
         {

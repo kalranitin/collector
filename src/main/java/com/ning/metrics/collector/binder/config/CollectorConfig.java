@@ -19,6 +19,7 @@ package com.ning.metrics.collector.binder.config;
 import com.ning.metrics.serialization.writer.CompressionCodec;
 
 import com.googlecode.jsendnsca.encryption.Encryption;
+
 import org.skife.config.Config;
 import org.skife.config.Default;
 import org.skife.config.DefaultNull;
@@ -411,15 +412,32 @@ public interface CollectorConfig
     @Default("com.ning.arecibo.jmx:name=AreciboProfile")
     String getAreciboProfile();
     
+    /**
+     * Comma (,) seperated class names for processing the events.
+     * */
     @Config("collector.spoolWriter.classes")
     @Default("com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory")
     String getSpoolWriterClassNames();
     
+    /**
+     * Total number of threads that can run in parallel. 
+     * Typically it would be 5 times the number of processor classes.
+     * */
     @Config("collector.spoolWriter.fileprocessor.threads.count")
     @Default("10")
     int getFileProcessorThreadCount();
     
+    /**
+     * Shutdown wait time for the executor to let the existing threads finish the processing.
+     * */
     @Config("collector.spoolWriter.executor.shutdown.waitTime")
     @Default("5s")
     TimeSpan getSpoolWriterExecutorShutdownTime();
+    
+    /**
+     * Per event Flush time. THe property would be like collector.spoolWriter.eventFoo.flushtime=120s
+     * */
+    @Config("collector.spoolWriter.${eventName}.flushTime")
+    @Default("300000s")
+    TimeSpan getEventFlushTime();
 }

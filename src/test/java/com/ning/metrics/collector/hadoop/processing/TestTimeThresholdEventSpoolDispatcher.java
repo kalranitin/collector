@@ -27,6 +27,8 @@ import com.google.inject.Inject;
 
 import org.joda.time.DateTime;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
@@ -43,7 +45,14 @@ public class TestTimeThresholdEventSpoolDispatcher
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception
     {
+        System.setProperty("collector.spoolWriter.MockEvent.flushTime", "1s");
         dispatcher.getStats().clear();
+    }
+    
+    @AfterClass(alwaysRun = true)
+    public void shutdown() throws Exception
+    {
+        //dispatcher.shutdown();
     }
 
     @Test(groups = "slow")
@@ -55,8 +64,10 @@ public class TestTimeThresholdEventSpoolDispatcher
         final Event eventA = new ThriftEnvelopeEvent(new DateTime(), envelope);
 
         // Send an event and wait for the dequeuer to work
-        dispatcher.offer(eventA);
-        Thread.sleep(200);
+        boolean offerResult = dispatcher.offer(eventA);
+        
+        Thread.sleep(500);
+        
         Assert.assertEquals(dispatcher.getStats().getWrittenEvents(), 1);
         Assert.assertEquals(dispatcher.getStats().getHdfsFlushes(), 0);
 
