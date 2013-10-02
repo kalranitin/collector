@@ -48,12 +48,6 @@ public class TestTimeThresholdEventSpoolDispatcher
         System.setProperty("collector.spoolWriter.MockEvent.flushTime", "1s");
         dispatcher.getStats().clear();
     }
-    
-    @AfterClass(alwaysRun = true)
-    public void shutdown() throws Exception
-    {
-        //dispatcher.shutdown();
-    }
 
     @Test(groups = "slow")
     public void testFlushTimeThreshold() throws Exception
@@ -64,7 +58,7 @@ public class TestTimeThresholdEventSpoolDispatcher
         final Event eventA = new ThriftEnvelopeEvent(new DateTime(), envelope);
 
         // Send an event and wait for the dequeuer to work
-        boolean offerResult = dispatcher.offer(eventA);
+        dispatcher.offer(eventA);
         
         Thread.sleep(500);
         

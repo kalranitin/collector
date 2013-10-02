@@ -106,7 +106,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                     return;
                 }
 
-                log.info("Calling Handler Success ... deleting the file!");
+                log.debug(String.format("Calling Handler Success ... deleting the file %s!", file.getAbsolutePath()));
                 handler.onSuccess(file);
                 stats.registerHdfsFlush();
                 flushCount++;
@@ -132,7 +132,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     @Managed(description = "Process all local files files")
     public void processLeftBelowFiles() throws IOException
     {
-        log.info("Processing files left below ----- "+config.getSpoolDirectoryName());
+        log.info(String.format("Processing files left below %s", config.getSpoolDirectoryName()));
         // We are going to flush all files that are not being written (not in the _tmp directory) and then delete
         // empty directories. We can't distinguish older directories vs ones currently in use except by timestamp.
         // We record candidates first, delete the files, and then delete the empty directories among the candidates.
@@ -156,8 +156,11 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 incrementFlushCount(flushesPerEvent, spoolManager.getEventName());
                 final String outputPath = spoolManager.toHadoopPath(flushesPerEvent.get(spoolManager.getEventName()));
                 
-                // Execute the file in parallel using all spool processors
-                executeSpoolProcessors(spoolManager,file,outputPath);
+                // Execute the file in parallel using all spool processors. This was put in a separate condition as not all files will be processed.
+                if(!executeSpoolProcessors(spoolManager,file,outputPath))
+                {
+                    log.warn(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
+                }
                 
                 // Make sure the file is deleted.
                 if (!file.delete()) {
@@ -176,7 +179,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
     {
         List<Future<Boolean>> callerFutureList = new ArrayList<Future<Boolean>>();
         boolean executionResult = true;
-        log.info("Starting Spool Porcess");
+        log.info("Starting Spool Process");
         for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
         {
             log.info("Submitting task for "+eventSpoolProcessor.getProcessorName());
@@ -203,7 +206,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             
         }
         
-        log.info("Spool Porcess Completed, now waiting for the parallel task to complete.");
+        log.debug("Spool Process Completed, now waiting for the parallel task to complete.");
         
         
         
@@ -211,7 +214,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             for(Future<Boolean> future : callerFutureList)
             {
                 // Making sure that all tasks have been executed
-                log.info("Execution Result is "+future.get());
+                log.debug("Execution Result is "+future.get());
                 if(!future.get())
                 {
                     executionResult = false;
@@ -219,12 +222,14 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             }
         }
         catch (InterruptedException e) {
+            log.error("InterruptedException while checking the result of the apoolers",e);
             executionResult = false;
         }
         catch (ExecutionException e) {
+            log.error("ExecutionException while checking the result of the apoolers",e);
             executionResult = false;
         }
-        log.info("Parallel Spool Execution Completed with result as "+executionResult);
+        log.debug("Parallel Spool Execution Completed with result as "+executionResult);
         return executionResult;
     }
 

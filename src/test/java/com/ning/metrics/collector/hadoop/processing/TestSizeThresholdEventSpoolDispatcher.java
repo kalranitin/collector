@@ -49,11 +49,6 @@ public class TestSizeThresholdEventSpoolDispatcher
         dispatcher.getStats().clear();
     }
     
-    @AfterClass(alwaysRun = true)
-    public void shutdown() throws Exception
-    {
-        //dispatcher.shutdown();
-    }
 
     @Test(groups = "slow")
     public void testFlushSizeThreshold() throws Exception
