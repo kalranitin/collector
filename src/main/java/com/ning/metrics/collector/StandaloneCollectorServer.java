@@ -21,7 +21,7 @@ import com.ning.arecibo.metrics.AreciboMetricsReporter;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.endpoint.servers.JettyServer;
 import com.ning.metrics.collector.endpoint.servers.ScribeServer;
-import com.ning.metrics.collector.guice.ServerModule;
+import com.ning.metrics.collector.guice.module.ServerModule;
 import com.ning.nagios.ServiceCheck;
 import com.ning.nagios.ServiceMonitor;
 
@@ -29,6 +29,7 @@ import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Stage;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

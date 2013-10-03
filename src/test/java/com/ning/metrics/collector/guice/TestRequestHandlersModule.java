@@ -20,6 +20,8 @@ import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.endpoint.ParsedRequest;
 import com.ning.metrics.collector.endpoint.extractors.EventDeserializerFactory;
 import com.ning.metrics.collector.filtering.Filter;
+import com.ning.metrics.collector.guice.module.FiltersModule;
+import com.ning.metrics.collector.guice.module.RequestHandlersModule;
 import com.ning.metrics.collector.jaxrs.EventDeserializerRequestHandler;
 import com.ning.metrics.collector.jaxrs.EventFilterRequestHandler;
 import com.ning.metrics.collector.processing.EventCollector;
@@ -28,6 +30,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.TypeLiteral;
+
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;

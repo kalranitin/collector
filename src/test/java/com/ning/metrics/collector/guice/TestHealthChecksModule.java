@@ -17,12 +17,13 @@
 package com.ning.metrics.collector.guice;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
-import com.ning.metrics.collector.hadoop.processing.EventSpoolDispatcher;
-import com.ning.metrics.collector.hadoop.processing.PersistentWriterFactory;
-import com.ning.metrics.collector.hadoop.processing.WriterStats;
+import com.ning.metrics.collector.guice.module.HealthChecksModule;
 import com.ning.metrics.collector.healthchecks.HadoopHealthCheck;
 import com.ning.metrics.collector.healthchecks.RealtimeHealthCheck;
 import com.ning.metrics.collector.healthchecks.WriterHealthCheck;
+import com.ning.metrics.collector.processing.EventSpoolDispatcher;
+import com.ning.metrics.collector.processing.PersistentWriterFactory;
+import com.ning.metrics.collector.processing.WriterStats;
 import com.ning.metrics.collector.realtime.EventQueueProcessor;
 import com.ning.metrics.collector.realtime.EventQueueProcessorImpl;
 import com.ning.metrics.collector.realtime.GlobalEventQueueStats;
@@ -32,6 +33,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.yammer.metrics.reporting.AdminServlet;
+
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;

@@ -17,11 +17,11 @@
 package com.ning.metrics.collector.healthchecks;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
-import com.ning.metrics.collector.hadoop.processing.EventSpoolDispatcher;
-import com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory;
-import com.ning.metrics.collector.hadoop.processing.LocalQueueAndWriter;
-import com.ning.metrics.collector.hadoop.processing.PersistentWriterFactory;
-import com.ning.metrics.collector.hadoop.processing.WriterStats;
+import com.ning.metrics.collector.processing.EventSpoolDispatcher;
+import com.ning.metrics.collector.processing.LocalQueueAndWriter;
+import com.ning.metrics.collector.processing.PersistentWriterFactory;
+import com.ning.metrics.collector.processing.WriterStats;
+import com.ning.metrics.collector.processing.hadoop.HadoopWriterFactory;
 
 import com.google.inject.Inject;
 import com.yammer.metrics.core.HealthCheck;

@@ -18,17 +18,19 @@ package com.ning.metrics.collector.endpoint.resources;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.servlet.ServletModule;
+
 import com.ning.metrics.collector.FastCollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
-import com.ning.metrics.collector.guice.RequestHandlersModule;
-import com.ning.metrics.collector.guice.FiltersModule;
-import com.ning.metrics.collector.guice.EventCollectorModule;
-import com.ning.metrics.collector.hadoop.processing.MockPersistentWriterFactory;
-import com.ning.metrics.collector.hadoop.processing.PersistentWriterFactory;
+import com.ning.metrics.collector.guice.module.EventCollectorModule;
+import com.ning.metrics.collector.guice.module.FiltersModule;
+import com.ning.metrics.collector.guice.module.RequestHandlersModule;
+import com.ning.metrics.collector.processing.MockPersistentWriterFactory;
+import com.ning.metrics.collector.processing.PersistentWriterFactory;
 import com.ning.metrics.collector.realtime.RealTimeQueueModule;
 import com.ning.metrics.serialization.writer.MockEventWriter;
 import com.ning.metrics.serialization.writer.ThresholdEventWriter;
+
 import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
 

@@ -17,12 +17,14 @@
 package com.ning.metrics.collector.jaxrs;
 
 import com.google.inject.Inject;
+
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.endpoint.ParsedRequest;
 import com.ning.metrics.collector.filtering.Filter;
-import com.ning.metrics.collector.hadoop.processing.ConfigTestModule;
+import com.ning.metrics.collector.processing.ConfigTestModule;
 import com.ning.metrics.collector.processing.EventCollector;
 import com.ning.metrics.serialization.event.Event;
+
 import com.yammer.metrics.Metrics;
 import com.yammer.metrics.core.MetricName;
 

@@ -18,7 +18,6 @@ package com.ning.metrics.collector.processing;
 
 import com.ning.arecibo.jmx.Monitored;
 import com.ning.arecibo.jmx.MonitoringType;
-import com.ning.metrics.collector.hadoop.processing.EventSpoolDispatcher;
 import com.ning.metrics.collector.realtime.EventListenerDispatcher;
 import com.ning.metrics.serialization.event.Event;
 
@@ -27,6 +26,7 @@ import com.yammer.metrics.Metrics;
 import com.yammer.metrics.annotation.Metered;
 import com.yammer.metrics.core.Meter;
 import com.yammer.metrics.core.MetricName;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

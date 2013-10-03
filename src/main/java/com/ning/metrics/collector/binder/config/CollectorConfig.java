@@ -23,6 +23,7 @@ import com.googlecode.jsendnsca.encryption.Encryption;
 import org.skife.config.Config;
 import org.skife.config.Default;
 import org.skife.config.DefaultNull;
+import org.skife.config.Description;
 import org.skife.config.TimeSpan;
 
 public interface CollectorConfig
@@ -185,7 +186,7 @@ public interface CollectorConfig
     int getMaxUncommittedPeriodInSeconds();
 
     /**
-     * Compression codec to use. Specify com.ning.metrics.collector.hadoop.processing.LzfCompressionCodec
+     * Compression codec to use. Specify com.ning.metrics.collector.processing.LzfCompressionCodec
      * for lzf. Default is no compression.
      *
      * @return class to use for compressing files
@@ -416,7 +417,7 @@ public interface CollectorConfig
      * Comma (,) seperated class names for processing the events.
      * */
     @Config("collector.spoolWriter.classes")
-    @Default("com.ning.metrics.collector.hadoop.processing.HadoopWriterFactory")
+    @Default("com.ning.metrics.collector.processing.hadoop.HadoopWriterFactory")
     String getSpoolWriterClassNames();
     
     /**
@@ -440,4 +441,39 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.${eventName}.flushTime")
     @Default("300000s")
     TimeSpan getEventFlushTime();
+    
+    @Description("The jdbc url for the database")
+    @Config("collector.spoolWriter.jdbc.url")
+    @Default("jdbc:mysql://127.0.0.1:3306/ning-collector")
+    String getJdbcUrl();
+    
+    @Description("The jdbc user name for the database")
+    @Config("collector.spoolWriter.jdbc.user")
+    @Default("root")
+    String getUsername();
+
+    @Description("The jdbc password for the database")
+    @Config("collector.spoolWriter.jdbc.password")
+    @Default("root")
+    String getPassword();
+
+    @Description("The minimum allowed number of idle connections to the database")
+    @Config("collector.spoolWriter.jdbc.minIdle")
+    @Default("1")
+    int getMinIdle();
+
+    @Description("The maximum allowed number of active connections to the database")
+    @Config("collector.spoolWriter.jdbc.maxActive")
+    @Default("10")
+    int getMaxActive();
+
+    @Description("How long to wait before a connection attempt to the database is considered timed out")
+    @Config("collector.spoolWriter.jdbc.connectionTimeout")
+    @Default("10s")
+    TimeSpan getConnectionTimeout();
+    
+    @Description("The TransactionHandler to use for all Handle instances")
+    @Config("com.ning.jetty.jdbi.transactionHandler")
+    @Default("com.ning.jetty.jdbi.RestartTransactionRunner")
+    String getTransactionHandlerClass();
 }
