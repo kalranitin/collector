@@ -158,6 +158,14 @@ public class ServerModule extends ServletModule
     protected void installEventSpoolWriter(final CollectorConfig config){
         install(new EventSpoolWriterModule(config));
     }
+    
+    protected void installDBModule(final CollectorConfig config)
+    {
+        if(config.isSpoolWriterDbEnaled())
+        {
+            install(new DBModule());
+        }        
+    }
 
     protected void installHDFS()
     {

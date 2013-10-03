@@ -442,6 +442,10 @@ public interface CollectorConfig
     @Default("300000s")
     TimeSpan getEventFlushTime();
     
+    @Config("collector.spoolWriter.db.enabled")
+    @Default("false")
+    boolean isSpoolWriterDbEnaled();
+    
     @Description("The jdbc url for the database")
     @Config("collector.spoolWriter.jdbc.url")
     @Default("jdbc:mysql://127.0.0.1:3306/ning-collector")
