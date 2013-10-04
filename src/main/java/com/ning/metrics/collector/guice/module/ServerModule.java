@@ -161,7 +161,7 @@ public class ServerModule extends ServletModule
     
     protected void installDBModule(final CollectorConfig config)
     {
-        if(config.isSpoolWriterDbEnaled())
+        if(config.isSpoolWriterDbEnabled())
         {
             install(new DBModule());
         }        

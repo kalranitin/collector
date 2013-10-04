@@ -444,7 +444,7 @@ public interface CollectorConfig
     
     @Config("collector.spoolWriter.db.enabled")
     @Default("false")
-    boolean isSpoolWriterDbEnaled();
+    boolean isSpoolWriterDbEnabled();
     
     @Description("The jdbc url for the database")
     @Config("collector.spoolWriter.jdbc.url")
