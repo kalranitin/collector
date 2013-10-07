@@ -70,6 +70,7 @@ public class ServerModule extends ServletModule
         installPersistentSink();
         installEventSpoolWriter(config);
         installHDFS();
+        installDBModule(config);
         installRealtimeSink();
 
         // Static files
