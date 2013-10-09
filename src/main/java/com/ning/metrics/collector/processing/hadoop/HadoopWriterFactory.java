@@ -41,6 +41,7 @@ public class HadoopWriterFactory implements EventSpoolProcessor
     private final CollectorConfig config;
     private final FileSystemAccess hdfsAccess;
     private final AtomicBoolean flushEnabled;
+    private static final String PROCESSOR_NAME = "HDFSWriter";
 
     @Inject
     public HadoopWriterFactory(final FileSystemAccess hdfsAccess, final CollectorConfig config)
@@ -63,7 +64,7 @@ public class HadoopWriterFactory implements EventSpoolProcessor
     
     @Override
     public String getProcessorName(){
-        return "HDFSWriter";
+        return PROCESSOR_NAME;
     }
 
 

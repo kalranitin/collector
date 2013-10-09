@@ -16,25 +16,37 @@
 package com.ning.metrics.collector.guice.module;
 
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
+import com.ning.metrics.collector.processing.db.DBSpoolProcessor;
+import com.ning.metrics.collector.processing.db.SubscriptionStorage;
+import com.ning.metrics.collector.processing.db.SubscriptionStorageImpl;
 
-import com.google.inject.AbstractModule;
+import com.google.inject.Binder;
+import com.google.inject.Module;
 
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
+import org.weakref.jmx.guice.ExportBuilder;
+import org.weakref.jmx.guice.MBeanModule;
 
-public class DBModule extends AbstractModule
+public class DBModule implements Module
 {
 
     @Override
-    protected void configure()
+    public void configure(final Binder binder)
     {
+        // JMX exporter
+        final ExportBuilder builder = MBeanModule.newExporter(binder);
         // Load mysql driver if needed
         try {
             Class.forName("com.mysql.jdbc.Driver").newInstance();
         } catch (final Exception ignore) {
         }
-        bind(IDBI.class).to(DBI.class).asEagerSingleton();
-        bind(DBI.class).toProvider(CollectorDBIProvider.class).asEagerSingleton();
+        binder.bind(IDBI.class).to(DBI.class).asEagerSingleton();
+        binder.bind(DBI.class).toProvider(CollectorDBIProvider.class).asEagerSingleton();
+        
+        builder.export(DBSpoolProcessor.class).as("com.ning.metrics.collector:name=DBSpoolProcessor");
+        
+        binder.bind(SubscriptionStorage.class).to(SubscriptionStorageImpl.class).asEagerSingleton();        
         
     }
 

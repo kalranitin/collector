@@ -17,13 +17,14 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
-import com.ning.metrics.collector.endpoint.extractors.DeserializationType;
 import com.ning.metrics.collector.processing.EventSpoolProcessor;
 import com.ning.metrics.collector.processing.SerializationType;
+import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
 import com.ning.metrics.serialization.smile.SmileEnvelopeEventDeserializer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 
 import org.skife.jdbi.v2.IDBI;
@@ -33,48 +34,48 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 public class DBSpoolProcessor implements EventSpoolProcessor
 {
     private static final Logger log = LoggerFactory.getLogger(DBSpoolProcessor.class);
     private final IDBI dbi;
     private final CollectorConfig config;
+    private final SubscriptionStorage subscriptionStorage;
+    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final String PROCESSOR_NAME = "DBWriter";
     
     @Inject
-    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config)
+    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config, final SubscriptionStorage subscriptionStorage)
     {
         this.dbi = dbi;
         this.config = config;
+        this.subscriptionStorage = subscriptionStorage;
     }
 
     @Override
     public void processEventFile(final String eventName, final SerializationType serializationType, final File file, final String outputPath) throws IOException
     {
-        // TODO Check in config about the DeserializationType.
-        EventDeserializer eventDeserializer = getEventDeserializer(DeserializationType.SMILE, new FileInputStream(file));
+        // File has Smile type of events
+        EventDeserializer eventDeserializer = new SmileEnvelopeEventDeserializer(new FileInputStream(file),false);
         
+        /*This would handle insertion of Subscriptions and Channel Events. 
+         * The subscriptions  would be stored as they come by, however for channel events
+         * the storage would be done in bulk after the complete file is read, 
+         * since channel events depend upon the subscriptions*/
         while(eventDeserializer.hasNextEvent())
         {
             Event event = eventDeserializer.getNextEvent();
             log.info(String.format("Recieved DB Event to store with name as %s ",event.getName()));
             log.info(String.format("DB Event body to store is %s",event.getData()));
             
+            if(event.getName().equalsIgnoreCase(DBStorageTypes.CHANNEL_EVENT.getDbStorageType()))
+            {
+                // TODO Store events in batch
+            }
+            
         }
         
         
-    }
-    
-    private EventDeserializer getEventDeserializer(DeserializationType type, InputStream is) throws IOException
-    {
-        switch(type){
-            case SMILE:
-                return new SmileEnvelopeEventDeserializer(is, false);
-            case JSON:
-                return new SmileEnvelopeEventDeserializer(is, true);
-            default:
-                return new SmileEnvelopeEventDeserializer(is, false);
-        }        
     }
 
     @Override
@@ -87,7 +88,17 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     @Override
     public String getProcessorName()
     {
-        return "DBWriter";
+        return PROCESSOR_NAME;
     }
+    
+    /*@Monitored(description = "Number of dropped events", monitoringType = {MonitoringType.VALUE, MonitoringType.RATE})
+    public long getDroppedEvents()
+    {
+        long droppedEvents = 0;
+        for (final EventQueueStats localStats : stats.values()) {
+            droppedEvents += localStats.getDroppedEvents();
+        }
+        return droppedEvents;
+    }*/
 
 }

@@ -240,6 +240,12 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             log.info("Processing old files and quarantine directories");
             try {
                 processLeftBelowFiles();
+                
+                /*Making sure to close all spool processors for clean up purpose*/
+                for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
+                {
+                    eventSpoolProcessor.close();
+                }
             }
             catch (IOException e) {
                 log.warn("Got IOException trying to process left below files: " + e.getLocalizedMessage());
