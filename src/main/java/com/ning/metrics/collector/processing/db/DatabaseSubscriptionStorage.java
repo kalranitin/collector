@@ -42,7 +42,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
-public class SubscriptionStorageImpl implements SubscriptionStorage
+public class DatabaseSubscriptionStorage implements SubscriptionStorage
 {
     public static final Splitter WHITESPACE_SPLITTER = Splitter.on(" ");
     public static final Joiner WHITESPACE_JOINER = Joiner.on(" ");
@@ -52,7 +52,7 @@ public class SubscriptionStorageImpl implements SubscriptionStorage
     private final IDBI dbi;
     
     @Inject
-    public SubscriptionStorageImpl(final IDBI dbi)
+    public DatabaseSubscriptionStorage(final IDBI dbi)
     {
         this.dbi = dbi;
     }

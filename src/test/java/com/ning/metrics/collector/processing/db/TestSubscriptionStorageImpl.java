@@ -37,7 +37,7 @@ public class TestSubscriptionStorageImpl
     @Inject
     SubscriptionStorage subscriptionStorage;
     
-    @BeforeClass(alwaysRun=true)
+    @BeforeClass(alwaysRun=true,groups = {"slow", "database"})
     public void startDB() throws Exception{
         helper = new CollectorMysqlTestingHelper();
         helper.startMysql();
@@ -51,7 +51,7 @@ public class TestSubscriptionStorageImpl
                 
     }
     
-    @BeforeMethod(alwaysRun = true)
+    @BeforeMethod(alwaysRun = true, groups = {"slow", "database"})
     public void clearDB(){
         helper.clear();
     }
@@ -102,7 +102,7 @@ public class TestSubscriptionStorageImpl
         return subscription;
     }
     
-    @AfterClass(alwaysRun = true)
+    @AfterClass(alwaysRun = true,groups = {"slow", "database"})
     public void stopDB() throws Exception{
         helper.stopMysql();
     }

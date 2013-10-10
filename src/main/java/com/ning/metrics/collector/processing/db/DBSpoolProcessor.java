@@ -19,10 +19,8 @@ package com.ning.metrics.collector.processing.db;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.EventSpoolProcessor;
 import com.ning.metrics.collector.processing.SerializationType;
-import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
-import com.ning.metrics.serialization.smile.SmileEnvelopeEventDeserializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
@@ -56,7 +54,7 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     public void processEventFile(final String eventName, final SerializationType serializationType, final File file, final String outputPath) throws IOException
     {
         // File has Smile type of events
-        EventDeserializer eventDeserializer = new SmileEnvelopeEventDeserializer(new FileInputStream(file),false);
+        EventDeserializer eventDeserializer = serializationType.getDeSerializer(new FileInputStream(file));
         
         /*This would handle insertion of Subscriptions and Channel Events. 
          * The subscriptions  would be stored as they come by, however for channel events

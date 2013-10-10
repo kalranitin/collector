@@ -44,7 +44,7 @@ public class DBConfigModule extends AbstractModule
         bind(DBI.class).toProvider(CollectorDBIProvider.class).asEagerSingleton();
         
         
-        bind(SubscriptionStorage.class).to(SubscriptionStorageImpl.class).asEagerSingleton(); 
+        bind(SubscriptionStorage.class).to(DatabaseSubscriptionStorage.class).asEagerSingleton(); 
         
     }
 }

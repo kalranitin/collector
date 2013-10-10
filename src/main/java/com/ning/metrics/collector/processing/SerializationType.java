@@ -16,12 +16,18 @@
 package com.ning.metrics.collector.processing;
 
 import com.ning.metrics.serialization.event.Event;
+import com.ning.metrics.serialization.event.EventDeserializer;
 import com.ning.metrics.serialization.event.EventSerializer;
 import com.ning.metrics.serialization.event.SmileEnvelopeEvent;
 import com.ning.metrics.serialization.event.ThriftEnvelopeEvent;
+import com.ning.metrics.serialization.smile.SmileEnvelopeEventDeserializer;
 import com.ning.metrics.serialization.smile.SmileEnvelopeEventSerializer;
+import com.ning.metrics.serialization.thrift.ThriftEnvelopeEventDeserializer;
 import com.ning.metrics.serialization.thrift.ThriftEnvelopeEventSerializer;
 import com.ning.metrics.serialization.writer.ObjectOutputEventSerializer;
+
+import java.io.IOException;
+import java.io.InputStream;
 
 public enum SerializationType
 {
@@ -32,6 +38,12 @@ public enum SerializationType
             {
                 return new SmileEnvelopeEventSerializer(false);
             }
+
+            @Override
+            public EventDeserializer getDeSerializer(InputStream is) throws IOException
+            {
+                return new SmileEnvelopeEventDeserializer(is,false);
+            }
         },
     JSON("json")
         {
@@ -40,6 +52,12 @@ public enum SerializationType
             {
                 return new SmileEnvelopeEventSerializer(true);
             }
+
+            @Override
+            public EventDeserializer getDeSerializer(InputStream is) throws IOException
+            {
+                return new SmileEnvelopeEventDeserializer(is,true);
+                }
         },
     THRIFT("thrift")
         {
@@ -47,6 +65,12 @@ public enum SerializationType
             public EventSerializer getSerializer()
             {
                 return new ThriftEnvelopeEventSerializer();
+            }
+
+            @Override
+            public EventDeserializer getDeSerializer(InputStream is) throws IOException
+            {
+                return new ThriftEnvelopeEventDeserializer(is);
             }
         },
     DEFAULT("bin")
@@ -57,16 +81,24 @@ public enum SerializationType
                 // TODO since we want to stop using ObjectOutput altogether, should we instead use ThriftEnvelopeEventSerializer?
                 return new ObjectOutputEventSerializer();
             }
+
+            @Override
+            public EventDeserializer getDeSerializer(InputStream is) throws IOException
+            {
+                // TODO Identify the deserializer
+                return null;
+            }
         };
 
     private final String suffix;
-
+    
     private SerializationType(String suffix)
     {
         this.suffix = suffix;
     }
 
     public abstract EventSerializer getSerializer();
+    public abstract EventDeserializer getDeSerializer(InputStream is) throws IOException;
 
     public static SerializationType get(final Event event)
     {

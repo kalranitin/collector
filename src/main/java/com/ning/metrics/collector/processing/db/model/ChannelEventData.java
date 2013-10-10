@@ -1,3 +1,18 @@
+/*
+ * Copyright 2010-2013 Ning, Inc.
+ *
+ * Ning licenses this file to you under the Apache License, version 2.0
+ * (the "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at:
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
@@ -15,25 +30,25 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-@JsonSerialize(using = Event.EventSerializer.class)
-public class Event
+@JsonSerialize(using = ChannelEventData.ChannelEventDataSerializer.class)
+public class ChannelEventData
 {
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
     private final List<String> targets = new CopyOnWriteArrayList<String>();
 
 
     //    @JsonCreator
-    public Event()
+    public ChannelEventData()
     {
 
     }
 
-    public Event(Map<String, Object> map)
+    public ChannelEventData(Map<String, Object> map)
     {
         this.data.putAll(map);
     }
 
-    public Event(String target, Map<String, Object> data)
+    public ChannelEventData(String target, Map<String, Object> data)
     {
         this.targets.add(target);
         this.data.putAll(data);
@@ -63,10 +78,10 @@ public class Event
         return targets;
     }
 
-    public static class EventSerializer extends JsonSerializer<Event>
+    public static class ChannelEventDataSerializer extends JsonSerializer<ChannelEventData>
     {
         @Override
-        public void serialize(Event event, JsonGenerator jgen, SerializerProvider sp) throws IOException, JsonProcessingException
+        public void serialize(ChannelEventData event, JsonGenerator jgen, SerializerProvider sp) throws IOException, JsonProcessingException
         {
             jgen.writeStartObject();
             jgen.writeFieldName("targets");

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2010-2013 Ning, Inc.
+ *
+ * Ning licenses this file to you under the Apache License, version 2.0
+ * (the "License"); you may not use this file except in compliance with the
+ * License.  You may obtain a copy of the License at:
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ */
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -9,12 +24,12 @@ public class ChannelEvent
 {
     private final String channel;
     private final Map<String, String> metadata;
-    private final Event event;
+    private final ChannelEventData event;
     private final Long subscriptionId;
 
     @JsonCreator
     public ChannelEvent(@JsonProperty("metadata") Map<String, String> metadata,
-                        @JsonProperty("event") Event event,
+                        @JsonProperty("event") ChannelEventData event,
                         @JsonProperty("channel") String channel,
                         @JsonProperty("subscriptionId") Long subscriptionId)
     {
@@ -29,7 +44,7 @@ public class ChannelEvent
         return channel;
     }
 
-    public Event getEvent()
+    public ChannelEventData getEvent()
     {
         return event;
     }

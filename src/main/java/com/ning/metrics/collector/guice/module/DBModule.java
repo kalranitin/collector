@@ -18,7 +18,7 @@ package com.ning.metrics.collector.guice.module;
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
 import com.ning.metrics.collector.processing.db.DBSpoolProcessor;
 import com.ning.metrics.collector.processing.db.SubscriptionStorage;
-import com.ning.metrics.collector.processing.db.SubscriptionStorageImpl;
+import com.ning.metrics.collector.processing.db.DatabaseSubscriptionStorage;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -46,7 +46,7 @@ public class DBModule implements Module
         
         builder.export(DBSpoolProcessor.class).as("com.ning.metrics.collector:name=DBSpoolProcessor");
         
-        binder.bind(SubscriptionStorage.class).to(SubscriptionStorageImpl.class).asEagerSingleton();        
+        binder.bind(SubscriptionStorage.class).to(DatabaseSubscriptionStorage.class).asEagerSingleton();        
         
     }
 
