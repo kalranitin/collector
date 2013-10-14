@@ -50,11 +50,13 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final IDBI dbi;
+    private final SubscriptionCache subscriptionCache;
     
     @Inject
-    public DatabaseSubscriptionStorage(final IDBI dbi)
+    public DatabaseSubscriptionStorage(final IDBI dbi, SubscriptionCache subscriptionCache)
     {
         this.dbi = dbi;
+        this.subscriptionCache = subscriptionCache;
     }
 
     @Override
@@ -78,6 +80,12 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     @Override
     public Set<Subscription> load(final String target)
     {
+        Set<Subscription> subscriptions = subscriptionCache.loadSubscriptions(target);
+        if(subscriptions != null)
+        {
+            return subscriptions;
+        }
+        
         return dbi.withHandle(new HandleCallback<Set<Subscription>>()
         {
             @Override
@@ -94,10 +102,14 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                 }
                 InClauseExpander in = new InClauseExpander(targets);
                 
-                return ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, target from subscriptions where target in (" + in.getExpansion() + ')')
+                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, target from subscriptions where target in (" + in.getExpansion() + ')')
                                                  .bindNamedArgumentFinder(in)
                                                  .map(new SubscriptionMapper())
                                                  .list());
+                
+                subscriptionCache.addSubscriptions(target, subscriptions);
+                
+                return subscriptions;
             }
         });
     }
@@ -188,5 +200,11 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                 throw new UnsupportedOperationException("Not Yet Implemented!", e);
             }
         }
+    }
+
+    @Override
+    public void cleanUp()
+    {
+        subscriptionCache.cleanUp();        
     }
 }

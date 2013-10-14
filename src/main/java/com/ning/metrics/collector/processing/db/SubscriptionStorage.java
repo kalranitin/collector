@@ -13,4 +13,6 @@ public interface SubscriptionStorage
     Subscription loadSubscriptionById(Long id);
 
     boolean deleteSubscriptionById(Long id);
+    
+    public void cleanUp();
 }

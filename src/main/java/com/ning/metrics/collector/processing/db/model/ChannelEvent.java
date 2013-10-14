@@ -16,27 +16,40 @@
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.Map;
+import java.io.IOException;
 
 public class ChannelEvent
 {
     private final String channel;
-    private final Map<String, String> metadata;
+    private final EventMetaData metadata;
     private final ChannelEventData event;
     private final Long subscriptionId;
+    private final int offset;
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     @JsonCreator
-    public ChannelEvent(@JsonProperty("metadata") Map<String, String> metadata,
-                        @JsonProperty("event") ChannelEventData event,
+    public ChannelEvent(@JsonProperty("event") ChannelEventData event,
                         @JsonProperty("channel") String channel,
-                        @JsonProperty("subscriptionId") Long subscriptionId)
+                        @JsonProperty("subscriptionId") Long subscriptionId,
+                        @JsonProperty("metadata") EventMetaData metadata)
     {
         this.channel = channel;
-        this.metadata = metadata;
         this.event = event;
         this.subscriptionId = subscriptionId;
+        this.metadata = metadata;
+        this.offset = -1;
+    }
+    
+    public ChannelEvent(int offset, String channel, String metadata, String event, long subscriptionId) throws IOException{
+        this.subscriptionId = subscriptionId;
+        this.event = mapper.readValue(event, ChannelEventData.class);
+        this.metadata = mapper.readValue(metadata, EventMetaData.class);
+        this.channel = channel;
+        this.offset = offset;
     }
     
     public String getChannel()
@@ -54,9 +67,14 @@ public class ChannelEvent
         return subscriptionId;
     }
 
-    public Map<String, String> getMetadata()
-    {
+    public EventMetaData getMetadata() {
         return metadata;
+    }
+    
+    @JsonIgnore
+    public int getOffset()
+    {
+        return offset;
     }
 
     @Override

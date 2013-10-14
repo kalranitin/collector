@@ -37,7 +37,7 @@ public class TestSubscriptionStorageImpl
     @Inject
     SubscriptionStorage subscriptionStorage;
     
-    @BeforeClass(alwaysRun=true,groups = {"slow", "database"})
+    @BeforeClass(groups = {"slow", "database"})
     public void startDB() throws Exception{
         helper = new CollectorMysqlTestingHelper();
         helper.startMysql();
