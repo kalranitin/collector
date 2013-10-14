@@ -22,25 +22,31 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 
+import org.skife.config.TimeSpan;
+
+import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 public class InMemorySubscriptionCache implements SubscriptionCache
 {
     final Cache<String, Set<Subscription>> cache;
+    final TimeSpan cacheExpiryTime;
     
     @Inject
     public InMemorySubscriptionCache(CollectorConfig config){
+        this.cacheExpiryTime = config.getSubscriptionCacheTimeout();
+        
         this.cache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterAccess(24, TimeUnit.HOURS)
+                .maximumSize(config.getMaxSubscriptionCacheCount())
+                .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
                 .build();
     }
 
     @Override
     public Set<Subscription> loadSubscriptions(String target)
     {
-        return cache.getIfPresent(target);
+        Set<Subscription> subscriptions = cache.getIfPresent(target);
+        return subscriptions == null?new HashSet<Subscription>():subscriptions;
     }
 
     @Override

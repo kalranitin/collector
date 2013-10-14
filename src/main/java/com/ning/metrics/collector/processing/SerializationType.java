@@ -86,7 +86,7 @@ public enum SerializationType
             public EventDeserializer getDeSerializer(InputStream is) throws IOException
             {
                 // TODO Identify the deserializer
-                throw new UnsupportedOperationException("Not implementted yet!");
+                throw new UnsupportedOperationException("Not implemented yet!");
             }
         };
 
@@ -98,7 +98,7 @@ public enum SerializationType
     }
 
     public abstract EventSerializer getSerializer();
-    public abstract EventDeserializer getDeSerializer(InputStream is) throws IOException, UnsupportedOperationException;
+    public abstract EventDeserializer getDeSerializer(InputStream is) throws IOException;
 
     public static SerializationType get(final Event event)
     {

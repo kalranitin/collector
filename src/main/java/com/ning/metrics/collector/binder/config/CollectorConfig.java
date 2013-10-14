@@ -480,4 +480,14 @@ public interface CollectorConfig
     @Config("com.ning.jetty.jdbi.transactionHandler")
     @Default("com.ning.jetty.jdbi.RestartTransactionRunner")
     String getTransactionHandlerClass();
+    
+    @Description("How long the Subscription shoudl be in the cache")
+    @Config("collector.spoolWriter.subscription.cache.timeout")
+    @Default("24h")
+    TimeSpan getSubscriptionCacheTimeout();
+    
+    @Description("The maximum allowed number of subscriptions in the cache")
+    @Config("collector.spoolWriter.subscription.cache.limit")
+    @Default("1000")
+    long getMaxSubscriptionCacheCount();
 }
