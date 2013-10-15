@@ -18,15 +18,11 @@ package com.ning.metrics.collector.processing.db;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.ChannelEvent;
-import com.ning.metrics.collector.processing.db.model.ChannelEventData;
 import com.ning.metrics.collector.processing.db.model.EventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mchange.v2.io.FileUtils;
 
 import org.mockito.Mockito;
@@ -36,7 +32,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -147,15 +142,6 @@ public class TestMockDBSpoolProcessor
         EventMetaData metadata = new EventMetaData(feed);
         Subscription subscription = new Subscription(id,target, metadata, channel);
         return subscription;
-    }
-    
-    private ChannelEvent getChannelEvent(Subscription subscription, String eventData) throws JsonParseException, JsonMappingException, IOException{   
-        ObjectMapper mapper = new ObjectMapper();
-        
-        return new ChannelEvent(mapper.readValue(eventData, ChannelEventData.class), 
-            subscription.getChannel(), 
-            subscription.getId(), 
-            subscription.getMetadata());
     }
     
     
