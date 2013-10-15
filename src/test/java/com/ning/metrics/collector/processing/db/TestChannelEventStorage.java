@@ -69,20 +69,21 @@ public class TestChannelEventStorage
                 
     }
     
-    @BeforeMethod(alwaysRun = true, groups = {"slow", "database"})
+    @BeforeMethod(groups = {"slow", "database"})
     public void clearDB(){
         helper.clear();
         subscriptionStorage.insert(getSubscription(target,channel,feed));
         
         Set<Subscription> subscriptions = subscriptionStorage.load(target);
-        Assert.assertNotEquals(subscriptions.size(), 0);        
+        Assert.assertNotEquals(subscriptions.size(), 0);    
+        Assert.assertEquals(subscriptions.size(), 1);
         
         subscription = subscriptions.iterator().next();
         Assert.assertEquals(subscription.getTarget(), target);
         
     }
     
-    @AfterClass(alwaysRun = true,groups = {"slow", "database"})
+    @AfterClass(groups = {"slow", "database"})
     public void stopDB() throws Exception{
         helper.stopMysql();
     }
