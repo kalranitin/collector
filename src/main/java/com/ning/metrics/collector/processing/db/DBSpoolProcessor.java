@@ -127,7 +127,7 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                 if(count > 0){
                     inserted = true;
                     channelEventStorage.insert(channelEventList);
-                    log.debug(String.format("Inserted %d events successfully!", count));
+                    log.info(String.format("Inserted %d events successfully!", count));
                     channelEventList.clear();
                 }
             }
@@ -165,6 +165,13 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                 Thread.currentThread().interrupt();
             }
             executorService.shutdownNow();
+            
+            log.info("Executor Service for Channel Storage Shut Down success!");
+            
+            if(!eventStorageBuffer.isEmpty()){
+                log.info("Flushing remaining events to database");
+                flushChannelEventsToDB();
+            }
         }              
     }
 

@@ -81,7 +81,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     public Set<Subscription> load(final String target)
     {
         Set<Subscription> subscriptions = subscriptionCache.loadSubscriptions(target);
-        if(subscriptions != null)
+        if(subscriptions != null && !subscriptions.isEmpty())
         {
             return subscriptions;
         }

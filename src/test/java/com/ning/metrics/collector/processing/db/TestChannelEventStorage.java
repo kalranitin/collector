@@ -75,7 +75,7 @@ public class TestChannelEventStorage
         subscriptionStorage.insert(getSubscription(target,channel,feed));
         
         Set<Subscription> subscriptions = subscriptionStorage.load(target);
-        Assert.assertNotEquals(subscriptions.size(), 0);    
+        Assert.assertNotEquals(subscriptions.size(), 0);
         Assert.assertEquals(subscriptions.size(), 1);
         
         subscription = subscriptions.iterator().next();
