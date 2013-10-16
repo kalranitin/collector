@@ -105,6 +105,23 @@ public class DatabaseChannelEventStorage implements ChannelEventStorage
         });
     }
     
+    public void cleanOldChannelEvents(){
+        if(dbLock.tryLock()){
+            
+            int deleted = dbi.withHandle(new HandleCallback<Integer>() {
+
+                @Override
+                public Integer withHandle(Handle handle) throws Exception
+                {
+                    return handle.createStatement("delete from channel_events where created_at < :tillTimePeriod")
+                            .bind("tillTimePeriod",DateTimeUtils.currentTimeMillis() - config.getChannelEventRetentionPeriod().getMillis())
+                            .execute();
+                }});
+            
+            log.info(String.format("%d Channel events deleted successfully", deleted));
+        }
+    }
+    
     public static class ChannelEventRowMapper implements ResultSetMapper<ChannelEvent>{
 
         @Override
@@ -127,7 +144,7 @@ public class DatabaseChannelEventStorage implements ChannelEventStorage
     @Override
     public void cleanUp()
     {
-        // TODO invalidate any processes running to maintain the channel events such as shutting down bg thread service etc.        
+        dbLock.unlock();       
     }
     
     

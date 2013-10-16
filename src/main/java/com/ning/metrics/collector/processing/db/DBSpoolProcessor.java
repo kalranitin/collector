@@ -28,6 +28,7 @@ import com.ning.metrics.serialization.event.EventDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import com.mogwee.executors.FailsafeScheduledExecutor;
 import com.mogwee.executors.LoggingExecutor;
 import com.mogwee.executors.NamedThreadFactory;
 
@@ -44,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -58,6 +60,7 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     private static final String PROCESSOR_NAME = "DBWriter";
     private final BlockingQueue<ChannelEvent> eventStorageBuffer;
     private final ExecutorService executorService;
+    private final ScheduledExecutorService scheduledExecutorService;
     private final TimeSpan executorShutdownTimeOut;
     
     @Inject
@@ -71,6 +74,8 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
         this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("ChannelEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
         this.executorService.submit(new ChannelInserter(this.executorService, this));
+        this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "ChannelEvents-Cleaner-Threads");
+        this.scheduledExecutorService.schedule(new ChannelEventScheduledCleaner(), 15, TimeUnit.MINUTES);
     } 
 
     @Override
@@ -172,6 +177,19 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                 log.info("Flushing remaining events to database");
                 flushChannelEventsToDB();
             }
+            
+            log.info("Shutting Down Channel Event Cleaner Executor Service");
+            scheduledExecutorService.shutdown();
+            
+            try {
+                scheduledExecutorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
+            }
+            catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+            scheduledExecutorService.shutdownNow();
+            
+            log.info("Channel Event Cleaner Executor Service shutdown success!");
         }              
     }
 
@@ -209,6 +227,13 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             
         }
         
+    }
+    
+    private class ChannelEventScheduledCleaner implements Runnable {
+        public void run()
+        {
+            channelEventStorage.cleanOldChannelEvents();
+        }
     }
 
 }

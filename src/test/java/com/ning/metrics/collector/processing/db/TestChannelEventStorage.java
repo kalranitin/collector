@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import org.testng.collections.Lists;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -55,6 +56,12 @@ public class TestChannelEventStorage
     final String channel = "channel";
     final String feed = "feed";
     
+    final String eventData = "{"
+            + "\"content-id\": \"123:Meal:456\","
+            + "\"content-type\": \"Meal\","
+            + "\"targets\": [\""+target+"\"]"                
+     + "}";
+    
     @BeforeClass(groups = {"slow", "database"})
     public void startDB() throws Exception{
         helper = new CollectorMysqlTestingHelper();
@@ -64,6 +71,7 @@ public class TestChannelEventStorage
         System.setProperty("collector.spoolWriter.jdbc.url", helper.getJdbcUrl());
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
+        System.setProperty("collector.spoolWriter.channelEvent.retention.period", "1s");
         
         Guice.createInjector(new DBConfigModule()).injectMembers(this);
                 
@@ -91,12 +99,6 @@ public class TestChannelEventStorage
     @Test
     public void testInsertChannelEvents() throws Exception{
         
-        String eventData = "{"
-                                + "\"content-id\": \"123:Meal:456\","
-                                + "\"content-type\": \"Meal\","
-                                + "\"targets\": [\""+target+"\"]"                
-                         + "}";
-        
         List<ChannelEvent> channelEvents = Lists.newArrayList();
         
         for(int i=0;i<10;i++){
@@ -115,6 +117,17 @@ public class TestChannelEventStorage
         Assert.assertEquals(channelEvents.get(0).getMetadata().getFeed(), feed);
         Assert.assertEquals(channelEvents.get(0).getSubscriptionId(), subscription.getId());
         
+    }
+    
+    @Test
+    public void testChannelEventCleanup() throws Exception{
+        
+        channelEventStorage.insert(Arrays.asList(getChannelEvent(subscription, eventData)));
+        Thread.sleep(2000);
+        channelEventStorage.cleanOldChannelEvents();
+        List<ChannelEvent> channelEvents = channelEventStorage.load(channel, 0, 10);
+        
+        Assert.assertEquals(channelEvents.size(), 0);
     }
     
     private Subscription getSubscription(String target, String channel, String feed){

@@ -26,6 +26,8 @@ public interface ChannelEventStorage
     
     public List<ChannelEvent> load(final String channel, final int offset, final int count);
     
+    public void cleanOldChannelEvents();
+    
     public void cleanUp();
 
 }
