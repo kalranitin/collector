@@ -15,6 +15,8 @@
  */
 package com.ning.metrics.collector.processing.db;
 
+import com.ning.arecibo.jmx.Monitored;
+import com.ning.arecibo.jmx.MonitoringType;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
@@ -39,6 +41,7 @@ public class InMemorySubscriptionCache implements SubscriptionCache
         this.cache = CacheBuilder.newBuilder()
                 .maximumSize(config.getMaxSubscriptionCacheCount())
                 .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
+                .recordStats()
                 .build();
     }
 
@@ -66,6 +69,41 @@ public class InMemorySubscriptionCache implements SubscriptionCache
     {
         cache.invalidateAll();
         cache.cleanUp();
+    }
+    
+    @Monitored(description = "Number of subscriptions in buffer", monitoringType = {MonitoringType.VALUE})
+    public long getSubscriptionsInCache(){
+        return cache.size();
+    }
+    
+    @Monitored(description = "The number of times Cache lookup methods have returned a cached value", monitoringType = {MonitoringType.VALUE})
+    public long getSubscriptionsCacheHitCount(){
+        return cache.stats().hitCount();
+    }
+    
+    @Monitored(description = "The ratio of cache requests which were hits", monitoringType = {MonitoringType.VALUE})
+    public double getSubscriptionsCacheHitRate(){
+        return cache.stats().hitRate();
+    }
+    
+    @Monitored(description = "The total number of times that Cache lookup methods attempted to load new values", monitoringType = {MonitoringType.VALUE})
+    public long getSubscriptionsCacheLoadCount(){
+        return cache.stats().loadCount();
+    }
+    
+    @Monitored(description = "The number of times Cache lookup methods have returned an uncached (newly loaded) value, or null", monitoringType = {MonitoringType.VALUE})
+    public long getSubscriptionsCacheMissCount(){
+        return cache.stats().missCount();
+    }
+    
+    @Monitored(description = "The ratio of cache requests which were misses", monitoringType = {MonitoringType.VALUE})
+    public double getSubscriptionsCacheMissRate(){
+        return cache.stats().missRate();
+    }
+    
+    @Monitored(description = "The number of times Cache lookup methods have returned either a cached or uncached value", monitoringType = {MonitoringType.VALUE})
+    public long getSubscriptionsCacheRequestCount(){
+        return cache.stats().requestCount();
     }
 
 }

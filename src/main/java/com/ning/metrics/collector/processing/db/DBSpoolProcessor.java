@@ -16,6 +16,8 @@
 
 package com.ning.metrics.collector.processing.db;
 
+import com.ning.arecibo.jmx.Monitored;
+import com.ning.arecibo.jmx.MonitoringType;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.EventSpoolProcessor;
 import com.ning.metrics.collector.processing.SerializationType;
@@ -199,15 +201,11 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         return PROCESSOR_NAME;
     }
     
-    /*@Monitored(description = "Number of dropped events", monitoringType = {MonitoringType.VALUE, MonitoringType.RATE})
-    public long getDroppedEvents()
+    @Monitored(description = "Number of events in buffer", monitoringType = {MonitoringType.VALUE, MonitoringType.RATE})
+    public long getEventsInBuffer()
     {
-        long droppedEvents = 0;
-        for (final EventQueueStats localStats : stats.values()) {
-            droppedEvents += localStats.getDroppedEvents();
-        }
-        return droppedEvents;
-    }*/
+        return eventStorageBuffer.size();
+    }
     
     private static class ChannelInserter implements Runnable{
 

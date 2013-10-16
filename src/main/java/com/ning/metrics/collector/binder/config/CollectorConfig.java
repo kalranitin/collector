@@ -481,7 +481,7 @@ public interface CollectorConfig
     @Default("com.ning.jetty.jdbi.RestartTransactionRunner")
     String getTransactionHandlerClass();
     
-    @Description("How long the Subscription shoudl be in the cache")
+    @Description("How long the Subscription should be in the cache")
     @Config("collector.spoolWriter.subscription.cache.timeout")
     @Default("24h")
     TimeSpan getSubscriptionCacheTimeout();
