@@ -17,7 +17,7 @@ package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.SerializationType;
-import com.ning.metrics.collector.processing.db.model.ChannelEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.EventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.serialization.event.Event;
@@ -45,7 +45,7 @@ public class TestMockDBSpoolProcessor
     private SerializationType serializationType;
     private SubscriptionStorage subscriptionStorage;
     private CollectorConfig config;
-    private ChannelEventStorage channelEventStorage;
+    private FeedEventStorage feedEventStorage;
     private File file;
     
     
@@ -56,14 +56,14 @@ public class TestMockDBSpoolProcessor
         serializationType = Mockito.mock(SerializationType.class);
         config = Mockito.mock(CollectorConfig.class);
         subscriptionStorage = Mockito.mock(SubscriptionStorage.class);
-        channelEventStorage = Mockito.mock(ChannelEventStorage.class);
+        feedEventStorage = Mockito.mock(FeedEventStorage.class);
         file = new File(System.getProperty("java.io.tmpdir")+"/dbtest.json");
         FileUtils.touch(file);
         //Mockito.when(file.getPath()).thenReturn(System.getProperty("java.io.tmpdir"));
         
         Mockito.when(config.getSpoolWriterExecutorShutdownTime()).thenReturn(new TimeSpan("1s"));
         
-        dbSpoolProcessor = new DBSpoolProcessor(null, config, subscriptionStorage, channelEventStorage);
+        dbSpoolProcessor = new DBSpoolProcessor(null, config, subscriptionStorage, feedEventStorage);
     }
     
     @AfterMethod
@@ -72,12 +72,12 @@ public class TestMockDBSpoolProcessor
     }
     
     @Test
-    public void testFilterOutNonChannelEvents() throws Exception{
+    public void testFilterOutNonFeedEvents() throws Exception{
         
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);
         Mockito.when(eventDeserializer.getNextEvent()).thenReturn(event);
-        Mockito.when(event.getName()).thenReturn("non-channel-event");
+        Mockito.when(event.getName()).thenReturn("non-feed-event");
         dbSpoolProcessor.processEventFile(null, serializationType, file, null);
         
         Mockito.verify(serializationType,Mockito.times(1)).getDeSerializer(Mockito.<InputStream>any());
@@ -85,11 +85,11 @@ public class TestMockDBSpoolProcessor
         Mockito.verify(eventDeserializer, Mockito.times(1)).getNextEvent();
         Mockito.verify(event, Mockito.times(2)).getName();
         Mockito.verifyNoMoreInteractions(eventDeserializer,serializationType);
-        Mockito.verifyZeroInteractions(subscriptionStorage,channelEventStorage);
+        Mockito.verifyZeroInteractions(subscriptionStorage,feedEventStorage);
     }
     
     
-    private void processChannelEvents(boolean testThread) throws Exception{
+    private void processFeedEvents(boolean testThread) throws Exception{
         final String topic = "topic";
         final String channel = "channel";
         final String feed = "feed";
@@ -103,7 +103,7 @@ public class TestMockDBSpoolProcessor
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);
         Mockito.when(eventDeserializer.getNextEvent()).thenReturn(event);
-        Mockito.when(event.getName()).thenReturn("channel-event");
+        Mockito.when(event.getName()).thenReturn("feed-event");
         
         Mockito.when(event.getData()).thenReturn(eventData);
         
@@ -124,18 +124,18 @@ public class TestMockDBSpoolProcessor
         Mockito.verify(eventDeserializer, Mockito.times(1)).getNextEvent();
         Mockito.verify(event, Mockito.times(3)).getName();
         Mockito.verify(subscriptionStorage,Mockito.times(1)).load(Mockito.anyString());
-        Mockito.verify(channelEventStorage,Mockito.times(1)).insert(Mockito.<ChannelEvent>anyCollectionOf(ChannelEvent.class));
+        Mockito.verify(feedEventStorage,Mockito.times(1)).insert(Mockito.<FeedEvent>anyCollectionOf(FeedEvent.class));
         Mockito.verifyNoMoreInteractions(eventDeserializer,serializationType);
     }
     
     @Test
-    public void testProcessChannelEvents() throws Exception{
-        processChannelEvents(false);
+    public void testProcessFeedEvents() throws Exception{
+        processFeedEvents(false);
     }
     
     @Test
-    public void testProcessChannelEventsByThread() throws Exception{
-        processChannelEvents(true);
+    public void testProcessFeedEventsByThread() throws Exception{
+        processFeedEvents(true);
     }
     
     private Subscription getSubscription(Long id, String topic, String channel, String feed){

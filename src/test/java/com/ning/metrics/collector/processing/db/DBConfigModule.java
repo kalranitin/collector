@@ -46,7 +46,7 @@ public class DBConfigModule extends AbstractModule
         bind(SubscriptionCache.class).to(InMemorySubscriptionCache.class).asEagerSingleton();        
         
         bind(SubscriptionStorage.class).to(DatabaseSubscriptionStorage.class).asEagerSingleton(); 
-        bind(ChannelEventStorage.class).to(DatabaseChannelEventStorage.class).asEagerSingleton();
+        bind(FeedEventStorage.class).to(DatabaseFeedEventStorage.class).asEagerSingleton();
         
     }
 }

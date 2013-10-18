@@ -16,9 +16,9 @@
 package com.ning.metrics.collector.guice.module;
 
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
-import com.ning.metrics.collector.processing.db.ChannelEventStorage;
+import com.ning.metrics.collector.processing.db.FeedEventStorage;
 import com.ning.metrics.collector.processing.db.DBSpoolProcessor;
-import com.ning.metrics.collector.processing.db.DatabaseChannelEventStorage;
+import com.ning.metrics.collector.processing.db.DatabaseFeedEventStorage;
 import com.ning.metrics.collector.processing.db.InMemorySubscriptionCache;
 import com.ning.metrics.collector.processing.db.SubscriptionCache;
 import com.ning.metrics.collector.processing.db.SubscriptionStorage;
@@ -54,7 +54,7 @@ public class DBModule implements Module
         
         binder.bind(SubscriptionStorage.class).to(DatabaseSubscriptionStorage.class).asEagerSingleton();  
         
-        binder.bind(ChannelEventStorage.class).to(DatabaseChannelEventStorage.class).asEagerSingleton();
+        binder.bind(FeedEventStorage.class).to(DatabaseFeedEventStorage.class).asEagerSingleton();
         
     }
 

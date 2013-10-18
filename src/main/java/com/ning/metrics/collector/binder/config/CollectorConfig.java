@@ -491,8 +491,8 @@ public interface CollectorConfig
     @Default("1000")
     long getMaxSubscriptionCacheCount();
     
-    @Description("Time period for Channel events to reside in the database before they are cleaned up")
-    @Config("collector.spoolWriter.channelEvent.retention.period")
+    @Description("Time period for Feed events to reside in the database before they are cleaned up")
+    @Config("collector.spoolWriter.feedEvent.retention.period")
     @Default("30d")
-    TimeSpan getChannelEventRetentionPeriod();
+    TimeSpan getFeedEventRetentionPeriod();
 }

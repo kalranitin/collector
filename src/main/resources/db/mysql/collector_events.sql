@@ -1,5 +1,5 @@
 
-create table channel_events
+create table feed_events
 (
     offset INTEGER PRIMARY KEY AUTO_INCREMENT,
     created_at bigint,

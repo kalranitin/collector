@@ -21,8 +21,8 @@ import com.ning.arecibo.jmx.MonitoringType;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.EventSpoolProcessor;
 import com.ning.metrics.collector.processing.SerializationType;
-import com.ning.metrics.collector.processing.db.model.ChannelEvent;
-import com.ning.metrics.collector.processing.db.model.ChannelEventData;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
@@ -57,27 +57,27 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     private final IDBI dbi;
     private final CollectorConfig config;
     private final SubscriptionStorage subscriptionStorage;
-    private final ChannelEventStorage channelEventStorage;
+    private final FeedEventStorage feedEventStorage;
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final String PROCESSOR_NAME = "DBWriter";
-    private final BlockingQueue<ChannelEvent> eventStorageBuffer;
+    private final BlockingQueue<FeedEvent> eventStorageBuffer;
     private final ExecutorService executorService;
     private final ScheduledExecutorService scheduledExecutorService;
     private final TimeSpan executorShutdownTimeOut;
     
     @Inject
-    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final ChannelEventStorage channelEventStorage)
+    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final FeedEventStorage feedEventStorage)
     {
         this.dbi = dbi;
         this.config = config;
         this.subscriptionStorage = subscriptionStorage;
-        this.channelEventStorage = channelEventStorage;
-        this.eventStorageBuffer = new ArrayBlockingQueue<ChannelEvent>(1000, false);
+        this.feedEventStorage = feedEventStorage;
+        this.eventStorageBuffer = new ArrayBlockingQueue<FeedEvent>(1000, false);
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
-        this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("ChannelEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
-        this.executorService.submit(new ChannelInserter(this.executorService, this));
-        this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "ChannelEvents-Cleaner-Threads");
-        this.scheduledExecutorService.schedule(new ChannelEventScheduledCleaner(), 15, TimeUnit.MINUTES);
+        this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("FeedEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
+        this.executorService.submit(new FeedEventInserter(this.executorService, this));
+        this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "FeedEvents-Cleaner-Threads");
+        this.scheduledExecutorService.schedule(new FeedEventScheduledCleaner(), 15, TimeUnit.MINUTES);
     } 
 
     @Override
@@ -86,25 +86,25 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         // File has Smile type of events
         EventDeserializer eventDeserializer = serializationType.getDeSerializer(new FileInputStream(file));
         
-        /*This would handle insertion of Subscriptions and Channel Events. 
-         * The subscriptions  would be stored as they come by, however for channel events
+        /*This would handle insertion of Subscriptions and Feed Events. 
+         * The subscriptions  would be stored as they come by, however for feed events
          * the storage would be done in bulk after the complete file is read, 
-         * since channel events depend upon the subscriptions*/
+         * since feed events depend upon the subscriptions*/
         while(eventDeserializer.hasNextEvent())
         {
             Event event = eventDeserializer.getNextEvent();
             log.info(String.format("Recieved DB Event to store with name as %s ",event.getName()));
             log.info(String.format("DB Event body to store is %s",event.getData()));
             
-            if(event.getName().equalsIgnoreCase(DBStorageTypes.CHANNEL_EVENT.getDbStorageType()))
+            if(event.getName().equalsIgnoreCase(DBStorageTypes.FEED_EVENT.getDbStorageType()))
             {
-               ChannelEventData channelEventData = mapper.readValue(event.getData().toString(), ChannelEventData.class);
+               FeedEventData feedEventData = mapper.readValue(event.getData().toString(), FeedEventData.class);
                
-               for(String topic : channelEventData.getTopics()){
+               for(String topic : feedEventData.getTopics()){
                    Set<Subscription> subscriptions = subscriptionStorage.load(topic);
                    for(Subscription subscription : subscriptions)
                    {
-                       addToBuffer(event.getName(),new ChannelEvent(channelEventData, 
+                       addToBuffer(event.getName(),new FeedEvent(feedEventData, 
                                                            subscription.getChannel(), 
                                                            subscription.getId(), 
                                                            subscription.getMetadata()));
@@ -115,27 +115,27 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         
     }
     
-    private void addToBuffer(String eventName, ChannelEvent channelEvent) {
+    private void addToBuffer(String eventName, FeedEvent feedEvent) {
         try {
-            eventStorageBuffer.put(channelEvent);
+            eventStorageBuffer.put(feedEvent);
         }
         catch (InterruptedException e) {
             log.warn(String.format("Could not add event %s to the buffer", eventName),e);
         }
     }
     
-    public void flushChannelEventsToDB(){
+    public void flushFeedEventsToDB(){
         try {
-            List<ChannelEvent> channelEventList = Lists.newArrayListWithCapacity(eventStorageBuffer.size());
+            List<FeedEvent> feedEventList = Lists.newArrayListWithCapacity(eventStorageBuffer.size());
             int count;
             boolean inserted = false;
             do {
-                count = eventStorageBuffer.drainTo(channelEventList,1000);
+                count = eventStorageBuffer.drainTo(feedEventList,1000);
                 if(count > 0){
                     inserted = true;
-                    channelEventStorage.insert(channelEventList);
+                    feedEventStorage.insert(feedEventList);
                     log.info(String.format("Inserted %d events successfully!", count));
-                    channelEventList.clear();
+                    feedEventList.clear();
                 }
             }
             while (count > 0);
@@ -158,11 +158,11 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     public void close()
     {
         try {
-            channelEventStorage.cleanUp();
+            feedEventStorage.cleanUp();
             subscriptionStorage.cleanUp();  
         }
         finally{
-            log.info("Shutting Down Executor Service for Channel Storage");
+            log.info("Shutting Down Executor Service for Feed Event Storage");
             executorService.shutdown();
             
             try {
@@ -173,14 +173,14 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             }
             executorService.shutdownNow();
             
-            log.info("Executor Service for Channel Storage Shut Down success!");
+            log.info("Executor Service for Feed Event Storage Shut Down success!");
             
             if(!eventStorageBuffer.isEmpty()){
                 log.info("Flushing remaining events to database");
-                flushChannelEventsToDB();
+                flushFeedEventsToDB();
             }
             
-            log.info("Shutting Down Channel Event Cleaner Executor Service");
+            log.info("Shutting Down Feed Event Cleaner Executor Service");
             scheduledExecutorService.shutdown();
             
             try {
@@ -191,7 +191,7 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             }
             scheduledExecutorService.shutdownNow();
             
-            log.info("Channel Event Cleaner Executor Service shutdown success!");
+            log.info("Feed Event Cleaner Executor Service shutdown success!");
         }              
     }
 
@@ -207,12 +207,12 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         return eventStorageBuffer.size();
     }
     
-    private static class ChannelInserter implements Runnable{
+    private static class FeedEventInserter implements Runnable{
 
         private final ExecutorService es;
         private final DBSpoolProcessor dbSpoolProcessor;
         
-        public ChannelInserter(ExecutorService es,DBSpoolProcessor dbSpoolProcessor){
+        public FeedEventInserter(ExecutorService es,DBSpoolProcessor dbSpoolProcessor){
             this.es = es;
             this.dbSpoolProcessor = dbSpoolProcessor;
         }
@@ -220,17 +220,17 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         @Override
         public void run()
         {
-            dbSpoolProcessor.flushChannelEventsToDB();
+            dbSpoolProcessor.flushFeedEventsToDB();
             es.submit(this);
             
         }
         
     }
     
-    private class ChannelEventScheduledCleaner implements Runnable {
+    private class FeedEventScheduledCleaner implements Runnable {
         public void run()
         {
-            channelEventStorage.cleanOldChannelEvents();
+            feedEventStorage.cleanOldFeedEvents();
         }
     }
 

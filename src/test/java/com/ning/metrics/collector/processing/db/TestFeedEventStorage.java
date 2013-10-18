@@ -15,8 +15,8 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.ChannelEvent;
-import com.ning.metrics.collector.processing.db.model.ChannelEventData;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.EventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
@@ -39,7 +39,7 @@ import java.util.List;
 import java.util.Set;
 
 @Test(groups = {"slow", "database"})
-public class TestChannelEventStorage
+public class TestFeedEventStorage
 {
     private CollectorMysqlTestingHelper helper;
     
@@ -47,7 +47,7 @@ public class TestChannelEventStorage
     SubscriptionStorage subscriptionStorage;
     
     @Inject
-    ChannelEventStorage channelEventStorage;
+    FeedEventStorage feedEventStorage;
     
     private static final ObjectMapper mapper = new ObjectMapper();
     
@@ -71,7 +71,7 @@ public class TestChannelEventStorage
         System.setProperty("collector.spoolWriter.jdbc.url", helper.getJdbcUrl());
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
-        System.setProperty("collector.spoolWriter.channelEvent.retention.period", "1s");
+        System.setProperty("collector.spoolWriter.feedEvent.retention.period", "1s");
         
         Guice.createInjector(new DBConfigModule()).injectMembers(this);
                 
@@ -97,37 +97,37 @@ public class TestChannelEventStorage
     }
     
     @Test
-    public void testInsertChannelEvents() throws Exception{
+    public void testInsertFeedEvents() throws Exception{
         
-        List<ChannelEvent> channelEvents = Lists.newArrayList();
+        List<FeedEvent> feedEvents = Lists.newArrayList();
         
         for(int i=0;i<10;i++){
-            channelEvents.add(getChannelEvent(subscription, eventData));
+            feedEvents.add(getFeedEvent(subscription, eventData));
         } 
         
-        channelEventStorage.insert(channelEvents);
+        feedEventStorage.insert(feedEvents);
         
-        channelEvents.clear();
-        Assert.assertTrue(channelEvents.size() == 0);
+        feedEvents.clear();
+        Assert.assertTrue(feedEvents.size() == 0);
         
-        channelEvents = channelEventStorage.load(channel, 0, 10);
+        feedEvents = feedEventStorage.load(channel, 0, 10);
         
-        Assert.assertTrue(channelEvents.size() == 10);
-        Assert.assertEquals(channelEvents.get(0).getChannel(), channel);    
-        Assert.assertEquals(channelEvents.get(0).getMetadata().getFeed(), feed);
-        Assert.assertEquals(channelEvents.get(0).getSubscriptionId(), subscription.getId());
+        Assert.assertTrue(feedEvents.size() == 10);
+        Assert.assertEquals(feedEvents.get(0).getChannel(), channel);    
+        Assert.assertEquals(feedEvents.get(0).getMetadata().getFeed(), feed);
+        Assert.assertEquals(feedEvents.get(0).getSubscriptionId(), subscription.getId());
         
     }
     
     @Test
-    public void testChannelEventCleanup() throws Exception{
+    public void testFeedEventCleanup() throws Exception{
         
-        channelEventStorage.insert(Arrays.asList(getChannelEvent(subscription, eventData)));
+        feedEventStorage.insert(Arrays.asList(getFeedEvent(subscription, eventData)));
         Thread.sleep(2000);
-        channelEventStorage.cleanOldChannelEvents();
-        List<ChannelEvent> channelEvents = channelEventStorage.load(channel, 0, 10);
+        feedEventStorage.cleanOldFeedEvents();
+        List<FeedEvent> feedEvents = feedEventStorage.load(channel, 0, 10);
         
-        Assert.assertEquals(channelEvents.size(), 0);
+        Assert.assertEquals(feedEvents.size(), 0);
     }
     
     private Subscription getSubscription(String topic, String channel, String feed){
@@ -136,8 +136,8 @@ public class TestChannelEventStorage
         return subscription;
     }
     
-    private ChannelEvent getChannelEvent(Subscription subscription, String eventData) throws JsonParseException, JsonMappingException, IOException{        
-        return new ChannelEvent(mapper.readValue(eventData, ChannelEventData.class), 
+    private FeedEvent getFeedEvent(Subscription subscription, String eventData) throws JsonParseException, JsonMappingException, IOException{        
+        return new FeedEvent(mapper.readValue(eventData, FeedEventData.class), 
             subscription.getChannel(), 
             subscription.getId(), 
             subscription.getMetadata());

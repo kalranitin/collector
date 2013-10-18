@@ -15,18 +15,18 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.ChannelEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
 
 import java.util.Collection;
 import java.util.List;
 
-public interface ChannelEventStorage
+public interface FeedEventStorage
 {
-    public void insert(final Collection<ChannelEvent> channelEvents);
+    public void insert(final Collection<FeedEvent> feedEvents);
     
-    public List<ChannelEvent> load(final String channel, final int offset, final int count);
+    public List<FeedEvent> load(final String channel, final int offset, final int count);
     
-    public void cleanOldChannelEvents();
+    public void cleanOldFeedEvents();
     
     public void cleanUp();
 

@@ -16,7 +16,7 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
-import com.ning.metrics.collector.processing.db.model.ChannelEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,38 +42,38 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 
-public class DatabaseChannelEventStorage implements ChannelEventStorage
+public class DatabaseFeedEventStorage implements FeedEventStorage
 {
-    private static final Logger log = LoggerFactory.getLogger(DatabaseChannelEventStorage.class);
+    private static final Logger log = LoggerFactory.getLogger(DatabaseFeedEventStorage.class);
     private final IDBI dbi;
     private final CollectorConfig config;
     private final Lock dbLock;
     private static final ObjectMapper mapper = new ObjectMapper();
     
     @Inject
-    public DatabaseChannelEventStorage(IDBI dbi, CollectorConfig config)
+    public DatabaseFeedEventStorage(IDBI dbi, CollectorConfig config)
     {
         this.dbi = dbi;
         this.config = config;
-        this.dbLock = new MySqlLock("channel-event-deletion", dbi);
+        this.dbLock = new MySqlLock("feed-event-deletion", dbi);
     }
 
     @Override
-    public void insert(final Collection<ChannelEvent> channelEvents)
+    public void insert(final Collection<FeedEvent> feedEvents)
     {
         dbi.withHandle(new HandleCallback<Void>() {
 
             @Override
             public Void withHandle(Handle handle) throws Exception
             {
-                PreparedBatch batch = handle.prepareBatch("insert into channel_events (channel, created_at, metadata, event, subscription_id) values (:channel, :now, :metadata, :event, :subscription_id)");
+                PreparedBatch batch = handle.prepareBatch("insert into feed_events (channel, created_at, metadata, event, subscription_id) values (:channel, :now, :metadata, :event, :subscription_id)");
                 
-                for(ChannelEvent channelEvent : channelEvents){
-                    batch.bind("channel", channelEvent.getChannel())
-                    .bind("metadata", mapper.writeValueAsString(channelEvent.getMetadata()))
-                    .bind("event", mapper.writeValueAsString(channelEvent.getEvent()))
+                for(FeedEvent feedEvent : feedEvents){
+                    batch.bind("channel", feedEvent.getChannel())
+                    .bind("metadata", mapper.writeValueAsString(feedEvent.getMetadata()))
+                    .bind("event", mapper.writeValueAsString(feedEvent.getEvent()))
                     .bind("now", DateTimeUtils.getInstantMillis(new DateTime(DateTimeZone.UTC)))
-                    .bind("subscription_id", channelEvent.getSubscriptionId())
+                    .bind("subscription_id", feedEvent.getSubscriptionId())
                     .add();
                 }
                 
@@ -84,28 +84,28 @@ public class DatabaseChannelEventStorage implements ChannelEventStorage
     }
 
     @Override
-    public List<ChannelEvent> load(final String channel, final int offset, final int count)
+    public List<FeedEvent> load(final String channel, final int offset, final int count)
     {
-        return dbi.withHandle(new HandleCallback<List<ChannelEvent>>() {
+        return dbi.withHandle(new HandleCallback<List<FeedEvent>>() {
 
             @Override
-            public List<ChannelEvent> withHandle(Handle handle) throws Exception
+            public List<FeedEvent> withHandle(Handle handle) throws Exception
             {
                 return ImmutableList.copyOf(
-                    handle.createQuery("select offset, channel, metadata, event, subscription_id from channel_events where channel = :channel and offset > :offset order by offset limit :count")
+                    handle.createQuery("select offset, channel, metadata, event, subscription_id from feed_events where channel = :channel and offset > :offset order by offset limit :count")
                     .bind("channel", channel)
                     .bind("offset", offset)
                     .bind("count", count)
                     .setFetchSize(count)
                     .setMaxRows(count)
-                    .map(new ChannelEventRowMapper())
+                    .map(new FeedEventRowMapper())
                     .list());
             }
             
         });
     }
     
-    public void cleanOldChannelEvents(){
+    public void cleanOldFeedEvents(){
         if(dbLock.tryLock()){
             
             int deleted = dbi.withHandle(new HandleCallback<Integer>() {
@@ -113,22 +113,22 @@ public class DatabaseChannelEventStorage implements ChannelEventStorage
                 @Override
                 public Integer withHandle(Handle handle) throws Exception
                 {
-                    return handle.createStatement("delete from channel_events where created_at < :tillTimePeriod")
-                            .bind("tillTimePeriod",DateTimeUtils.currentTimeMillis() - config.getChannelEventRetentionPeriod().getMillis())
+                    return handle.createStatement("delete from feed_events where created_at < :tillTimePeriod")
+                            .bind("tillTimePeriod",DateTimeUtils.currentTimeMillis() - config.getFeedEventRetentionPeriod().getMillis())
                             .execute();
                 }});
             
-            log.info(String.format("%d Channel events deleted successfully", deleted));
+            log.info(String.format("%d Feed events deleted successfully", deleted));
         }
     }
     
-    public static class ChannelEventRowMapper implements ResultSetMapper<ChannelEvent>{
+    public static class FeedEventRowMapper implements ResultSetMapper<FeedEvent>{
 
         @Override
-        public ChannelEvent map(int index, ResultSet r, StatementContext ctx) throws SQLException
+        public FeedEvent map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
-                return new ChannelEvent(r.getInt("offset"),
+                return new FeedEvent(r.getInt("offset"),
                     r.getString("channel"),
                     r.getString("metadata"),
                     r.getString("event"),

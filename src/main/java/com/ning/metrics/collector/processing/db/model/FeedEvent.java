@@ -22,17 +22,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
-public class ChannelEvent
+public class FeedEvent
 {
     private final String channel;
     private final EventMetaData metadata;
-    private final ChannelEventData event;
+    private final FeedEventData event;
     private final Long subscriptionId;
     private final int offset;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @JsonCreator
-    public ChannelEvent(@JsonProperty("event") ChannelEventData event,
+    public FeedEvent(@JsonProperty("event") FeedEventData event,
                         @JsonProperty("channel") String channel,
                         @JsonProperty("subscriptionId") Long subscriptionId,
                         @JsonProperty("metadata") EventMetaData metadata)
@@ -44,9 +44,9 @@ public class ChannelEvent
         this.offset = -1;
     }
     
-    public ChannelEvent(int offset, String channel, String metadata, String event, long subscriptionId) throws IOException{
+    public FeedEvent(int offset, String channel, String metadata, String event, long subscriptionId) throws IOException{
         this.subscriptionId = subscriptionId;
-        this.event = mapper.readValue(event, ChannelEventData.class);
+        this.event = mapper.readValue(event, FeedEventData.class);
         this.metadata = mapper.readValue(metadata, EventMetaData.class);
         this.channel = channel;
         this.offset = offset;
@@ -57,7 +57,7 @@ public class ChannelEvent
         return channel;
     }
 
-    public ChannelEventData getEvent()
+    public FeedEventData getEvent()
     {
         return event;
     }
@@ -97,7 +97,7 @@ public class ChannelEvent
             return false;
         if (getClass() != obj.getClass())
             return false;
-        ChannelEvent other = (ChannelEvent) obj;
+        FeedEvent other = (FeedEvent) obj;
         if (channel == null) {
             if (other.channel != null)
                 return false;

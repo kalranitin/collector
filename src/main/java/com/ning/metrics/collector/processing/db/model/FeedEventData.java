@@ -30,25 +30,25 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-@JsonSerialize(using = ChannelEventData.ChannelEventDataSerializer.class)
-public class ChannelEventData
+@JsonSerialize(using = FeedEventData.FeedEventDataSerializer.class)
+public class FeedEventData
 {
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
     private final List<String> topics = new CopyOnWriteArrayList<String>();
 
 
     //    @JsonCreator
-    public ChannelEventData()
+    public FeedEventData()
     {
 
     }
 
-    public ChannelEventData(Map<String, Object> map)
+    public FeedEventData(Map<String, Object> map)
     {
         this.data.putAll(map);
     }
 
-    public ChannelEventData(String topic, Map<String, Object> data)
+    public FeedEventData(String topic, Map<String, Object> data)
     {
         this.topics.add(topic);
         this.data.putAll(data);
@@ -78,10 +78,10 @@ public class ChannelEventData
         return topics;
     }
 
-    public static class ChannelEventDataSerializer extends JsonSerializer<ChannelEventData>
+    public static class FeedEventDataSerializer extends JsonSerializer<FeedEventData>
     {
         @Override
-        public void serialize(ChannelEventData event, JsonGenerator jgen, SerializerProvider sp) throws IOException, JsonProcessingException
+        public void serialize(FeedEventData event, JsonGenerator jgen, SerializerProvider sp) throws IOException, JsonProcessingException
         {
             jgen.writeStartObject();
             jgen.writeFieldName("topics");

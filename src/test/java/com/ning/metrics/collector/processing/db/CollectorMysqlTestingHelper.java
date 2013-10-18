@@ -88,7 +88,7 @@ public class CollectorMysqlTestingHelper {
             public Void withHandle(Handle handle) throws Exception
             {
                 handle.execute("delete from subscriptions");
-                handle.execute("delete from channel_events");
+                handle.execute("delete from feed_events");
                 return null;
             }
             
