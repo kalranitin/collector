@@ -58,7 +58,7 @@ public class TestSubscriptionStorageImpl
     
     @Test
     public void testCreateSubscription() throws Exception{
-        Subscription subscription = getSubscription("target","channel","feed");
+        Subscription subscription = getSubscription("topic","channel","feed");
         Long id = subscriptionStorage.insert(subscription);
         Assert.assertNotNull(id);
         
@@ -66,17 +66,17 @@ public class TestSubscriptionStorageImpl
         Assert.assertNotNull(loadSubscription);
         
         Assert.assertEquals(loadSubscription.getChannel(), subscription.getChannel());
-        Assert.assertEquals(loadSubscription.getTarget(), subscription.getTarget());
+        Assert.assertEquals(loadSubscription.getTopic(), subscription.getTopic());
         Assert.assertEquals(loadSubscription.getMetadata(), subscription.getMetadata());
         
     }
     
     @Test
-    public void testLoadSubscriptionByTarget() throws Exception{
-        subscriptionStorage.insert(getSubscription("target","channel","feed"));
-        subscriptionStorage.insert(getSubscription("target","channel","feed1"));
+    public void testLoadSubscriptionByTopic() throws Exception{
+        subscriptionStorage.insert(getSubscription("topic","channel","feed"));
+        subscriptionStorage.insert(getSubscription("topic","channel","feed1"));
         
-        Set<Subscription> subscriptionSet = subscriptionStorage.load("target");
+        Set<Subscription> subscriptionSet = subscriptionStorage.load("topic");
         
         Assert.assertNotNull(subscriptionSet);
         Assert.assertFalse(subscriptionSet.isEmpty());
@@ -85,7 +85,7 @@ public class TestSubscriptionStorageImpl
     }
     
     @Test
-    public void testLoadSubscriptionForMultipleTargets() throws Exception{
+    public void testLoadSubscriptionForMultipleTopics() throws Exception{
         subscriptionStorage.insert(getSubscription("content-created network:bedazzlenw","channel-activity","feed"));
         subscriptionStorage.insert(getSubscription("content-created network:bedazzlenw tag:breakfast","channel-activity","feed1"));
         
@@ -96,9 +96,9 @@ public class TestSubscriptionStorageImpl
         Assert.assertTrue(subscriptionSet.size() == 2);
     }
     
-    private Subscription getSubscription(String target, String channel, String feed){
+    private Subscription getSubscription(String topic, String channel, String feed){
         EventMetaData metadata = new EventMetaData(feed);
-        Subscription subscription = new Subscription(target, metadata, channel);
+        Subscription subscription = new Subscription(topic, metadata, channel);
         return subscription;
     }
     

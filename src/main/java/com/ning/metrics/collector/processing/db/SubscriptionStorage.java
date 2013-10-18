@@ -8,7 +8,7 @@ public interface SubscriptionStorage
 {
     Long insert(Subscription subscription);
 
-    Set<Subscription> load(String target);
+    Set<Subscription> load(String topic);
 
     Subscription loadSubscriptionById(Long id);
 

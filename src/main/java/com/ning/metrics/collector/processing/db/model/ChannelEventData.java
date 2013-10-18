@@ -34,7 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class ChannelEventData
 {
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
-    private final List<String> targets = new CopyOnWriteArrayList<String>();
+    private final List<String> topics = new CopyOnWriteArrayList<String>();
 
 
     //    @JsonCreator
@@ -48,17 +48,17 @@ public class ChannelEventData
         this.data.putAll(map);
     }
 
-    public ChannelEventData(String target, Map<String, Object> data)
+    public ChannelEventData(String topic, Map<String, Object> data)
     {
-        this.targets.add(target);
+        this.topics.add(topic);
         this.data.putAll(data);
     }
 
     @JsonAnySetter
     public void setAttribute(String key, Object value)
     {
-        if ("targets".equals(key)) {
-            this.targets.addAll((Collection) value);
+        if ("topics".equals(key)) {
+            this.topics.addAll((Collection) value);
         }
         else {
             data.put(key, value);
@@ -73,9 +73,9 @@ public class ChannelEventData
 
     
 
-    public List<String> getTargets()
+    public List<String> getTopics()
     {
-        return targets;
+        return topics;
     }
 
     public static class ChannelEventDataSerializer extends JsonSerializer<ChannelEventData>
@@ -84,10 +84,10 @@ public class ChannelEventData
         public void serialize(ChannelEventData event, JsonGenerator jgen, SerializerProvider sp) throws IOException, JsonProcessingException
         {
             jgen.writeStartObject();
-            jgen.writeFieldName("targets");
-            jgen.writeObject(event.getTargets());
+            jgen.writeFieldName("topics");
+            jgen.writeObject(event.getTopics());
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
-                if (!"targets".equals(entry.getKey())) {
+                if (!"topics".equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());
                     jgen.writeObject(entry.getValue());
                 }

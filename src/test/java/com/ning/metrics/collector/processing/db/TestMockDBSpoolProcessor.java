@@ -90,14 +90,14 @@ public class TestMockDBSpoolProcessor
     
     
     private void processChannelEvents(boolean testThread) throws Exception{
-        final String target = "target";
+        final String topic = "topic";
         final String channel = "channel";
         final String feed = "feed";
         
         String eventData = "{"
                 + "\"content-id\": \"123:Meal:456\","
                 + "\"content-type\": \"Meal\","
-                + "\"targets\": [\""+target+"\"]"                
+                + "\"topics\": [\""+topic+"\"]"                
          + "}";
         
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
@@ -107,7 +107,7 @@ public class TestMockDBSpoolProcessor
         
         Mockito.when(event.getData()).thenReturn(eventData);
         
-        Set<Subscription> subscriptionSet = new HashSet<Subscription>(Arrays.asList(getSubscription(1L,target, channel, feed)));
+        Set<Subscription> subscriptionSet = new HashSet<Subscription>(Arrays.asList(getSubscription(1L,topic, channel, feed)));
         Mockito.when(subscriptionStorage.load(Mockito.anyString())).thenReturn(subscriptionSet);
         
         dbSpoolProcessor.processEventFile(null, serializationType, file, null);
@@ -138,9 +138,9 @@ public class TestMockDBSpoolProcessor
         processChannelEvents(true);
     }
     
-    private Subscription getSubscription(Long id, String target, String channel, String feed){
+    private Subscription getSubscription(Long id, String topic, String channel, String feed){
         EventMetaData metadata = new EventMetaData(feed);
-        Subscription subscription = new Subscription(id,target, metadata, channel);
+        Subscription subscription = new Subscription(id,topic, metadata, channel);
         return subscription;
     }
     

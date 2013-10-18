@@ -67,8 +67,8 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             @Override
             public Long withHandle(Handle handle) throws Exception
             {
-                return handle.createStatement("insert into subscriptions (target, metadata, channel) values (:target, :metadata, :channel)")
-                             .bind("target", subscription.getTarget())
+                return handle.createStatement("insert into subscriptions (topic, metadata, channel) values (:topic, :metadata, :channel)")
+                             .bind("topic", subscription.getTopic())
                              .bind("metadata", mapper.writeValueAsString(subscription.getMetadata()))
                              .bind("channel", subscription.getChannel())
                              .executeAndReturnGeneratedKeys(LongMapper.FIRST)
@@ -78,9 +78,9 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     }
 
     @Override
-    public Set<Subscription> load(final String target)
+    public Set<Subscription> load(final String topic)
     {
-        Set<Subscription> subscriptions = subscriptionCache.loadSubscriptions(target);
+        Set<Subscription> subscriptions = subscriptionCache.loadSubscriptions(topic);
         if(subscriptions != null && !subscriptions.isEmpty())
         {
             return subscriptions;
@@ -92,22 +92,22 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             public Set<Subscription> withHandle(Handle handle) throws Exception
             {
                 // The logic is to look up all possible combinations from left to right separated by " "
-                // e.g. target "a b c" should look up for subscriptions for "a", "a b", "a b c".
-                Iterable<String> parts = WHITESPACE_SPLITTER.split(target);
-                List<String> targets = Lists.newArrayList();
+                // e.g. topic "a b c" should look up for subscriptions for "a", "a b", "a b c".
+                Iterable<String> parts = WHITESPACE_SPLITTER.split(topic);
+                List<String> topics = Lists.newArrayList();
                 List<String> reconsistuted_parts = Lists.newArrayList();
                 for (String part : parts) {
                     reconsistuted_parts.add(part);
-                    targets.add(WHITESPACE_JOINER.join(reconsistuted_parts));
+                    topics.add(WHITESPACE_JOINER.join(reconsistuted_parts));
                 }
-                InClauseExpander in = new InClauseExpander(targets);
+                InClauseExpander in = new InClauseExpander(topics);
                 
-                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, target from subscriptions where target in (" + in.getExpansion() + ')')
+                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, topic from subscriptions where topic in (" + in.getExpansion() + ')')
                                                  .bindNamedArgumentFinder(in)
                                                  .map(new SubscriptionMapper())
                                                  .list());
                 
-                subscriptionCache.addSubscriptions(target, subscriptions);
+                subscriptionCache.addSubscriptions(topic, subscriptions);
                 
                 return subscriptions;
             }
@@ -137,7 +137,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             @Override
             public Subscription withHandle(Handle handle) throws Exception
             {
-                return handle.createQuery("select id, target, metadata, channel from subscriptions where id = :id")
+                return handle.createQuery("select id, topic, metadata, channel from subscriptions where id = :id")
                              .bind("id", id)
                              .map(new SubscriptionMapper())
                              .first();
@@ -148,16 +148,16 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     public static class SubscriptionMapper implements ResultSetMapper<Subscription>
     {
 
-        private final Optional<String> target;
+        private final Optional<String> topic;
 
-        public SubscriptionMapper(String target)
+        public SubscriptionMapper(String topic)
         {
-            this.target = Optional.of(target);
+            this.topic = Optional.of(topic);
         }
 
         public SubscriptionMapper()
         {
-            this.target = Optional.absent();
+            this.topic = Optional.absent();
         }
 
         @Override
@@ -166,7 +166,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             try {
                 EventMetaData meta = mapper.readValue(r.getString("metadata"), EventMetaData.class);
                 return new Subscription(r.getLong("id"),
-                                        target.or(new ResultSetStringSupplier(r, "target")),
+                    topic.or(new ResultSetStringSupplier(r, "topic")),
                                         meta,
                                         r.getString("channel"));
 

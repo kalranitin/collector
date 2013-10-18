@@ -21,8 +21,8 @@ import java.util.Set;
 
 public interface SubscriptionCache
 {
-    public Set<Subscription> loadSubscriptions(final String target);
-    public void addSubscriptions(final String target, final Set<Subscription> subscriptions);
-    public void removeSubscriptions(final String target);
+    public Set<Subscription> loadSubscriptions(final String topic);
+    public void addSubscriptions(final String topic, final Set<Subscription> subscriptions);
+    public void removeSubscriptions(final String topic);
     public void cleanUp();
 }

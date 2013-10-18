@@ -12,9 +12,9 @@ create table channel_events
 create table subscriptions
 (
   id INTEGER PRIMARY KEY AUTO_INCREMENT,
-  target varchar(128),
+  topic varchar(128),
   metadata varchar(512),
   channel varchar(128)
 );
 
-create index subscriptions_target_idx on subscriptions (target);
+create index subscriptions_topic_idx on subscriptions (topic);

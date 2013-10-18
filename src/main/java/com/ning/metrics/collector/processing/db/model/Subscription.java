@@ -25,24 +25,24 @@ import javax.annotation.Nullable;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Subscription
 {
-    private final String target;
+    private final String topic;
     private final String channel;
     private final EventMetaData metadata;
     private final Long id;
 
-    public Subscription(String target, EventMetaData metadata, String channel)
+    public Subscription(String topic, EventMetaData metadata, String channel)
     {
-        this(null, target, metadata, channel);
+        this(null, topic, metadata, channel);
     }
 
     @JsonCreator
     public Subscription(@JsonProperty("id") @Nullable Long id,
-                        @JsonProperty("target") String target,
+                        @JsonProperty("topic") String topic,
                         @JsonProperty("metadata") EventMetaData metadata,
                         @JsonProperty("channel") String channel)
     {
         this.id = id;
-        this.target = target.replaceAll("\\s+", " ");
+        this.topic = topic.replaceAll("\\s+", " ");
         this.channel = channel;
         this.metadata = metadata;
     }
@@ -62,9 +62,9 @@ public class Subscription
         return metadata;
     }
 
-    public String getTarget()
+    public String getTopic()
     {
-        return target;
+        return topic;
     }
 
     @Override
@@ -75,7 +75,7 @@ public class Subscription
         result = prime * result + ((channel == null) ? 0 : channel.hashCode());
         result = prime * result + ((id == null) ? 0 : id.hashCode());
         result = prime * result + ((metadata == null) ? 0 : metadata.hashCode());
-        result = prime * result + ((target == null) ? 0 : target.hashCode());
+        result = prime * result + ((topic == null) ? 0 : topic.hashCode());
         return result;
     }
 
@@ -107,11 +107,11 @@ public class Subscription
         }
         else if (!metadata.equals(other.metadata))
             return false;
-        if (target == null) {
-            if (other.target != null)
+        if (topic == null) {
+            if (other.topic != null)
                 return false;
         }
-        else if (!target.equals(other.target))
+        else if (!topic.equals(other.topic))
             return false;
         return true;
     }
@@ -119,6 +119,6 @@ public class Subscription
     @Override
     public String toString()
     {
-        return "Subscription [target=" + target + ", channel=" + channel + ", metadata=" + metadata + ", id=" + id + "]";
+        return "Subscription [topic=" + topic + ", channel=" + channel + ", metadata=" + metadata + ", id=" + id + "]";
     }    
 }

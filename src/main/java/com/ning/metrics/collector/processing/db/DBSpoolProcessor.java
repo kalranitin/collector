@@ -100,8 +100,8 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             {
                ChannelEventData channelEventData = mapper.readValue(event.getData().toString(), ChannelEventData.class);
                
-               for(String target : channelEventData.getTargets()){
-                   Set<Subscription> subscriptions = subscriptionStorage.load(target);
+               for(String topic : channelEventData.getTopics()){
+                   Set<Subscription> subscriptions = subscriptionStorage.load(topic);
                    for(Subscription subscription : subscriptions)
                    {
                        addToBuffer(event.getName(),new ChannelEvent(channelEventData, 

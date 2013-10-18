@@ -46,22 +46,22 @@ public class InMemorySubscriptionCache implements SubscriptionCache
     }
 
     @Override
-    public Set<Subscription> loadSubscriptions(String target)
+    public Set<Subscription> loadSubscriptions(String topic)
     {
-        Set<Subscription> subscriptions = cache.getIfPresent(target);
+        Set<Subscription> subscriptions = cache.getIfPresent(topic);
         return subscriptions == null?new HashSet<Subscription>():subscriptions;
     }
 
     @Override
-    public void addSubscriptions(String target, Set<Subscription> subscriptions)
+    public void addSubscriptions(String topic, Set<Subscription> subscriptions)
     {
-        cache.put(target, subscriptions);
+        cache.put(topic, subscriptions);
     }
 
     @Override
-    public void removeSubscriptions(String target)
+    public void removeSubscriptions(String topic)
     {
-        cache.invalidate(target);        
+        cache.invalidate(topic);        
     }
 
     @Override

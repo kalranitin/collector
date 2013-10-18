@@ -52,14 +52,14 @@ public class TestChannelEventStorage
     private static final ObjectMapper mapper = new ObjectMapper();
     
     private Subscription subscription;
-    final String target = "target";
+    final String topic = "topic";
     final String channel = "channel";
     final String feed = "feed";
     
     final String eventData = "{"
             + "\"content-id\": \"123:Meal:456\","
             + "\"content-type\": \"Meal\","
-            + "\"targets\": [\""+target+"\"]"                
+            + "\"topics\": [\""+topic+"\"]"                
      + "}";
     
     @BeforeClass(groups = {"slow", "database"})
@@ -80,14 +80,14 @@ public class TestChannelEventStorage
     @BeforeMethod(groups = {"slow", "database"})
     public void clearDB(){
         helper.clear();
-        subscriptionStorage.insert(getSubscription(target,channel,feed));
+        subscriptionStorage.insert(getSubscription(topic,channel,feed));
         
-        Set<Subscription> subscriptions = subscriptionStorage.load(target);
+        Set<Subscription> subscriptions = subscriptionStorage.load(topic);
         Assert.assertNotEquals(subscriptions.size(), 0);
         Assert.assertEquals(subscriptions.size(), 1);
         
         subscription = subscriptions.iterator().next();
-        Assert.assertEquals(subscription.getTarget(), target);
+        Assert.assertEquals(subscription.getTopic(), topic);
         
     }
     
@@ -130,9 +130,9 @@ public class TestChannelEventStorage
         Assert.assertEquals(channelEvents.size(), 0);
     }
     
-    private Subscription getSubscription(String target, String channel, String feed){
+    private Subscription getSubscription(String topic, String channel, String feed){
         EventMetaData metadata = new EventMetaData(feed);
-        Subscription subscription = new Subscription(target, metadata, channel);
+        Subscription subscription = new Subscription(topic, metadata, channel);
         return subscription;
     }
     
