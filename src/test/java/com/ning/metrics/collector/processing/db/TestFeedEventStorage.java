@@ -17,7 +17,7 @@ package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
-import com.ning.metrics.collector.processing.db.model.EventMetaData;
+import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -131,7 +131,7 @@ public class TestFeedEventStorage
     }
     
     private Subscription getSubscription(String topic, String channel, String feed){
-        EventMetaData metadata = new EventMetaData(feed);
+        FeedEventMetaData metadata = new FeedEventMetaData(feed);
         Subscription subscription = new Subscription(topic, metadata, channel);
         return subscription;
     }

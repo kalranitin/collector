@@ -15,7 +15,7 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.EventMetaData;
+import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
 import com.google.inject.Guice;
@@ -97,7 +97,7 @@ public class TestSubscriptionStorageImpl
     }
     
     private Subscription getSubscription(String topic, String channel, String feed){
-        EventMetaData metadata = new EventMetaData(feed);
+        FeedEventMetaData metadata = new FeedEventMetaData(feed);
         Subscription subscription = new Subscription(topic, metadata, channel);
         return subscription;
     }

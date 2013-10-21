@@ -19,13 +19,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
 
 import java.io.IOException;
 
 public class FeedEvent
 {
     private final String channel;
-    private final EventMetaData metadata;
+    private final FeedEventMetaData metadata;
     private final FeedEventData event;
     private final Long subscriptionId;
     private final int offset;
@@ -35,7 +37,7 @@ public class FeedEvent
     public FeedEvent(@JsonProperty("event") FeedEventData event,
                         @JsonProperty("channel") String channel,
                         @JsonProperty("subscriptionId") Long subscriptionId,
-                        @JsonProperty("metadata") EventMetaData metadata)
+                        @JsonProperty("metadata") FeedEventMetaData metadata)
     {
         this.channel = channel;
         this.event = event;
@@ -47,7 +49,7 @@ public class FeedEvent
     public FeedEvent(int offset, String channel, String metadata, String event, long subscriptionId) throws IOException{
         this.subscriptionId = subscriptionId;
         this.event = mapper.readValue(event, FeedEventData.class);
-        this.metadata = mapper.readValue(metadata, EventMetaData.class);
+        this.metadata = mapper.readValue(metadata, FeedEventMetaData.class);
         this.channel = channel;
         this.offset = offset;
     }
@@ -67,7 +69,7 @@ public class FeedEvent
         return subscriptionId;
     }
 
-    public EventMetaData getMetadata() {
+    public FeedEventMetaData getMetadata() {
         return metadata;
     }
     
@@ -75,6 +77,20 @@ public class FeedEvent
     public int getOffset()
     {
         return offset;
+    }
+    
+    @JsonIgnore
+    public static Predicate<FeedEvent> findFeedEventById(final String id){
+        Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
+
+            @Override
+            public boolean apply(FeedEvent input)
+            {
+                return Objects.equal(id, input.getEvent().getData().get("content-id"));
+            }};
+            
+            return feedEventPredicate;
+        
     }
 
     @Override

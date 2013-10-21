@@ -17,4 +17,10 @@ create table subscriptions
   channel varchar(128)
 );
 
+CREATE TABLE feeds (
+  feed_key VARCHAR(50) NOT NULL,
+  feed MEDIUMBLOB NOT NULL,
+  PRIMARY KEY (feed_key)
+);
+
 create index subscriptions_topic_idx on subscriptions (topic);

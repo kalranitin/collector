@@ -89,6 +89,7 @@ public class CollectorMysqlTestingHelper {
             {
                 handle.execute("delete from subscriptions");
                 handle.execute("delete from feed_events");
+                handle.execute("delete from feeds");
                 return null;
             }
             

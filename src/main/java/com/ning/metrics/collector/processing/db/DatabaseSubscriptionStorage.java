@@ -15,7 +15,7 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.EventMetaData;
+import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.collector.processing.db.util.InClauseExpander;
 
@@ -164,7 +164,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
         public Subscription map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
-                EventMetaData meta = mapper.readValue(r.getString("metadata"), EventMetaData.class);
+                FeedEventMetaData meta = mapper.readValue(r.getString("metadata"), FeedEventMetaData.class);
                 return new Subscription(r.getLong("id"),
                     topic.or(new ResultSetStringSupplier(r, "topic")),
                                         meta,

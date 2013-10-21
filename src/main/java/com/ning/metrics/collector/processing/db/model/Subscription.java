@@ -27,10 +27,10 @@ public class Subscription
 {
     private final String topic;
     private final String channel;
-    private final EventMetaData metadata;
+    private final FeedEventMetaData metadata;
     private final Long id;
 
-    public Subscription(String topic, EventMetaData metadata, String channel)
+    public Subscription(String topic, FeedEventMetaData metadata, String channel)
     {
         this(null, topic, metadata, channel);
     }
@@ -38,7 +38,7 @@ public class Subscription
     @JsonCreator
     public Subscription(@JsonProperty("id") @Nullable Long id,
                         @JsonProperty("topic") String topic,
-                        @JsonProperty("metadata") EventMetaData metadata,
+                        @JsonProperty("metadata") FeedEventMetaData metadata,
                         @JsonProperty("channel") String channel)
     {
         this.id = id;
@@ -58,7 +58,7 @@ public class Subscription
         return channel;
     }
 
-    public EventMetaData getMetadata() {
+    public FeedEventMetaData getMetadata() {
         return metadata;
     }
 

@@ -20,11 +20,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class EventMetaData {
+public class FeedEventMetaData {
 	private final String feed;
 
     @JsonCreator
-    public EventMetaData(@JsonProperty("feed") String feed) {
+    public FeedEventMetaData(@JsonProperty("feed") String feed) {
     	this.feed = feed;
     }
 
@@ -50,7 +50,7 @@ public class EventMetaData {
             return false;
         if (getClass() != obj.getClass())
             return false;
-        EventMetaData other = (EventMetaData) obj;
+        FeedEventMetaData other = (FeedEventMetaData) obj;
         if (feed == null) {
             if (other.feed != null)
                 return false;
