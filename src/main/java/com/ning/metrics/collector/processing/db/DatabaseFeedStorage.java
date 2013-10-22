@@ -19,6 +19,7 @@ import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.model.Feeds;
 import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 
@@ -52,6 +53,7 @@ public class DatabaseFeedStorage implements FeedStorage
     public DatabaseFeedStorage(final IDBI dbi, final CollectorConfig config){
         this.dbi = dbi;
         this.config = config;
+        mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
         this.dbLock = new MySqlLock("feed-operation", dbi);
     }
         

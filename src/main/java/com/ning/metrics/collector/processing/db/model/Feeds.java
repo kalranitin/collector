@@ -18,6 +18,7 @@ package com.ning.metrics.collector.processing.db.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -31,7 +32,7 @@ public class Feeds
     private List<FeedEvent> feedEvents;
 
     @JsonCreator
-    public Feeds(List<FeedEvent> feedEvents)
+    public Feeds(@JsonProperty("feedEvents") List<FeedEvent> feedEvents)
     {
         this.feedEvents = ImmutableList.copyOf(feedEvents);
     }
