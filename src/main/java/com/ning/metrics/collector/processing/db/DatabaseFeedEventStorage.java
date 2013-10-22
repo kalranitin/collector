@@ -51,7 +51,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
     private static final ObjectMapper mapper = new ObjectMapper();
     
     @Inject
-    public DatabaseFeedEventStorage(IDBI dbi, CollectorConfig config)
+    public DatabaseFeedEventStorage(final IDBI dbi, final CollectorConfig config)
     {
         this.dbi = dbi;
         this.config = config;

@@ -27,12 +27,12 @@ import java.util.Collection;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Feeds
+public class Feed
 {
     private List<FeedEvent> feedEvents;
 
     @JsonCreator
-    public Feeds(@JsonProperty("feedEvents") List<FeedEvent> feedEvents)
+    public Feed(@JsonProperty("feedEvents") List<FeedEvent> feedEvents)
     {
         this.feedEvents = ImmutableList.copyOf(feedEvents);
     }
@@ -88,7 +88,7 @@ public class Feeds
             return false;
         if (getClass() != obj.getClass())
             return false;
-        Feeds other = (Feeds) obj;
+        Feed other = (Feed) obj;
         if (feedEvents == null) {
             if (other.feedEvents != null)
                 return false;

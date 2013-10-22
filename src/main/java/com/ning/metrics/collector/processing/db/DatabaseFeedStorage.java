@@ -16,7 +16,7 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
-import com.ning.metrics.collector.processing.db.model.Feeds;
+import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -54,16 +54,16 @@ public class DatabaseFeedStorage implements FeedStorage
         this.dbi = dbi;
         this.config = config;
         mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
-        this.dbLock = new MySqlLock("feed-operation", dbi);
+        this.dbLock = new MySqlLock("feed-deletion", dbi);
     }
         
     @Override
-    public Feeds loadFeedByKey(final String key)
+    public Feed loadFeedByKey(final String key)
     {
-        return dbi.withHandle(new HandleCallback<Feeds>() {
+        return dbi.withHandle(new HandleCallback<Feed>() {
 
             @Override
-            public Feeds withHandle(Handle handle) throws Exception
+            public Feed withHandle(Handle handle) throws Exception
             {
                 return handle.createQuery("SELECT feed FROM feeds WHERE feed_key = :key")
                         .bind("key", key)
@@ -73,7 +73,7 @@ public class DatabaseFeedStorage implements FeedStorage
     }
 
     @Override
-    public void addOrUpdateFeed(final String key, final Feeds feed)
+    public void addOrUpdateFeed(final String key, final Feed feed)
     {
         dbi.withHandle(new HandleCallback<Void>() {
 
@@ -97,28 +97,29 @@ public class DatabaseFeedStorage implements FeedStorage
     @Override
     public void deleteFeed(final String key)
     {
-        dbi.withHandle(new HandleCallback<Void>() {
+        if(dbLock.tryLock()){
+            dbi.withHandle(new HandleCallback<Void>() {
 
-            @Override
-            public Void withHandle(Handle handle) throws Exception
-            {
-                handle.createStatement("DELETE FROM feeds WHERE feed_key = :key")
-                .bind("key", key)
-                .execute();
-                
-                return null;
-            }});
-        
+                @Override
+                public Void withHandle(Handle handle) throws Exception
+                {
+                    handle.createStatement("DELETE FROM feeds WHERE feed_key = :key")
+                    .bind("key", key)
+                    .execute();
+                    
+                    return null;
+                }});
+        }
     }
     
-    public static class FeedRowMapper implements ResultSetMapper<Feeds>{
+    public static class FeedRowMapper implements ResultSetMapper<Feed>{
 
         @Override
-        public Feeds map(int index, ResultSet r, StatementContext ctx) throws SQLException
+        public Feed map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
                 GZIPInputStream zipStream = new GZIPInputStream(r.getBinaryStream("feed"));
-                return mapper.readValue(zipStream, Feeds.class);
+                return mapper.readValue(zipStream, Feed.class);
             }
             catch (IOException ex) {
                 throw new ResultSetException("Cannot read feed from result set", ex, ctx);

@@ -17,6 +17,7 @@ package com.ning.metrics.collector.guice.module;
 
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
 import com.ning.metrics.collector.processing.db.DatabaseFeedStorage;
+import com.ning.metrics.collector.processing.db.FeedEventProcessor;
 import com.ning.metrics.collector.processing.db.FeedEventStorage;
 import com.ning.metrics.collector.processing.db.DBSpoolProcessor;
 import com.ning.metrics.collector.processing.db.DatabaseFeedEventStorage;
@@ -59,6 +60,8 @@ public class DBModule implements Module
         binder.bind(FeedEventStorage.class).to(DatabaseFeedEventStorage.class).asEagerSingleton();
         
         binder.bind(FeedStorage.class).to(DatabaseFeedStorage.class).asEagerSingleton();
+        
+        binder.bind(FeedEventProcessor.class).asEagerSingleton();
         
     }
 

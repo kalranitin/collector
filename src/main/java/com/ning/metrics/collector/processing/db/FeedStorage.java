@@ -15,12 +15,12 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.Feeds;
+import com.ning.metrics.collector.processing.db.model.Feed;
 
 public interface FeedStorage
 {
-    public Feeds loadFeedByKey(final String key);
-    public void addOrUpdateFeed(final String key, final Feeds feed);
+    public Feed loadFeedByKey(final String key);
+    public void addOrUpdateFeed(final String key, final Feed feed);
     public void deleteFeed(String key);
     public void cleanUp();
 }

@@ -18,7 +18,7 @@ package com.ning.metrics.collector.processing.db;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
-import com.ning.metrics.collector.processing.db.model.Feeds;
+import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -82,7 +82,7 @@ public class TestFeedStorage
     
     @Test
     public void testFeedDBOperations() throws Exception{
-        Feeds feeds = new Feeds(Arrays.asList(getFeedEvent(getSubscription(1L, topic, channel, feed), eventData)));
+        Feed feeds = new Feed(Arrays.asList(getFeedEvent(getSubscription(1L, topic, channel, feed), eventData)));
         feedStorage.addOrUpdateFeed(feed, feeds);
         
         feeds = feedStorage.loadFeedByKey(feed);
@@ -98,7 +98,7 @@ public class TestFeedStorage
     
     @Test
     public void testMaxFeedSize() throws Exception{
-        Feeds feeds = new Feeds(Arrays.asList(getFeedEvent(getSubscription(1L, topic, channel, feed), eventData)));
+        Feed feeds = new Feed(Arrays.asList(getFeedEvent(getSubscription(1L, topic, channel, feed), eventData)));
         feeds.deleteFeedEvent("123:Meal:456");
         
         Assert.assertEquals(feeds.getFeedEvents().size(), 0);
