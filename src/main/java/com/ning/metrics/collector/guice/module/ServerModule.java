@@ -165,6 +165,7 @@ public class ServerModule extends ServletModule
         if(config.isSpoolWriterDbEnabled())
         {
             install(new DBModule());
+            install(new CollectorQuartzModule());
         }        
     }
 

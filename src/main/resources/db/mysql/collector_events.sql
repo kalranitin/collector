@@ -1,13 +1,13 @@
 
 create table feed_events
 (
-    offset INTEGER PRIMARY KEY AUTO_INCREMENT,
+    id varchar(36) PRIMARY KEY NOT NULL,
     created_at bigint,
-    channel varchar(256),
+    channel varchar(128),
     metadata mediumtext,
     event mediumtext,
     subscription_id integer
-);
+) ;
 
 create table subscriptions
 (
@@ -24,3 +24,4 @@ CREATE TABLE feeds (
 );
 
 create index subscriptions_topic_idx on subscriptions (topic);
+create index feed_events_channel_idx on feed_events (channel);

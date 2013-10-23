@@ -16,6 +16,10 @@
 
 package com.ning.metrics.collector.processing.db;
 
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.SimpleScheduleBuilder.simpleSchedule;
+import static org.quartz.TriggerBuilder.newTrigger;
+
 import com.ning.arecibo.jmx.Monitored;
 import com.ning.arecibo.jmx.MonitoringType;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
@@ -24,6 +28,7 @@ import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
+import com.ning.metrics.collector.processing.quartz.FeedUpdateQuartzJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
 
@@ -34,6 +39,10 @@ import com.mogwee.executors.FailsafeScheduledExecutor;
 import com.mogwee.executors.LoggingExecutor;
 import com.mogwee.executors.NamedThreadFactory;
 
+import org.quartz.JobDataMap;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleTrigger;
 import org.skife.config.TimeSpan;
 import org.skife.jdbi.v2.IDBI;
 import org.slf4j.Logger;
@@ -64,9 +73,10 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     private final ExecutorService executorService;
     private final ScheduledExecutorService scheduledExecutorService;
     private final TimeSpan executorShutdownTimeOut;
+    private final Scheduler quartzScheduler;
     
     @Inject
-    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final FeedEventStorage feedEventStorage)
+    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final FeedEventStorage feedEventStorage, final Scheduler quartzScheduler) throws SchedulerException
     {
         this.dbi = dbi;
         this.config = config;
@@ -78,6 +88,11 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         this.executorService.submit(new FeedEventInserter(this.executorService, this));
         this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "FeedEvents-Cleaner-Threads");
         this.scheduledExecutorService.schedule(new FeedEventScheduledCleaner(), 15, TimeUnit.MINUTES);
+        this.quartzScheduler = quartzScheduler;
+        if(!quartzScheduler.isStarted())
+        {
+            quartzScheduler.start();
+        }
     } 
 
     @Override
@@ -133,9 +148,12 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                 count = eventStorageBuffer.drainTo(feedEventList,1000);
                 if(count > 0){
                     inserted = true;
-                    feedEventStorage.insert(feedEventList);
+                    List<String> feedEventIdList = feedEventStorage.insert(feedEventList);
                     log.info(String.format("Inserted %d events successfully!", count));
                     feedEventList.clear();
+                    
+                    // Schedule Quartz job for feed preparation of the inserted events
+                    scheduleFeedCollectionJob(feedEventIdList);
                 }
             }
             while (count > 0);
@@ -151,6 +169,27 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         }
         catch (Exception e) {
             log.warn("unexpected exception trying to insert events!",e);
+        }
+    }
+    
+    private void scheduleFeedCollectionJob(List<String> feedEventIdList){
+        try {
+            if(this.quartzScheduler.isStarted()){
+                SimpleTrigger trigger = (SimpleTrigger)newTrigger()
+                        .withIdentity("feedUpdateTrigger", "feedUpdateGroup")
+                        .withSchedule(simpleSchedule().withMisfireHandlingInstructionFireNow())                 
+                        .build();
+                
+                JobDataMap jobMap = new JobDataMap();
+                jobMap.put("feedEventIdList",feedEventIdList);
+                
+                quartzScheduler.scheduleJob(
+                    newJob(FeedUpdateQuartzJob.class).withIdentity("feedUpdateJob", "feedUpdateJobGroup").usingJobData(jobMap).build()
+                    ,trigger);
+            }
+        }
+        catch (SchedulerException e) {
+            log.warn("unexpected exception trying to schedule Quartz job for feed preparation of the inserted events!",e);
         }
     }
 
@@ -192,6 +231,15 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             scheduledExecutorService.shutdownNow();
             
             log.info("Feed Event Cleaner Executor Service shutdown success!");
+            
+            log.info("Shutting Down Quartz Scheduler");
+            try {
+                quartzScheduler.shutdown(true);
+            }
+            catch (SchedulerException e) {
+                Thread.currentThread().interrupt();
+            }
+            log.info("Quartz Scheduler shutdown success");
         }              
     }
 

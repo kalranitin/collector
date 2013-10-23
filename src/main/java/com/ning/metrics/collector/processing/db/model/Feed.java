@@ -60,7 +60,7 @@ public class Feed
     public boolean deleteFeedEvent(final String feedEventId) {
         boolean deleted = false;
         List<FeedEvent> tmpList = Lists.newArrayList(this.feedEvents);
-        deleted = Iterables.removeIf(tmpList, FeedEvent.findFeedEventById(feedEventId));  
+        deleted = Iterables.removeIf(tmpList, FeedEvent.findFeedEventByContentId(feedEventId));  
         
         if(deleted)
         {

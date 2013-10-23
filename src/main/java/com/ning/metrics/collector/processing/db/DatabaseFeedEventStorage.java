@@ -17,6 +17,7 @@ package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.db.util.InClauseExpander;
 import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,12 +35,14 @@ import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.collections.Lists;
 
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 
 public class DatabaseFeedEventStorage implements FeedEventStorage
@@ -59,17 +62,21 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
     }
 
     @Override
-    public void insert(final Collection<FeedEvent> feedEvents)
+    public List<String> insert(final Collection<FeedEvent> feedEvents)
     {
-        dbi.withHandle(new HandleCallback<Void>() {
+        return dbi.withHandle(new HandleCallback<List<String>>() {
 
             @Override
-            public Void withHandle(Handle handle) throws Exception
+            public List<String> withHandle(Handle handle) throws Exception
             {
-                PreparedBatch batch = handle.prepareBatch("insert into feed_events (channel, created_at, metadata, event, subscription_id) values (:channel, :now, :metadata, :event, :subscription_id)");
+                final List<String> idList = Lists.newArrayList();
+                PreparedBatch batch = handle.prepareBatch("insert into feed_events (id, channel, created_at, metadata, event, subscription_id) values (:id, :channel, :now, :metadata, :event, :subscription_id)");
                 
                 for(FeedEvent feedEvent : feedEvents){
-                    batch.bind("channel", feedEvent.getChannel())
+                    String id = UUID.randomUUID().toString();
+                    idList.add(id);
+                    batch.bind("id", id)
+                    .bind("channel", feedEvent.getChannel())
                     .bind("metadata", mapper.writeValueAsString(feedEvent.getMetadata()))
                     .bind("event", mapper.writeValueAsString(feedEvent.getEvent()))
                     .bind("now", DateTimeUtils.getInstantMillis(new DateTime(DateTimeZone.UTC)))
@@ -79,22 +86,24 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
                 
                 batch.execute();
                 
-                return null;
+                return idList;
             }});
     }
 
     @Override
-    public List<FeedEvent> load(final String channel, final int offset, final int count)
+    public List<FeedEvent> load(final String channel, final List<String> idList, final int count)
     {
         return dbi.withHandle(new HandleCallback<List<FeedEvent>>() {
 
             @Override
             public List<FeedEvent> withHandle(Handle handle) throws Exception
             {
+                InClauseExpander in = new InClauseExpander(idList);
+                
                 return ImmutableList.copyOf(
-                    handle.createQuery("select offset, channel, metadata, event, subscription_id from feed_events where channel = :channel and offset > :offset order by offset limit :count")
+                    handle.createQuery("select id, channel, metadata, event, subscription_id from feed_events where channel = :channel and id in (" + in.getExpansion() + ") limit :count")
                     .bind("channel", channel)
-                    .bind("offset", offset)
+                    .bindNamedArgumentFinder(in)
                     .bind("count", count)
                     .setFetchSize(count)
                     .setMaxRows(count)
@@ -128,7 +137,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
         public FeedEvent map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
-                return new FeedEvent(r.getInt("offset"),
+                return new FeedEvent(r.getString("id"),
                     r.getString("channel"),
                     r.getString("metadata"),
                     r.getString("event"),

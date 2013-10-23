@@ -102,7 +102,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                 }
                 InClauseExpander in = new InClauseExpander(topics);
                 
-                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, topic from subscriptions where topic in (" + in.getExpansion() + ')')
+                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, topic from subscriptions where topic in (" + in.getExpansion() + ")")
                                                  .bindNamedArgumentFinder(in)
                                                  .map(new SubscriptionMapper())
                                                  .list());

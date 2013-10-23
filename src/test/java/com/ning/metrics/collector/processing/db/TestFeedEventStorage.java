@@ -105,12 +105,12 @@ public class TestFeedEventStorage
             feedEvents.add(getFeedEvent(subscription, eventData));
         } 
         
-        feedEventStorage.insert(feedEvents);
+        List<String> idList = feedEventStorage.insert(feedEvents);
         
         feedEvents.clear();
         Assert.assertTrue(feedEvents.size() == 0);
         
-        feedEvents = feedEventStorage.load(channel, 0, 10);
+        feedEvents = feedEventStorage.load(channel, idList, 10);
         
         Assert.assertTrue(feedEvents.size() == 10);
         Assert.assertEquals(feedEvents.get(0).getChannel(), channel);    
@@ -122,10 +122,10 @@ public class TestFeedEventStorage
     @Test
     public void testFeedEventCleanup() throws Exception{
         
-        feedEventStorage.insert(Arrays.asList(getFeedEvent(subscription, eventData)));
+        List<String> idList = feedEventStorage.insert(Arrays.asList(getFeedEvent(subscription, eventData)));
         Thread.sleep(2000);
         feedEventStorage.cleanOldFeedEvents();
-        List<FeedEvent> feedEvents = feedEventStorage.load(channel, 0, 10);
+        List<FeedEvent> feedEvents = feedEventStorage.load(channel, idList, 10);
         
         Assert.assertEquals(feedEvents.size(), 0);
     }

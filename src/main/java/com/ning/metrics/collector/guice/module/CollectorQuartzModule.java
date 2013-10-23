@@ -13,21 +13,24 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package com.ning.metrics.collector.processing.db;
+package com.ning.metrics.collector.guice.module;
 
-import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.guice.providers.CollectorQuartzSchedulerProvider;
+import com.ning.metrics.collector.processing.quartz.CollectorQuartzJobFactory;
 
-import java.util.Collection;
-import java.util.List;
+import com.google.inject.AbstractModule;
 
-public interface FeedEventStorage
+import org.quartz.Scheduler;
+import org.quartz.spi.JobFactory;
+
+public class CollectorQuartzModule extends AbstractModule
 {
-    public List<String> insert(final Collection<FeedEvent> feedEvents);
-    
-    public List<FeedEvent> load(final String channel, final List<String> idList, final int count);
-    
-    public void cleanOldFeedEvents();
-    
-    public void cleanUp();
+
+    @Override
+    protected void configure()
+    {
+        bind(JobFactory.class).to(CollectorQuartzJobFactory.class).asEagerSingleton();    
+        bind(Scheduler.class).toProvider(CollectorQuartzSchedulerProvider.class).asEagerSingleton();
+    }
 
 }

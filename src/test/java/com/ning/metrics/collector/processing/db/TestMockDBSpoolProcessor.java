@@ -26,6 +26,7 @@ import com.ning.metrics.serialization.event.EventDeserializer;
 import com.mchange.v2.io.FileUtils;
 
 import org.mockito.Mockito;
+import org.quartz.Scheduler;
 import org.skife.config.TimeSpan;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -47,6 +48,7 @@ public class TestMockDBSpoolProcessor
     private CollectorConfig config;
     private FeedEventStorage feedEventStorage;
     private File file;
+    private Scheduler quartzScheduler;
     
     
     @BeforeMethod
@@ -57,13 +59,15 @@ public class TestMockDBSpoolProcessor
         config = Mockito.mock(CollectorConfig.class);
         subscriptionStorage = Mockito.mock(SubscriptionStorage.class);
         feedEventStorage = Mockito.mock(FeedEventStorage.class);
+        quartzScheduler = Mockito.mock(Scheduler.class);
         file = new File(System.getProperty("java.io.tmpdir")+"/dbtest.json");
         FileUtils.touch(file);
         //Mockito.when(file.getPath()).thenReturn(System.getProperty("java.io.tmpdir"));
         
         Mockito.when(config.getSpoolWriterExecutorShutdownTime()).thenReturn(new TimeSpan("1s"));
+        Mockito.when(quartzScheduler.isStarted()).thenReturn(true);
         
-        dbSpoolProcessor = new DBSpoolProcessor(null, config, subscriptionStorage, feedEventStorage);
+        dbSpoolProcessor = new DBSpoolProcessor(null, config, subscriptionStorage, feedEventStorage,quartzScheduler);
     }
     
     @AfterMethod

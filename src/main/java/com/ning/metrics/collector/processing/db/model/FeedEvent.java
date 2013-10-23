@@ -30,7 +30,7 @@ public class FeedEvent
     private final FeedEventMetaData metadata;
     private final FeedEventData event;
     private final Long subscriptionId;
-    private final int offset;
+    private final String id;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @JsonCreator
@@ -43,15 +43,15 @@ public class FeedEvent
         this.event = event;
         this.subscriptionId = subscriptionId;
         this.metadata = metadata;
-        this.offset = -1;
+        this.id = "";
     }
     
-    public FeedEvent(int offset, String channel, String metadata, String event, long subscriptionId) throws IOException{
+    public FeedEvent(String id, String channel, String metadata, String event, long subscriptionId) throws IOException{
         this.subscriptionId = subscriptionId;
         this.event = mapper.readValue(event, FeedEventData.class);
         this.metadata = mapper.readValue(metadata, FeedEventMetaData.class);
         this.channel = channel;
-        this.offset = offset;
+        this.id = id;
     }
     
     public String getChannel()
@@ -74,19 +74,19 @@ public class FeedEvent
     }
     
     @JsonIgnore
-    public int getOffset()
+    public String getId()
     {
-        return offset;
+        return id;
     }
     
     @JsonIgnore
-    public static Predicate<FeedEvent> findFeedEventById(final String id){
+    public static Predicate<FeedEvent> findFeedEventByContentId(final String contentId){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
 
             @Override
             public boolean apply(FeedEvent input)
             {
-                return Objects.equal(id, input.getEvent().getData().get("content-id"));
+                return Objects.equal(contentId, input.getEvent().getData().get("content-id"));
             }};
             
             return feedEventPredicate;

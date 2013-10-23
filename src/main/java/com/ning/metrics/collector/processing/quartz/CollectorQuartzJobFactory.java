@@ -13,21 +13,26 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package com.ning.metrics.collector.processing.db;
+package com.ning.metrics.collector.processing.quartz;
 
-import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
 
-import java.util.Collection;
-import java.util.List;
+import org.quartz.Job;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.spi.JobFactory;
+import org.quartz.spi.TriggerFiredBundle;
 
-public interface FeedEventStorage
+public class CollectorQuartzJobFactory implements JobFactory
 {
-    public List<String> insert(final Collection<FeedEvent> feedEvents);
-    
-    public List<FeedEvent> load(final String channel, final List<String> idList, final int count);
-    
-    public void cleanOldFeedEvents();
-    
-    public void cleanUp();
+    @Inject
+    private Injector injector;
+
+    @Override
+    public Job newJob(TriggerFiredBundle bundle, Scheduler scheduler) throws SchedulerException
+    {
+        return (Job) injector.getInstance(bundle.getJobDetail().getJobClass());
+    }
 
 }
