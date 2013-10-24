@@ -69,7 +69,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
             @Override
             public List<String> withHandle(Handle handle) throws Exception
             {
-                final List<String> idList = Lists.newArrayList();
+                final List<String> idList = Lists.newArrayList(feedEvents.size());
                 PreparedBatch batch = handle.prepareBatch("insert into feed_events (id, channel, created_at, metadata, event, subscription_id) values (:id, :channel, :now, :metadata, :event, :subscription_id)");
                 
                 for(FeedEvent feedEvent : feedEvents){

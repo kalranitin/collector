@@ -15,10 +15,10 @@
  */
 package com.ning.metrics.collector.processing.db;
 
+import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
-import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 
+import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -34,9 +35,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
-
-import junit.framework.Assert;
 
 @Test(groups = {"slow", "database"})
 public class TestFeedStorage

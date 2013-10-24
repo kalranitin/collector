@@ -37,7 +37,7 @@ import javax.ws.rs.core.Response;
 /**
  * Feed API
  * */
-@Path("/feed")
+@Path("/rest/1.0/feed")
 public class FeedResource
 {
     private static final Logger log = LoggerFactory.getLogger(FeedResource.class);

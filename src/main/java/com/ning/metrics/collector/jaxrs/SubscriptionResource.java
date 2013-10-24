@@ -39,7 +39,7 @@ import javax.ws.rs.core.UriInfo;
 /**
  * Subscription API
  * */
-@Path("/subscription")
+@Path("/rest/1.0/subscription")
 public class SubscriptionResource
 {
     private static final Logger log = LoggerFactory.getLogger(SubscriptionResource.class);

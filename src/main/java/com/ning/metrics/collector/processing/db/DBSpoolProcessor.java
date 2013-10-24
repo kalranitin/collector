@@ -237,7 +237,7 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                 quartzScheduler.shutdown(true);
             }
             catch (SchedulerException e) {
-                Thread.currentThread().interrupt();
+                log.error("Unexpected error while shutting down Quartz Scheduler!",e);
             }
             log.info("Quartz Scheduler shutdown success");
         }              
