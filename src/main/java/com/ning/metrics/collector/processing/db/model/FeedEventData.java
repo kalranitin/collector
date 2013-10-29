@@ -23,6 +23,9 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -35,6 +38,8 @@ public class FeedEventData
 {
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
     private final List<String> topics = new CopyOnWriteArrayList<String>();
+    private String contentId = "";
+    private String eventType = "";
 
 
     //    @JsonCreator
@@ -60,6 +65,12 @@ public class FeedEventData
         if ("topics".equals(key)) {
             this.topics.addAll((Collection) value);
         }
+        else if("content-id".equals(key)){
+            this.contentId = (String) value;
+        }
+        else if("event-type".equals(key)){
+            this.eventType = (String) value;
+        }
         else {
             data.put(key, value);
         }
@@ -71,12 +82,78 @@ public class FeedEventData
         return data;
     }
 
+    public String getContentId(){
+        return contentId;
+    }
     
+    public String getEventType(){
+        return eventType;
+    }
+    
+    public DateTime getCreatedDate(){
+        if(data.get("created-date") != null)
+        {
+            try {
+                return new DateTime(data.get("created-date"));
+            }
+            catch (Exception e) {
+                return new DateTime(DateTimeZone.UTC);
+            }
+        }
+        
+        return new DateTime(DateTimeZone.UTC);
+    }
 
     public List<String> getTopics()
     {
         return topics;
     }
+    
+    
+
+    @Override
+    public int hashCode()
+    {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((contentId == null) ? 0 : contentId.hashCode());
+        result = prime * result + ((eventType == null) ? 0 : eventType.hashCode());
+        result = prime * result + ((topics == null) ? 0 : topics.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        FeedEventData other = (FeedEventData) obj;
+        if (contentId == null) {
+            if (other.contentId != null)
+                return false;
+        }
+        else if (!contentId.equals(other.contentId))
+            return false;
+        if (eventType == null) {
+            if (other.eventType != null)
+                return false;
+        }
+        else if (!eventType.equals(other.eventType))
+            return false;
+        if (topics == null) {
+            if (other.topics != null)
+                return false;
+        }
+        else if (!topics.equals(other.topics))
+            return false;
+        return true;
+    }
+
+
 
     public static class FeedEventDataSerializer extends JsonSerializer<FeedEventData>
     {
@@ -86,8 +163,15 @@ public class FeedEventData
             jgen.writeStartObject();
             jgen.writeFieldName("topics");
             jgen.writeObject(event.getTopics());
+            jgen.writeFieldName("content-id");
+            jgen.writeObject(event.getContentId());
+            jgen.writeFieldName("event-type");
+            jgen.writeObject(event.getEventType());
+            
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
-                if (!"topics".equals(entry.getKey())) {
+                if (!"topics".equals(entry.getKey()) 
+                        && !"content-id".equals(entry.getKey()) 
+                        && !"eventType".equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());
                     jgen.writeObject(entry.getValue());
                 }

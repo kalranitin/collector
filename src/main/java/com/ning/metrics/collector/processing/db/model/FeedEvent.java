@@ -17,13 +17,19 @@ package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Maps;
 
 import java.io.IOException;
+import java.util.Map;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class FeedEvent
 {
     private final String channel;
@@ -80,13 +86,31 @@ public class FeedEvent
     }
     
     @JsonIgnore
+    public static Predicate<FeedEvent> isAnyKeyValuMatching(final Map<String,Object> filterMap){
+        Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
+
+            @Override
+            public boolean apply(FeedEvent input)
+            {
+                if(filterMap == null || filterMap.isEmpty())
+                {
+                    return true;
+                }
+                
+                return !Maps.difference(filterMap, input.getEvent().getData()).entriesInCommon().isEmpty();
+            }};
+            
+            return feedEventPredicate;
+    }
+    
+    @JsonIgnore
     public static Predicate<FeedEvent> findFeedEventByContentId(final String contentId){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
 
             @Override
             public boolean apply(FeedEvent input)
             {
-                return Objects.equal(contentId, input.getEvent().getData().get("content-id"));
+                return Objects.equal(contentId, input.getEvent().getContentId());
             }};
             
             return feedEventPredicate;
@@ -99,6 +123,8 @@ public class FeedEvent
         final int prime = 31;
         int result = 1;
         result = prime * result + ((channel == null) ? 0 : channel.hashCode());
+        result = prime * result + ((event == null) ? 0 : event.hashCode());
+        result = prime * result + ((id == null) ? 0 : id.hashCode());
         result = prime * result + ((metadata == null) ? 0 : metadata.hashCode());
         result = prime * result + ((subscriptionId == null) ? 0 : subscriptionId.hashCode());
         return result;
@@ -120,6 +146,18 @@ public class FeedEvent
         }
         else if (!channel.equals(other.channel))
             return false;
+        if (event == null) {
+            if (other.event != null)
+                return false;
+        }
+        else if (!event.equals(other.event))
+            return false;
+        if (id == null) {
+            if (other.id != null)
+                return false;
+        }
+        else if (!id.equals(other.id))
+            return false;
         if (metadata == null) {
             if (other.metadata != null)
                 return false;
@@ -134,4 +172,6 @@ public class FeedEvent
             return false;
         return true;
     }
+
+    
 }

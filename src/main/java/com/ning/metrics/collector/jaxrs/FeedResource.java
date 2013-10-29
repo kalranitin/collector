@@ -18,6 +18,7 @@ package com.ning.metrics.collector.jaxrs;
 import com.ning.metrics.collector.processing.db.DatabaseFeedStorage;
 import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.feed.FeedRollUpProcessor;
 
 import com.google.inject.Inject;
 
@@ -25,9 +26,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Map;
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -48,12 +52,14 @@ public class FeedResource
         this.databaseFeedStorage = databaseFeedStorage;
     }
     
-    @GET
+    @POST
     @Path("/{feedKey}")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Collection<FeedEvent> getFeedEvents(@PathParam("feedKey") String feedKey) {
+    public Collection<FeedEvent> getFeedEvents(@PathParam("feedKey") String feedKey, final Map<String,Object> filterMap) {
         Feed feed = databaseFeedStorage.loadFeedByKey(feedKey);
-        return feed == null? null : feed.getFeedEvents();
+        FeedRollUpProcessor feedRollUpProcessor = new FeedRollUpProcessor();
+        return feed == null? null : feedRollUpProcessor.applyRollUp(feed,filterMap).getFeedEvents();
         
     }
     
