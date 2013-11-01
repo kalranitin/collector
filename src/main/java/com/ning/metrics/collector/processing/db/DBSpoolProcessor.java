@@ -33,6 +33,7 @@ import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import com.mogwee.executors.FailsafeScheduledExecutor;
@@ -114,9 +115,13 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             if(event.getName().equalsIgnoreCase(DBStorageTypes.FEED_EVENT.getDbStorageType()))
             {
                FeedEventData feedEventData = mapper.readValue(event.getData().toString(), FeedEventData.class);
+               //Check is event type is to suppress other events
+               boolean isSuppressTypeEvent = Objects.equal(FeedEventData.EVENT_TYPE_SUPPRESS, feedEventData.getEventType());
                
                for(String topic : feedEventData.getTopics()){
-                   Set<Subscription> subscriptions = subscriptionStorage.load(topic);
+                   // If suppress type event then load all subsciptions which start with the topic else load it by exploding the topic
+                   Set<Subscription> subscriptions = isSuppressTypeEvent?subscriptionStorage.loadByStartsWith(topic):subscriptionStorage.load(topic);
+                   
                    for(Subscription subscription : subscriptions)
                    {
                        addToBuffer(event.getName(),new FeedEvent(feedEventData, 

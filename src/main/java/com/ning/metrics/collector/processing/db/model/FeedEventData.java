@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.base.Objects;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -38,15 +40,16 @@ public class FeedEventData
 {
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
     private final List<String> topics = new CopyOnWriteArrayList<String>();
+    private final List<String> removalTargets = new CopyOnWriteArrayList<String>();
     private String contentId = "";
     private String eventType = "";
     public final static String CONTENT_ID_KEY = "content-id";
     public final static String EVENT_TYPE_KEY = "event-type";
     public final static String CREATED_DATE_KEY = "created-date";
     public final static String TOPICS_KEY = "topics";
+    public final static String REMOVAL_TARGETS = "removal-targets";
+    public final static String EVENT_TYPE_SUPPRESS = "event-suppress";
     
-
-
     //    @JsonCreator
     public FeedEventData()
     {
@@ -67,7 +70,7 @@ public class FeedEventData
     @JsonAnySetter
     public void setAttribute(String key, Object value)
     {
-        if ("topics".equals(key)) {
+        if (TOPICS_KEY.equals(key)) {
             this.topics.addAll((Collection) value);
         }
         else if(CONTENT_ID_KEY.equals(key)){
@@ -75,6 +78,9 @@ public class FeedEventData
         }
         else if(EVENT_TYPE_KEY.equals(key)){
             this.eventType = (String) value;
+        }
+        else if (REMOVAL_TARGETS.equals(key)) {
+            this.removalTargets.addAll((Collection) value);
         }
         else {
             data.put(key, value);
@@ -88,6 +94,10 @@ public class FeedEventData
     }
 
     public String getContentId(){
+        if(Objects.equal(null, this.contentId) || Objects.equal("", this.contentId))
+        {
+            this.contentId = UUID.randomUUID().toString();
+        }
         return contentId;
     }
     
@@ -114,7 +124,10 @@ public class FeedEventData
         return topics;
     }
     
-    
+    public List<String> getRemovalTargets()
+    {
+        return removalTargets;
+    }
 
     @Override
     public int hashCode()
@@ -172,11 +185,14 @@ public class FeedEventData
             jgen.writeObject(event.getContentId());
             jgen.writeFieldName(EVENT_TYPE_KEY);
             jgen.writeObject(event.getEventType());
+            jgen.writeFieldName(REMOVAL_TARGETS);
+            jgen.writeObject(event.getRemovalTargets());
             
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
                 if (!TOPICS_KEY.equals(entry.getKey()) 
                         && !CONTENT_ID_KEY.equals(entry.getKey()) 
-                        && !EVENT_TYPE_KEY.equals(entry.getKey())) {
+                        && !EVENT_TYPE_KEY.equals(entry.getKey())
+                        && !REMOVAL_TARGETS.equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());
                     jgen.writeObject(entry.getValue());
                 }

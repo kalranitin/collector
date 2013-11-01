@@ -85,6 +85,19 @@ public class TestSubscriptionStorageImpl
     }
     
     @Test
+    public void testLoadSubscriptionByTopicStartsWith() throws Exception{
+        subscriptionStorage.insert(getSubscription("topic","channel","feed"));
+        subscriptionStorage.insert(getSubscription("topic1","channel","feed1"));
+        
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByStartsWith("topic");
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertTrue(subscriptionSet.size() == 2);
+        
+    }
+    
+    @Test
     public void testLoadSubscriptionForMultipleTopics() throws Exception{
         subscriptionStorage.insert(getSubscription("content-created network:bedazzlenw","channel-activity","feed"));
         subscriptionStorage.insert(getSubscription("content-created network:bedazzlenw tag:breakfast","channel-activity","feed1"));

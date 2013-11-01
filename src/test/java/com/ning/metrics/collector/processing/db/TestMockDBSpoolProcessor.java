@@ -18,6 +18,7 @@ package com.ning.metrics.collector.processing.db;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.serialization.event.Event;
@@ -93,15 +94,16 @@ public class TestMockDBSpoolProcessor
     }
     
     
-    private void processFeedEvents(boolean testThread) throws Exception{
+    private void processFeedEvents(boolean testThread, boolean isSuppressType) throws Exception{
         final String topic = "topic";
         final String channel = "channel";
         final String feed = "feed";
         
         String eventData = "{"
-                + "\"content-id\": \"123:Meal:456\","
+                + "\""+FeedEventData.CONTENT_ID_KEY+"\": \"123:Meal:456\","
                 + "\"content-type\": \"Meal\","
-                + "\"topics\": [\""+topic+"\"]"                
+                + (isSuppressType?"\""+FeedEventData.EVENT_TYPE_KEY+"\": \""+FeedEventData.EVENT_TYPE_SUPPRESS+"\",":"")
+                + "\""+FeedEventData.TOPICS_KEY+"\": [\""+topic+"\"]"                
          + "}";
         
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
@@ -112,7 +114,15 @@ public class TestMockDBSpoolProcessor
         Mockito.when(event.getData()).thenReturn(eventData);
         
         Set<Subscription> subscriptionSet = new HashSet<Subscription>(Arrays.asList(getSubscription(1L,topic, channel, feed)));
-        Mockito.when(subscriptionStorage.load(Mockito.anyString())).thenReturn(subscriptionSet);
+        if(isSuppressType)
+        {
+            Mockito.when(subscriptionStorage.loadByStartsWith(Mockito.anyString())).thenReturn(subscriptionSet);
+        }
+        else
+        {
+            Mockito.when(subscriptionStorage.load(Mockito.anyString())).thenReturn(subscriptionSet);
+        }
+        
         
         dbSpoolProcessor.processEventFile(null, serializationType, file, null);
         // Sleeping so that the insertion call is done successfully.
@@ -127,19 +137,34 @@ public class TestMockDBSpoolProcessor
         Mockito.verify(eventDeserializer, Mockito.times(2)).hasNextEvent();
         Mockito.verify(eventDeserializer, Mockito.times(1)).getNextEvent();
         Mockito.verify(event, Mockito.times(3)).getName();
-        Mockito.verify(subscriptionStorage,Mockito.times(1)).load(Mockito.anyString());
+        if(isSuppressType)
+        {
+            Mockito.verify(subscriptionStorage,Mockito.times(1)).loadByStartsWith(Mockito.anyString());
+            Mockito.verify(subscriptionStorage,Mockito.times(0)).load(Mockito.anyString());
+        }
+        else
+        {
+            Mockito.verify(subscriptionStorage,Mockito.times(1)).load(Mockito.anyString());
+            Mockito.verify(subscriptionStorage,Mockito.times(0)).loadByStartsWith(Mockito.anyString());
+        }
+        
         Mockito.verify(feedEventStorage,Mockito.times(1)).insert(Mockito.<FeedEvent>anyCollectionOf(FeedEvent.class));
         Mockito.verifyNoMoreInteractions(eventDeserializer,serializationType);
     }
     
     @Test
     public void testProcessFeedEvents() throws Exception{
-        processFeedEvents(false);
+        processFeedEvents(false,false);
+    }
+    
+    @Test
+    public void testProcessSuppressTypeFeedEvents() throws Exception{
+        processFeedEvents(false,true);
     }
     
     @Test
     public void testProcessFeedEventsByThread() throws Exception{
-        processFeedEvents(true);
+        processFeedEvents(true,false);
     }
     
     private Subscription getSubscription(Long id, String topic, String channel, String feed){

@@ -8,11 +8,13 @@ public interface SubscriptionStorage
 {
     Long insert(Subscription subscription);
 
-    Set<Subscription> load(String topic);
+    Set<Subscription> load(final String topic);
+    
+    public Set<Subscription> loadByStartsWith(final String topic);
 
-    Subscription loadSubscriptionById(Long id);
+    Subscription loadSubscriptionById(final Long id);
 
-    boolean deleteSubscriptionById(Long id);
+    boolean deleteSubscriptionById(final Long id);
     
     public void cleanUp();
 }

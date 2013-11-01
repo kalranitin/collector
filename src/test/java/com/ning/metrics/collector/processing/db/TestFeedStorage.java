@@ -49,9 +49,9 @@ public class TestFeedStorage
     final String channel = "channel";
     final String feed = "feed";
     final String eventData = "{"
-            + "\"content-id\": \"123:Meal:456\","
+            + "\""+FeedEventData.CONTENT_ID_KEY+"\": \"123:Meal:456\","
             + "\"content-type\": \"Meal\","
-            + "\"topics\": [\""+topic+"\"]"                
+            + "\""+FeedEventData.TOPICS_KEY+"\": [\""+topic+"\"]"                
      + "}";
     
     @BeforeClass(groups = {"slow", "database"})

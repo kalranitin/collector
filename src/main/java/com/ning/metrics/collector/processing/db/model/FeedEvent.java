@@ -104,6 +104,21 @@ public class FeedEvent
     }
     
     @JsonIgnore
+    public static Predicate<FeedEvent> findFeedEventsByType(final String eventType){
+        Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
+
+            @Override
+            public boolean apply(FeedEvent input)
+            {
+               return Objects.equal(eventType, input.getEvent().getEventType());
+            }
+            
+        };
+        
+        return feedEventPredicate;
+    }
+    
+    @JsonIgnore
     public static Predicate<FeedEvent> findFeedEventByContentId(final String contentId){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
 

@@ -113,6 +113,24 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             }
         });
     }
+    
+    @Override
+    public Set<Subscription> loadByStartsWith(final String topic)
+    {
+        return dbi.withHandle(new HandleCallback<Set<Subscription>>()
+        {
+            @Override
+            public Set<Subscription> withHandle(Handle handle) throws Exception
+            {
+                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, topic from subscriptions where topic like :topic")
+                                                 .bind("topic",topic+"%")
+                                                 .map(new SubscriptionMapper())
+                                                 .list());
+                
+                return subscriptions;
+            }
+        });
+    }
 
     @Override
     public boolean deleteSubscriptionById(final Long id)

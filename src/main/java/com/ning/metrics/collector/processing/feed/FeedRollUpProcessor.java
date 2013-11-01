@@ -17,20 +17,26 @@ package com.ning.metrics.collector.processing.feed;
 
 import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.RolledUpFeedEvent;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 
 public class FeedRollUpProcessor
 {
@@ -41,16 +47,37 @@ public class FeedRollUpProcessor
         final List<FeedEvent> compiledFeedEventList = Lists.newArrayList();
         
         // filter out all events which do not match "any" of the provided key value pair
-        List<FeedEvent> feedEventList = Lists.newArrayList(Iterables.filter(feed.getFeedEvents(), FeedEvent.isAnyKeyValuMatching(filterMap)));
+        List<FeedEvent> feedEventList = (filterMap == null || filterMap.isEmpty())?Lists.newArrayList(feed.getFeedEvents()) : Lists.newArrayList(Iterables.filter(feed.getFeedEvents(), FeedEvent.isAnyKeyValuMatching(filterMap)));
+        
+        if(feedEventList.isEmpty())
+        {
+            return new Feed(compiledFeedEventList);
+        }
         
         FeedEventComparator feedEventComparator = new FeedEventComparator();
         Collections.sort(feedEventList,feedEventComparator);
         
         ArrayListMultimap<String, FeedEvent> arrayListMultimap = ArrayListMultimap.create();
-        ListIterator<FeedEvent> iterator = feedEventList.listIterator();
+        Iterator<FeedEvent> iterator = feedEventList.iterator();
+        Set<String> removalTargetSet = new HashSet<String>();
         
         while(iterator.hasNext()){
             FeedEvent feedEvent = iterator.next();
+            
+            // Do not include suppress types of events
+            if(Objects.equal(FeedEventData.EVENT_TYPE_SUPPRESS, feedEvent.getEvent().getEventType()))
+            {
+                removalTargetSet.addAll(feedEvent.getEvent().getRemovalTargets());
+                iterator.remove();
+                continue;
+            }
+            
+            // If any of the removal targets are matching then the specific event is to be suppressed
+            if(!removalTargetSet.isEmpty() && !Sets.intersection(removalTargetSet, ImmutableSet.copyOf(feedEvent.getEvent().getRemovalTargets())).isEmpty())
+            {
+                iterator.remove();
+                continue;
+            }
             
             if(feedEvent.getEvent() != null && RolledUpEventTypes.asSet.contains(feedEvent.getEvent().getEventType())){
                 
