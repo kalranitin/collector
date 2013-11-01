@@ -73,12 +73,12 @@ public class TestFeedRollUpProcessor
     
     private FeedEvent getFeedEvent(Subscription subscription, String contentId, DateTime date, String visibility, String eventType) throws JsonParseException, JsonMappingException, IOException{  
         String eventData = "{"
-                + "\"content-id\": \""+contentId+"\","
+                + "\""+FeedEventData.CONTENT_ID_KEY+"\": \""+contentId+"\","
                 + "\"content-type\": \"Meal\","
                 + "\"visibility\": \""+visibility+"\","
-                + "\"created-date\": \""+date+"\","
-                + "\"event-type\": \""+eventType+"\","
-                + "\"topics\": [\"topic\"]"                
+                + "\""+FeedEventData.CREATED_DATE_KEY+"\": \""+date+"\","
+                + "\""+FeedEventData.EVENT_TYPE_KEY+"\": \""+eventType+"\","
+                + "\""+FeedEventData.TOPICS_KEY+"\": [\"topic\"]"                
          + "}";
         
         return new FeedEvent(mapper.readValue(eventData, FeedEventData.class), 

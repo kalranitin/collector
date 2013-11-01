@@ -40,6 +40,11 @@ public class FeedEventData
     private final List<String> topics = new CopyOnWriteArrayList<String>();
     private String contentId = "";
     private String eventType = "";
+    public final static String CONTENT_ID_KEY = "content-id";
+    public final static String EVENT_TYPE_KEY = "event-type";
+    public final static String CREATED_DATE_KEY = "created-date";
+    public final static String TOPICS_KEY = "topics";
+    
 
 
     //    @JsonCreator
@@ -65,10 +70,10 @@ public class FeedEventData
         if ("topics".equals(key)) {
             this.topics.addAll((Collection) value);
         }
-        else if("content-id".equals(key)){
+        else if(CONTENT_ID_KEY.equals(key)){
             this.contentId = (String) value;
         }
-        else if("event-type".equals(key)){
+        else if(EVENT_TYPE_KEY.equals(key)){
             this.eventType = (String) value;
         }
         else {
@@ -91,10 +96,10 @@ public class FeedEventData
     }
     
     public DateTime getCreatedDate(){
-        if(data.get("created-date") != null)
+        if(data.get(CREATED_DATE_KEY) != null)
         {
             try {
-                return new DateTime(data.get("created-date"));
+                return new DateTime(data.get(CREATED_DATE_KEY),DateTimeZone.UTC);
             }
             catch (Exception e) {
                 return new DateTime(DateTimeZone.UTC);
@@ -161,17 +166,17 @@ public class FeedEventData
         public void serialize(FeedEventData event, JsonGenerator jgen, SerializerProvider sp) throws IOException, JsonProcessingException
         {
             jgen.writeStartObject();
-            jgen.writeFieldName("topics");
+            jgen.writeFieldName(TOPICS_KEY);
             jgen.writeObject(event.getTopics());
-            jgen.writeFieldName("content-id");
+            jgen.writeFieldName(CONTENT_ID_KEY);
             jgen.writeObject(event.getContentId());
-            jgen.writeFieldName("event-type");
+            jgen.writeFieldName(EVENT_TYPE_KEY);
             jgen.writeObject(event.getEventType());
             
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
-                if (!"topics".equals(entry.getKey()) 
-                        && !"content-id".equals(entry.getKey()) 
-                        && !"eventType".equals(entry.getKey())) {
+                if (!TOPICS_KEY.equals(entry.getKey()) 
+                        && !CONTENT_ID_KEY.equals(entry.getKey()) 
+                        && !EVENT_TYPE_KEY.equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());
                     jgen.writeObject(entry.getValue());
                 }

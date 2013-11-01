@@ -20,12 +20,14 @@ import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.feed.FeedRollUpProcessor;
 
+import com.google.common.base.Objects;
 import com.google.inject.Inject;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.ws.rs.Consumes;
@@ -35,6 +37,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -52,11 +55,18 @@ public class FeedResource
         this.databaseFeedStorage = databaseFeedStorage;
     }
     
-    @POST
+    @GET
     @Path("/{feedKey}")
-    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Collection<FeedEvent> getFeedEvents(@PathParam("feedKey") String feedKey, final Map<String,Object> filterMap) {
+    public Collection<FeedEvent> getFeedEvents(@PathParam("feedKey") String feedKey, 
+        @QueryParam("filterAttributeKey") final String filterKey, 
+        @QueryParam("filterAttributeValue") final String filterValue) {
+        
+        Map<String,Object> filterMap = new HashMap<String, Object>();
+        if(!Objects.equal(null, filterKey) && !Objects.equal(null, filterValue)){
+            filterMap.put(filterKey, filterValue);
+        }
+        
         Feed feed = databaseFeedStorage.loadFeedByKey(feedKey);
         FeedRollUpProcessor feedRollUpProcessor = new FeedRollUpProcessor();
         return feed == null? null : feedRollUpProcessor.applyRollUp(feed,filterMap).getFeedEvents();

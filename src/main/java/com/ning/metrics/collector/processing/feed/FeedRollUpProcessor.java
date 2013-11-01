@@ -41,7 +41,7 @@ public class FeedRollUpProcessor
         final List<FeedEvent> compiledFeedEventList = Lists.newArrayList();
         
         // filter out all events which do not match "any" of the provided key value pair
-        List<FeedEvent> feedEventList = com.google.common.collect.Lists.newArrayList(Iterables.filter(feed.getFeedEvents(), FeedEvent.isAnyKeyValuMatching(filterMap)));
+        List<FeedEvent> feedEventList = Lists.newArrayList(Iterables.filter(feed.getFeedEvents(), FeedEvent.isAnyKeyValuMatching(filterMap)));
         
         FeedEventComparator feedEventComparator = new FeedEventComparator();
         Collections.sort(feedEventList,feedEventComparator);
