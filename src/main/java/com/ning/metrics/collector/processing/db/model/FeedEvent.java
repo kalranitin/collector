@@ -119,13 +119,13 @@ public class FeedEvent
     }
     
     @JsonIgnore
-    public static Predicate<FeedEvent> findFeedEventByContentId(final String contentId){
+    public static Predicate<FeedEvent> findByFeedEventId(final String feedEventId){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
 
             @Override
             public boolean apply(FeedEvent input)
             {
-                return Objects.equal(contentId, input.getEvent().getContentId());
+                return Objects.equal(feedEventId, input.getEvent().getFeedEventId());
             }};
             
             return feedEventPredicate;

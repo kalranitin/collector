@@ -57,7 +57,7 @@ public class TestFeedEventStorage
     final String feed = "feed";
     
     final String eventData = "{"
-            + "\""+FeedEventData.CONTENT_ID_KEY+"\": \"123:Meal:456\","
+            + "\""+FeedEventData.FEED_EVENT_ID_KEY+"\": \"123:Meal:456\","
             + "\"content-type\": \"Meal\","
             + "\""+FeedEventData.TOPICS_KEY+"\": [\""+topic+"\"]"                
      + "}";

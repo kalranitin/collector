@@ -45,12 +45,12 @@ public class TestFeedRollUpProcessor
         DateTime dt = new DateTime(DateTimeZone.UTC);
 
         Subscription subscription = getSubscription(1L, "topic", "channel", "feed");
-        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member","join-group","\"event1\"")));
+        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event1\"")));
         
         feed.addFeedEvents(Arrays.asList(
-                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1","join-group","\"event2\""),
-                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member","join-group","\"event3\""),
-                                            getFeedEvent(subscription, "4",dt.plusHours(25), "member","join-group","\"event4\"")
+                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event2\""),
+                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event3\""),
+                                            getFeedEvent(subscription, "4",dt.plusHours(25), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event4\"")
                                         ) , 
                                         100);
         
@@ -71,12 +71,12 @@ public class TestFeedRollUpProcessor
         DateTime dt = new DateTime(DateTimeZone.UTC);
 
         Subscription subscription = getSubscription(1L, "topic", "channel", "feed");
-        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member","join-group","\"mainEvent\"")));
+        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\"")));
         
         feed.addFeedEvents(Arrays.asList(
                                             getFeedEvent(subscription, "2",dt.plusHours(1), "member1","","\"event2\""),
-                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member","join-group","\"mainEvent\",\"event3\""),
-                                            getFeedEvent(subscription, "4",dt.plusHours(3), "member","join-group","\"mainEvent\",\"event4\""),
+                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event3\""),
+                                            getFeedEvent(subscription, "4",dt.plusHours(3), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event4\""),
                                             getFeedEvent(subscription, "5",dt.plusHours(4), "",FeedEventData.EVENT_TYPE_SUPPRESS,"\"mainEvent\"")
                                         ) , 
                                         100);
@@ -87,7 +87,7 @@ public class TestFeedRollUpProcessor
         
         Assert.assertNotNull(newFeed);
         Assert.assertEquals(newFeed.getFeedEvents().size(), 1);
-        Assert.assertEquals(newFeed.getFeedEvents().iterator().next().getEvent().getContentId(), "2");
+        Assert.assertEquals(newFeed.getFeedEvents().iterator().next().getEvent().getFeedEventId(), "2");
     }
     
     private Subscription getSubscription(Long id, String topic, String channel, String feed){
@@ -98,7 +98,7 @@ public class TestFeedRollUpProcessor
     
     private FeedEvent getFeedEvent(Subscription subscription, String contentId, DateTime date, String visibility, String eventType, String removalTarget) throws JsonParseException, JsonMappingException, IOException{  
         String eventData = "{"
-                + "\""+FeedEventData.CONTENT_ID_KEY+"\": \""+contentId+"\","
+                + "\""+FeedEventData.FEED_EVENT_ID_KEY+"\": \""+contentId+"\","
                 + "\"content-type\": \"Meal\","
                 + "\"visibility\": \""+visibility+"\","
                 + "\""+FeedEventData.CREATED_DATE_KEY+"\": \""+date+"\","

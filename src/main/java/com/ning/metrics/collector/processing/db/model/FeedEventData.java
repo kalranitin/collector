@@ -41,14 +41,14 @@ public class FeedEventData
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
     private final List<String> topics = new CopyOnWriteArrayList<String>();
     private final List<String> removalTargets = new CopyOnWriteArrayList<String>();
-    private String contentId = "";
+    private String feedEventId = "";
     private String eventType = "";
-    public final static String CONTENT_ID_KEY = "content-id";
-    public final static String EVENT_TYPE_KEY = "event-type";
-    public final static String CREATED_DATE_KEY = "created-date";
+    public final static String FEED_EVENT_ID_KEY = "feedEventId";
+    public final static String EVENT_TYPE_KEY = "eventType";
+    public final static String CREATED_DATE_KEY = "createdDate";
     public final static String TOPICS_KEY = "topics";
-    public final static String REMOVAL_TARGETS = "removal-targets";
-    public final static String EVENT_TYPE_SUPPRESS = "event-suppress";
+    public final static String REMOVAL_TARGETS = "removalTargets";
+    public final static String EVENT_TYPE_SUPPRESS = "eventSuppress";
     
     //    @JsonCreator
     public FeedEventData()
@@ -73,8 +73,8 @@ public class FeedEventData
         if (TOPICS_KEY.equals(key)) {
             this.topics.addAll((Collection) value);
         }
-        else if(CONTENT_ID_KEY.equals(key)){
-            this.contentId = (String) value;
+        else if(FEED_EVENT_ID_KEY.equals(key)){
+            this.feedEventId = (String) value;
         }
         else if(EVENT_TYPE_KEY.equals(key)){
             this.eventType = (String) value;
@@ -93,12 +93,12 @@ public class FeedEventData
         return data;
     }
 
-    public String getContentId(){
-        if(Objects.equal(null, this.contentId) || Objects.equal("", this.contentId))
+    public String getFeedEventId(){
+        if(Objects.equal(null, this.feedEventId) || Objects.equal("", this.feedEventId))
         {
-            this.contentId = UUID.randomUUID().toString();
+            this.feedEventId = UUID.randomUUID().toString();
         }
-        return contentId;
+        return feedEventId;
     }
     
     public String getEventType(){
@@ -134,7 +134,7 @@ public class FeedEventData
     {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((contentId == null) ? 0 : contentId.hashCode());
+        result = prime * result + ((feedEventId == null) ? 0 : feedEventId.hashCode());
         result = prime * result + ((eventType == null) ? 0 : eventType.hashCode());
         result = prime * result + ((topics == null) ? 0 : topics.hashCode());
         return result;
@@ -150,11 +150,11 @@ public class FeedEventData
         if (getClass() != obj.getClass())
             return false;
         FeedEventData other = (FeedEventData) obj;
-        if (contentId == null) {
-            if (other.contentId != null)
+        if (feedEventId == null) {
+            if (other.feedEventId != null)
                 return false;
         }
-        else if (!contentId.equals(other.contentId))
+        else if (!feedEventId.equals(other.feedEventId))
             return false;
         if (eventType == null) {
             if (other.eventType != null)
@@ -181,8 +181,8 @@ public class FeedEventData
             jgen.writeStartObject();
             jgen.writeFieldName(TOPICS_KEY);
             jgen.writeObject(event.getTopics());
-            jgen.writeFieldName(CONTENT_ID_KEY);
-            jgen.writeObject(event.getContentId());
+            jgen.writeFieldName(FEED_EVENT_ID_KEY);
+            jgen.writeObject(event.getFeedEventId());
             jgen.writeFieldName(EVENT_TYPE_KEY);
             jgen.writeObject(event.getEventType());
             jgen.writeFieldName(REMOVAL_TARGETS);
@@ -190,7 +190,7 @@ public class FeedEventData
             
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
                 if (!TOPICS_KEY.equals(entry.getKey()) 
-                        && !CONTENT_ID_KEY.equals(entry.getKey()) 
+                        && !FEED_EVENT_ID_KEY.equals(entry.getKey()) 
                         && !EVENT_TYPE_KEY.equals(entry.getKey())
                         && !REMOVAL_TARGETS.equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());

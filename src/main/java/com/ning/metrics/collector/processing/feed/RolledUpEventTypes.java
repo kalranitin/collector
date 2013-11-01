@@ -20,10 +20,10 @@ import com.google.common.collect.ImmutableSet;
 public enum RolledUpEventTypes
 {
  // rolled-up-by field name
-    JOIN_NETWORK("join-network"),
-    JOIN_GROUP("join-group"),
-    CREATE_PHOTO("create-photo"),
-    EVENT_RSVP("event-rsvp");
+    JOIN_NETWORK("joinNetwork"),
+    JOIN_GROUP("joinGroup"),
+    CREATE_PHOTO("createPhoto"),
+    EVENT_RSVP("eventRsvp");
 
     public static final ImmutableSet<String> asSet = ImmutableSet.of(JOIN_NETWORK.getItemFieldName(),
                                                                     JOIN_GROUP.getItemFieldName(),

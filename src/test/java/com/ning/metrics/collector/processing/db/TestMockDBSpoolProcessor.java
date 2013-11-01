@@ -100,7 +100,7 @@ public class TestMockDBSpoolProcessor
         final String feed = "feed";
         
         String eventData = "{"
-                + "\""+FeedEventData.CONTENT_ID_KEY+"\": \"123:Meal:456\","
+                + "\""+FeedEventData.FEED_EVENT_ID_KEY+"\": \"123:Meal:456\","
                 + "\"content-type\": \"Meal\","
                 + (isSuppressType?"\""+FeedEventData.EVENT_TYPE_KEY+"\": \""+FeedEventData.EVENT_TYPE_SUPPRESS+"\",":"")
                 + "\""+FeedEventData.TOPICS_KEY+"\": [\""+topic+"\"]"                
