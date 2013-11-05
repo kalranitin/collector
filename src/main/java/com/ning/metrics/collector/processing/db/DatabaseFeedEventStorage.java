@@ -22,6 +22,7 @@ import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 
 import org.joda.time.DateTime;
@@ -35,7 +36,6 @@ import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.collections.Lists;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -69,7 +69,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
             @Override
             public List<String> withHandle(Handle handle) throws Exception
             {
-                final List<String> idList = Lists.newArrayList(feedEvents.size());
+                final List<String> idList = Lists.newArrayListWithCapacity(feedEvents.size());
                 PreparedBatch batch = handle.prepareBatch("insert into feed_events (id, channel, created_at, metadata, event, subscription_id) values (:id, :channel, :now, :metadata, :event, :subscription_id)");
                 
                 for(FeedEvent feedEvent : feedEvents){
