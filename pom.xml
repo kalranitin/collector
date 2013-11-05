@@ -475,8 +475,8 @@
 						<exclude>.idea/**</exclude>
 						<exclude>.git/**</exclude>
 						<exclude>.gitignore</exclude>
-						<exclude>.sql</exclude>
-						<exclude>.properties</exclude>
+						<exclude>*.sql</exclude>
+						<exclude>*.properties</exclude>
 						<exclude>README.*</exclude>
 						<exclude>API.txt</exclude>
 						<exclude>RELEASE.sh</exclude>
