@@ -82,7 +82,7 @@ public class TestMockDBSpoolProcessor
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);
         Mockito.when(eventDeserializer.getNextEvent()).thenReturn(event);
-        Mockito.when(event.getName()).thenReturn("non-feed-event");
+        Mockito.when(event.getName()).thenReturn("nonFeedEvent");
         dbSpoolProcessor.processEventFile(null, serializationType, file, null);
         
         Mockito.verify(serializationType,Mockito.times(1)).getDeSerializer(Mockito.<InputStream>any());
@@ -109,7 +109,7 @@ public class TestMockDBSpoolProcessor
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);
         Mockito.when(eventDeserializer.getNextEvent()).thenReturn(event);
-        Mockito.when(event.getName()).thenReturn("feed-event");
+        Mockito.when(event.getName()).thenReturn("feedEvent");
         
         Mockito.when(event.getData()).thenReturn(eventData);
         
