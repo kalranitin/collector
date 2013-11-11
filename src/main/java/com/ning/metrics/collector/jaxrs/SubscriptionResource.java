@@ -69,14 +69,14 @@ public class SubscriptionResource
     
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("{id}")
+    @Path("/{id}")
     public Subscription getSubscription(@PathParam("id") Long id){
         return subscriptionStorage.loadSubscriptionById(id);
     }
     
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("{feed}")
+    @Path("/byfeed/{feed}")
     public Collection<Subscription> getSubscriptionsByFeed(@PathParam("feed") String feed)
     {
         return subscriptionStorage.loadByFeed(feed);
@@ -84,7 +84,7 @@ public class SubscriptionResource
     }
     
     @DELETE
-    @Path("{id}")
+    @Path("/{id}")
     public void deleteSubscription(@PathParam("id") Long id){
         if(!subscriptionStorage.deleteSubscriptionById(id))
         {

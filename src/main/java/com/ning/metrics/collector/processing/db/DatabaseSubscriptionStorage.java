@@ -21,6 +21,7 @@ import com.ning.metrics.collector.processing.db.util.InClauseExpander;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
@@ -62,7 +63,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     @Override
     public Long insert(final Subscription subscription)
     {
-        return dbi.withHandle(new HandleCallback<Long>()
+        Long result = dbi.withHandle(new HandleCallback<Long>()
         {
             @Override
             public Long withHandle(Handle handle) throws Exception
@@ -75,6 +76,13 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                              .first();
             }
         });
+        
+        if(!Objects.equal(null, subscription.getMetadata().getFeed()))
+        {
+            subscriptionCache.removeFeedSubscriptions(subscription.getMetadata().getFeed());            
+        }
+        
+        return result;
     }
 
     @Override
