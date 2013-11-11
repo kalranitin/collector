@@ -76,7 +76,7 @@ public class TestSubscriptionStorageImpl
         subscriptionStorage.insert(getSubscription("topic","channel","feed"));
         subscriptionStorage.insert(getSubscription("topic","channel","feed1"));
         
-        Set<Subscription> subscriptionSet = subscriptionStorage.load("topic");
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByTopic("topic");
         
         Assert.assertNotNull(subscriptionSet);
         Assert.assertFalse(subscriptionSet.isEmpty());
@@ -89,7 +89,20 @@ public class TestSubscriptionStorageImpl
         subscriptionStorage.insert(getSubscription("topic","channel","feed"));
         subscriptionStorage.insert(getSubscription("topic1","channel","feed1"));
         
-        Set<Subscription> subscriptionSet = subscriptionStorage.loadByStartsWith("topic");
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByStartsWithTopic("topic");
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertTrue(subscriptionSet.size() == 2);
+        
+    }
+    
+    @Test
+    public void testLoadSubscriptionByFeed() throws Exception{
+        subscriptionStorage.insert(getSubscription("topic","channel","feed"));
+        subscriptionStorage.insert(getSubscription("topic1","channel","feed"));
+        
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByFeed("feed");
         
         Assert.assertNotNull(subscriptionSet);
         Assert.assertFalse(subscriptionSet.isEmpty());
@@ -102,7 +115,7 @@ public class TestSubscriptionStorageImpl
         subscriptionStorage.insert(getSubscription("content-created network:bedazzlenw","channel-activity","feed"));
         subscriptionStorage.insert(getSubscription("content-created network:bedazzlenw tag:breakfast","channel-activity","feed1"));
         
-        Set<Subscription> subscriptionSet = subscriptionStorage.load("content-created network:bedazzlenw tag:breakfast");
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByTopic("content-created network:bedazzlenw tag:breakfast");
         
         Assert.assertNotNull(subscriptionSet);
         Assert.assertFalse(subscriptionSet.isEmpty());

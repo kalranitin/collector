@@ -23,9 +23,11 @@ public interface SubscriptionStorage
 {
     Long insert(Subscription subscription);
 
-    Set<Subscription> load(final String topic);
+    Set<Subscription> loadByTopic(final String topic);
     
-    public Set<Subscription> loadByStartsWith(final String topic);
+    public Set<Subscription> loadByStartsWithTopic(final String topic);
+    
+    public Set<Subscription> loadByFeed(final String feed);
 
     Subscription loadSubscriptionById(final Long id);
 

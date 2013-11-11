@@ -31,14 +31,21 @@ import java.util.Set;
 
 public class InMemorySubscriptionCache implements SubscriptionCache
 {
-    final Cache<String, Set<Subscription>> cache;
+    final Cache<String, Set<Subscription>> subscriptionByTopicCache;
+    final Cache<String, Set<Subscription>> subscriptionByFeedCache;
     final TimeSpan cacheExpiryTime;
     
     @Inject
     public InMemorySubscriptionCache(CollectorConfig config){
         this.cacheExpiryTime = config.getSubscriptionCacheTimeout();
         
-        this.cache = CacheBuilder.newBuilder()
+        this.subscriptionByTopicCache = CacheBuilder.newBuilder()
+                .maximumSize(config.getMaxSubscriptionCacheCount())
+                .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
+                .recordStats()
+                .build();
+        
+        this.subscriptionByFeedCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getMaxSubscriptionCacheCount())
                 .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
                 .recordStats()
@@ -46,64 +53,120 @@ public class InMemorySubscriptionCache implements SubscriptionCache
     }
 
     @Override
-    public Set<Subscription> loadSubscriptions(String topic)
+    public Set<Subscription> loadTopicSubscriptions(String topic)
     {
-        Set<Subscription> subscriptions = cache.getIfPresent(topic);
+        Set<Subscription> subscriptions = subscriptionByTopicCache.getIfPresent(topic);
         return subscriptions == null?new HashSet<Subscription>():subscriptions;
     }
 
     @Override
-    public void addSubscriptions(String topic, Set<Subscription> subscriptions)
+    public void addTopicSubscriptions(String topic, Set<Subscription> subscriptions)
     {
-        cache.put(topic, subscriptions);
+        subscriptionByTopicCache.put(topic, subscriptions);
     }
 
     @Override
-    public void removeSubscriptions(String topic)
+    public void removeTopicSubscriptions(String topic)
     {
-        cache.invalidate(topic);        
+        subscriptionByTopicCache.invalidate(topic);        
+    }
+    
+    @Override
+    public Set<Subscription> loadFeedSubscriptions(String feed)
+    {
+        Set<Subscription> subscriptions = subscriptionByFeedCache.getIfPresent(feed);
+        return subscriptions == null?new HashSet<Subscription>():subscriptions;
+    }
+
+    @Override
+    public void addFeedSubscriptions(String feed, Set<Subscription> subscriptions)
+    {
+        subscriptionByFeedCache.put(feed, subscriptions);
+    }
+
+    @Override
+    public void removeFeedSubscriptions(String feed)
+    {
+        subscriptionByFeedCache.invalidate(feed);        
     }
 
     @Override
     public void cleanUp()
     {
-        cache.invalidateAll();
-        cache.cleanUp();
+        subscriptionByTopicCache.invalidateAll();
+        subscriptionByFeedCache.invalidateAll();
+        subscriptionByTopicCache.cleanUp();
+        subscriptionByFeedCache.cleanUp();
     }
     
-    @Monitored(description = "Number of subscriptions in buffer", monitoringType = {MonitoringType.VALUE})
-    public long getSubscriptionsInCache(){
-        return cache.size();
+    @Monitored(description = "Number of topic subscriptions in buffer", monitoringType = {MonitoringType.VALUE})
+    public long getTopicSubscriptionsInCache(){
+        return subscriptionByTopicCache.size();
     }
     
-    @Monitored(description = "The number of times Cache lookup methods have returned a cached value", monitoringType = {MonitoringType.VALUE})
-    public long getSubscriptionsCacheHitCount(){
-        return cache.stats().hitCount();
+    @Monitored(description = "The number of times Topic Cache lookup methods have returned a cached value", monitoringType = {MonitoringType.VALUE})
+    public long getTopicSubscriptionsCacheHitCount(){
+        return subscriptionByTopicCache.stats().hitCount();
     }
     
-    @Monitored(description = "The ratio of cache requests which were hits", monitoringType = {MonitoringType.VALUE})
-    public double getSubscriptionsCacheHitRate(){
-        return cache.stats().hitRate();
+    @Monitored(description = "The ratio of topic cache requests which were hits", monitoringType = {MonitoringType.VALUE})
+    public double getTopicSubscriptionsCacheHitRate(){
+        return subscriptionByTopicCache.stats().hitRate();
     }
     
-    @Monitored(description = "The total number of times that Cache lookup methods attempted to load new values", monitoringType = {MonitoringType.VALUE})
-    public long getSubscriptionsCacheLoadCount(){
-        return cache.stats().loadCount();
+    @Monitored(description = "The total number of times that Topic Cache lookup methods attempted to load new values", monitoringType = {MonitoringType.VALUE})
+    public long getTopicSubscriptionsCacheLoadCount(){
+        return subscriptionByTopicCache.stats().loadCount();
     }
     
-    @Monitored(description = "The number of times Cache lookup methods have returned an uncached (newly loaded) value, or null", monitoringType = {MonitoringType.VALUE})
-    public long getSubscriptionsCacheMissCount(){
-        return cache.stats().missCount();
+    @Monitored(description = "The number of times Topic Cache lookup methods have returned an uncached (newly loaded) value, or null", monitoringType = {MonitoringType.VALUE})
+    public long getTopicSubscriptionsCacheMissCount(){
+        return subscriptionByTopicCache.stats().missCount();
     }
     
-    @Monitored(description = "The ratio of cache requests which were misses", monitoringType = {MonitoringType.VALUE})
-    public double getSubscriptionsCacheMissRate(){
-        return cache.stats().missRate();
+    @Monitored(description = "The ratio of topic cache requests which were misses", monitoringType = {MonitoringType.VALUE})
+    public double getTopicSubscriptionsCacheMissRate(){
+        return subscriptionByTopicCache.stats().missRate();
     }
     
-    @Monitored(description = "The number of times Cache lookup methods have returned either a cached or uncached value", monitoringType = {MonitoringType.VALUE})
-    public long getSubscriptionsCacheRequestCount(){
-        return cache.stats().requestCount();
+    @Monitored(description = "The number of times Topic Cache lookup methods have returned either a cached or uncached value", monitoringType = {MonitoringType.VALUE})
+    public long getTopicSubscriptionsCacheRequestCount(){
+        return subscriptionByTopicCache.stats().requestCount();
+    }
+    
+    @Monitored(description = "Number of feed subscriptions in buffer", monitoringType = {MonitoringType.VALUE})
+    public long getFeedSubscriptionsInCache(){
+        return subscriptionByFeedCache.size();
+    }
+    
+    @Monitored(description = "The number of times Feed Cache lookup methods have returned a cached value", monitoringType = {MonitoringType.VALUE})
+    public long getFeedSubscriptionsCacheHitCount(){
+        return subscriptionByFeedCache.stats().hitCount();
+    }
+    
+    @Monitored(description = "The ratio of feed cache requests which were hits", monitoringType = {MonitoringType.VALUE})
+    public double getFeedSubscriptionsCacheHitRate(){
+        return subscriptionByFeedCache.stats().hitRate();
+    }
+    
+    @Monitored(description = "The total number of times that Feed Cache lookup methods attempted to load new values", monitoringType = {MonitoringType.VALUE})
+    public long getFeedSubscriptionsCacheLoadCount(){
+        return subscriptionByFeedCache.stats().loadCount();
+    }
+    
+    @Monitored(description = "The number of times Feed Cache lookup methods have returned an uncached (newly loaded) value, or null", monitoringType = {MonitoringType.VALUE})
+    public long getFeedSubscriptionsCacheMissCount(){
+        return subscriptionByFeedCache.stats().missCount();
+    }
+    
+    @Monitored(description = "The ratio of feed cache requests which were misses", monitoringType = {MonitoringType.VALUE})
+    public double getFeedSubscriptionsCacheMissRate(){
+        return subscriptionByFeedCache.stats().missRate();
+    }
+    
+    @Monitored(description = "The number of times Feed Cache lookup methods have returned either a cached or uncached value", monitoringType = {MonitoringType.VALUE})
+    public long getFeedSubscriptionsCacheRequestCount(){
+        return subscriptionByFeedCache.stats().requestCount();
     }
 
 }

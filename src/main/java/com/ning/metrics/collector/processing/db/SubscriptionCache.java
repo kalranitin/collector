@@ -21,8 +21,11 @@ import java.util.Set;
 
 public interface SubscriptionCache
 {
-    public Set<Subscription> loadSubscriptions(final String topic);
-    public void addSubscriptions(final String topic, final Set<Subscription> subscriptions);
-    public void removeSubscriptions(final String topic);
+    public Set<Subscription> loadTopicSubscriptions(final String topic);
+    public void addTopicSubscriptions(final String topic, final Set<Subscription> subscriptions);
+    public void removeTopicSubscriptions(final String topic);
+    public Set<Subscription> loadFeedSubscriptions(final String metadata);
+    public void addFeedSubscriptions(final String metadata, final Set<Subscription> subscriptions);
+    public void removeFeedSubscriptions(final String metadata);
     public void cleanUp();
 }

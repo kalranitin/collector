@@ -116,11 +116,11 @@ public class TestMockDBSpoolProcessor
         Set<Subscription> subscriptionSet = new HashSet<Subscription>(Arrays.asList(getSubscription(1L,topic, channel, feed)));
         if(isSuppressType)
         {
-            Mockito.when(subscriptionStorage.loadByStartsWith(Mockito.anyString())).thenReturn(subscriptionSet);
+            Mockito.when(subscriptionStorage.loadByStartsWithTopic(Mockito.anyString())).thenReturn(subscriptionSet);
         }
         else
         {
-            Mockito.when(subscriptionStorage.load(Mockito.anyString())).thenReturn(subscriptionSet);
+            Mockito.when(subscriptionStorage.loadByTopic(Mockito.anyString())).thenReturn(subscriptionSet);
         }
         
         
@@ -139,13 +139,13 @@ public class TestMockDBSpoolProcessor
         Mockito.verify(event, Mockito.times(3)).getName();
         if(isSuppressType)
         {
-            Mockito.verify(subscriptionStorage,Mockito.times(1)).loadByStartsWith(Mockito.anyString());
-            Mockito.verify(subscriptionStorage,Mockito.times(0)).load(Mockito.anyString());
+            Mockito.verify(subscriptionStorage,Mockito.times(1)).loadByStartsWithTopic(Mockito.anyString());
+            Mockito.verify(subscriptionStorage,Mockito.times(0)).loadByTopic(Mockito.anyString());
         }
         else
         {
-            Mockito.verify(subscriptionStorage,Mockito.times(1)).load(Mockito.anyString());
-            Mockito.verify(subscriptionStorage,Mockito.times(0)).loadByStartsWith(Mockito.anyString());
+            Mockito.verify(subscriptionStorage,Mockito.times(1)).loadByTopic(Mockito.anyString());
+            Mockito.verify(subscriptionStorage,Mockito.times(0)).loadByStartsWithTopic(Mockito.anyString());
         }
         
         Mockito.verify(feedEventStorage,Mockito.times(1)).insert(Mockito.<FeedEvent>anyCollectionOf(FeedEvent.class));

@@ -78,9 +78,9 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     }
 
     @Override
-    public Set<Subscription> load(final String topic)
+    public Set<Subscription> loadByTopic(final String topic)
     {
-        Set<Subscription> subscriptions = subscriptionCache.loadSubscriptions(topic);
+        Set<Subscription> subscriptions = subscriptionCache.loadTopicSubscriptions(topic);
         if(subscriptions != null && !subscriptions.isEmpty())
         {
             return subscriptions;
@@ -107,7 +107,33 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                                                  .map(new SubscriptionMapper())
                                                  .list());
                 
-                subscriptionCache.addSubscriptions(topic, subscriptions);
+                subscriptionCache.addTopicSubscriptions(topic, subscriptions);
+                
+                return subscriptions;
+            }
+        });
+    }
+    
+    public Set<Subscription> loadByFeed(final String feed)
+    {
+        Set<Subscription> subscriptions = subscriptionCache.loadFeedSubscriptions(feed);
+        if(subscriptions != null && !subscriptions.isEmpty())
+        {
+            return subscriptions;
+        }
+        
+        return dbi.withHandle(new HandleCallback<Set<Subscription>>()
+        {
+            @Override
+            public Set<Subscription> withHandle(Handle handle) throws Exception
+            {
+                FeedEventMetaData metadata = new FeedEventMetaData(feed);
+                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, topic from subscriptions where metadata = :metadata")
+                                                 .bind("metadata",mapper.writeValueAsString(metadata))
+                                                 .map(new SubscriptionMapper())
+                                                 .list());
+                
+                subscriptionCache.addFeedSubscriptions(feed, subscriptions);
                 
                 return subscriptions;
             }
@@ -115,7 +141,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     }
     
     @Override
-    public Set<Subscription> loadByStartsWith(final String topic)
+    public Set<Subscription> loadByStartsWithTopic(final String topic)
     {
         return dbi.withHandle(new HandleCallback<Set<Subscription>>()
         {

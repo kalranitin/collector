@@ -120,7 +120,7 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                
                for(String topic : feedEventData.getTopics()){
                    // If suppress type event then load all subsciptions which start with the topic else load it by exploding the topic
-                   Set<Subscription> subscriptions = isSuppressTypeEvent?subscriptionStorage.loadByStartsWith(topic):subscriptionStorage.load(topic);
+                   Set<Subscription> subscriptions = isSuppressTypeEvent?subscriptionStorage.loadByStartsWithTopic(topic):subscriptionStorage.loadByTopic(topic);
                    
                    for(Subscription subscription : subscriptions)
                    {

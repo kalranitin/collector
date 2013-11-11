@@ -82,7 +82,7 @@ public class TestFeedEventStorage
         helper.clear();
         subscriptionStorage.insert(getSubscription(topic,channel,feed));
         
-        Set<Subscription> subscriptions = subscriptionStorage.load(topic);
+        Set<Subscription> subscriptions = subscriptionStorage.loadByTopic(topic);
         Assert.assertNotEquals(subscriptions.size(), 0);
         Assert.assertEquals(subscriptions.size(), 1);
         

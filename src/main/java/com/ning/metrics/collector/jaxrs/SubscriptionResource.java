@@ -23,6 +23,8 @@ import com.google.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -70,6 +72,15 @@ public class SubscriptionResource
     @Path("{id}")
     public Subscription getSubscription(@PathParam("id") Long id){
         return subscriptionStorage.loadSubscriptionById(id);
+    }
+    
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    @Path("{feed}")
+    public Collection<Subscription> getSubscriptionsByFeed(@PathParam("feed") String feed)
+    {
+        return subscriptionStorage.loadByFeed(feed);
+        
     }
     
     @DELETE
