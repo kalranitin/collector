@@ -109,7 +109,7 @@ public class TestMockDBSpoolProcessor
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);
         Mockito.when(eventDeserializer.getNextEvent()).thenReturn(event);
-        Mockito.when(event.getName()).thenReturn("feedEvent");
+        Mockito.when(event.getName()).thenReturn("FeedEvent");
         
         Mockito.when(event.getData()).thenReturn(eventData);
         

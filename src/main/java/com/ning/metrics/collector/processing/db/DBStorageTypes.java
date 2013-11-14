@@ -18,7 +18,7 @@ package com.ning.metrics.collector.processing.db;
 public enum DBStorageTypes
 {
     SUBSCRIPTION("subscription"),
-    FEED_EVENT("feedEvent"),
+    FEED_EVENT("FeedEvent"),
     FEED("feed");
     
     private String dbStorateType;
