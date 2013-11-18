@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.HashMap;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -55,15 +56,17 @@ public class SubscriptionResource
     
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
     public Response createSubscription(final Subscription subscription, @Context UriInfo ui){
         
-        Long key = subscriptionStorage.insert(subscription);
+        final Long key = subscriptionStorage.insert(subscription);
         
         return Response.created(
             ui.getBaseUriBuilder()
             .path(SubscriptionResource.class)
             .path("{id}")
             .build(key))
+            .entity(new HashMap<String, Long>(){{put("id",key);}})
             .build();        
     }
     

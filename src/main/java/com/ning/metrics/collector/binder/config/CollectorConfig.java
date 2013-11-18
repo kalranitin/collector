@@ -280,7 +280,7 @@ public interface CollectorConfig
     String getFiltersPath();
 
     @Config("collector.filters.event-type")
-    @DefaultNull
+    @Default("FeedEvent")
     String getFiltersEventType();
     
     /**
@@ -290,7 +290,7 @@ public interface CollectorConfig
      * @return whether to include or exclude the event types
      */
     @Config("collector.filters.event-type.included")
-    @Default("false")
+    @Default("true")
     boolean isFilteredEventTypeIncluded();
 
     /**
@@ -417,7 +417,7 @@ public interface CollectorConfig
      * Comma (,) seperated class names for processing the events.
      * */
     @Config("collector.spoolWriter.classes")
-    @Default("com.ning.metrics.collector.processing.hadoop.HadoopWriterFactory")
+    @Default("com.ning.metrics.collector.processing.db.DBSpoolProcessor")
     String getSpoolWriterClassNames();
     
     /**
@@ -439,11 +439,11 @@ public interface CollectorConfig
      * Per event Flush time. THe property would be like collector.spoolWriter.eventFoo.flushtime=120s
      * */
     @Config("collector.spoolWriter.${eventName}.flushTime")
-    @Default("300000s")
+    @Default("60s")
     TimeSpan getEventFlushTime();
     
     @Config("collector.spoolWriter.db.enabled")
-    @Default("false")
+    @Default("true")
     boolean isSpoolWriterDbEnabled();
     
     @Description("The jdbc url for the database")
@@ -458,7 +458,7 @@ public interface CollectorConfig
 
     @Description("The jdbc password for the database")
     @Config("collector.spoolWriter.jdbc.password")
-    @Default("root")
+    @Default("")
     String getPassword();
 
     @Description("The minimum allowed number of idle connections to the database")

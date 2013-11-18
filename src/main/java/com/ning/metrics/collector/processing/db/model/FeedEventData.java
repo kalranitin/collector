@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -94,7 +95,7 @@ public class FeedEventData
     }
 
     public String getFeedEventId(){
-        if(Objects.equal(null, this.feedEventId) || Objects.equal("", this.feedEventId))
+        if(Strings.isNullOrEmpty(this.feedEventId))
         {
             this.feedEventId = UUID.randomUUID().toString();
         }

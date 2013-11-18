@@ -20,6 +20,7 @@ import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.Feed;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.inject.Inject;
 
@@ -68,7 +69,7 @@ public class FeedEventProcessor
         for(FeedEvent feedEvent : feedEvents)
         {
             final String feedKey = feedEvent.getMetadata().getFeed();
-            if(Objects.equal(null, feedKey))
+            if(Strings.isNullOrEmpty(feedKey))
             {
                 continue;
             }

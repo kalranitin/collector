@@ -122,6 +122,47 @@ public class TestSubscriptionStorageImpl
         Assert.assertTrue(subscriptionSet.size() == 2);
     }
     
+    @Test
+    public void testDeleteSubscription(){
+        Long id = subscriptionStorage.insert(getSubscription("topic-1","channel-activity","feed-1"));
+        Assert.assertNotNull(id);
+        boolean deleted = subscriptionStorage.deleteSubscriptionById(id);
+        Assert.assertTrue(deleted);
+        Assert.assertNull(subscriptionStorage.loadSubscriptionById(id));
+    }
+    
+    @Test
+    public void testDeleteSubscriptionAfterLoadingToFeedCache()
+    {
+        final String feed = "feed-1";
+        Long id = subscriptionStorage.insert(getSubscription("topic-1","channel-activity",feed));
+        Assert.assertNotNull(id);
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByFeed(feed);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertNotEquals(subscriptionSet.size(), 0);
+        
+        boolean deleted = subscriptionStorage.deleteSubscriptionById(id);
+        Assert.assertTrue(deleted);
+        Assert.assertNull(subscriptionStorage.loadSubscriptionById(id));
+    }
+    
+    @Test
+    public void testDeleteSubscriptionAfterLoadingToTopicCache()
+    {
+        final String topic = "feed-1";
+        Long id = subscriptionStorage.insert(getSubscription(topic,"channel-activity","feed-1"));
+        Assert.assertNotNull(id);
+        Set<Subscription> subscriptionSet = subscriptionStorage.loadByTopic(topic);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertNotEquals(subscriptionSet.size(), 0);
+        
+        boolean deleted = subscriptionStorage.deleteSubscriptionById(id);
+        Assert.assertTrue(deleted);
+        Assert.assertNull(subscriptionStorage.loadSubscriptionById(id));
+    }
+    
     private Subscription getSubscription(String topic, String channel, String feed){
         FeedEventMetaData metadata = new FeedEventMetaData(feed);
         Subscription subscription = new Subscription(topic, metadata, channel);

@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -31,6 +32,7 @@ import com.google.inject.Inject;
 
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
+import org.skife.jdbi.v2.Query;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.logging.PrintStreamLog;
 import org.skife.jdbi.v2.tweak.HandleCallback;
@@ -41,6 +43,7 @@ import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class DatabaseSubscriptionStorage implements SubscriptionStorage
@@ -77,7 +80,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             }
         });
         
-        if(!Objects.equal(null, subscription.getMetadata().getFeed()))
+        if(!Strings.isNullOrEmpty(subscription.getMetadata().getFeed()))
         {
             subscriptionCache.removeFeedSubscriptions(subscription.getMetadata().getFeed());            
         }
@@ -174,9 +177,31 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             @Override
             public Boolean withHandle(Handle handle) throws Exception
             {
-                return 1 == handle.createStatement("delete from subscriptions where id = :id")
-                                  .bind("id", id)
-                                  .execute();
+                Subscription subscription = handle.createQuery("select id, metadata, channel, topic from subscriptions where id = :id")
+                        .bind("id", id)
+                        .map(new SubscriptionMapper())
+                        .first();
+                
+                if(Objects.equal(null, subscription))
+                {
+                    return true;
+                }
+                else
+                {
+                    if(Objects.equal(null, subscription.getMetadata()) && !Strings.isNullOrEmpty(subscription.getMetadata().getFeed()))
+                    {
+                        subscriptionCache.removeFeedSubscriptions(subscription.getMetadata().getFeed());
+                    }
+                    if(!Strings.isNullOrEmpty(subscription.getTopic()))
+                    {
+                        subscriptionCache.removeTopicSubscriptions(subscription.getTopic());
+                    }
+                    
+                    return 1 == handle.createStatement("delete from subscriptions where id = :id")
+                            .bind("id", id)
+                            .execute();
+                }
+                
             }
         });
     }

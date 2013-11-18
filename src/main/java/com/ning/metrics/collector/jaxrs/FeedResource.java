@@ -21,6 +21,7 @@ import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.feed.FeedRollUpProcessor;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 import com.google.inject.Inject;
 
 import org.slf4j.Logger;
@@ -61,7 +62,7 @@ public class FeedResource
         @QueryParam("filterAttributeValue") final String filterValue) {
         
         Map<String,Object> filterMap = new HashMap<String, Object>();
-        if(!Objects.equal(null, filterKey) && !Objects.equal(null, filterValue)){
+        if(!Strings.isNullOrEmpty(filterKey) && !Strings.isNullOrEmpty(filterValue)){
             filterMap.put(filterKey, filterValue);
         }
         

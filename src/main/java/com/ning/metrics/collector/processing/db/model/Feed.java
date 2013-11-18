@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -49,6 +50,8 @@ public class Feed
         else
         {
             List<FeedEvent> tmpList = Lists.newArrayList(this.feedEvents);
+            // overwrite feed events if existing
+            tmpList.removeAll(feedEvents);
             tmpList.addAll(feedEvents);
             
             // Max Feed event which needs to be in place are based on maxFeedSize
