@@ -188,7 +188,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                 }
                 else
                 {
-                    if(Objects.equal(null, subscription.getMetadata()) && !Strings.isNullOrEmpty(subscription.getMetadata().getFeed()))
+                    if(!Objects.equal(null, subscription.getMetadata()) && !Strings.isNullOrEmpty(subscription.getMetadata().getFeed()))
                     {
                         subscriptionCache.removeFeedSubscriptions(subscription.getMetadata().getFeed());
                     }

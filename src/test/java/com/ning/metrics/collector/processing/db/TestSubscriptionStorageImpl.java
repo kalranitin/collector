@@ -145,6 +145,7 @@ public class TestSubscriptionStorageImpl
         boolean deleted = subscriptionStorage.deleteSubscriptionById(id);
         Assert.assertTrue(deleted);
         Assert.assertNull(subscriptionStorage.loadSubscriptionById(id));
+        Assert.assertTrue(subscriptionStorage.loadByFeed(feed).isEmpty());
     }
     
     @Test
@@ -161,6 +162,29 @@ public class TestSubscriptionStorageImpl
         boolean deleted = subscriptionStorage.deleteSubscriptionById(id);
         Assert.assertTrue(deleted);
         Assert.assertNull(subscriptionStorage.loadSubscriptionById(id));
+        Assert.assertTrue(subscriptionStorage.loadByTopic(topic).isEmpty());
+    }
+    
+    @Test(enabled = false)
+    public void testDeleteSubscriptionAfterLoadingMultiplesToTopicCache()
+    {
+        final String topic = "topic-1";
+        final String queryTopics = topic + " topic-2";
+        Long id = subscriptionStorage.insert(getSubscription(topic,
+                "channel-activity","feed-1"));
+        Assert.assertNotNull(id);
+        Set<Subscription> subscriptionSet = 
+                subscriptionStorage.loadByTopic(queryTopics);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertNotEquals(subscriptionSet.size(), 0);
+        
+        boolean deleted = subscriptionStorage.deleteSubscriptionById(id);
+        Assert.assertTrue(deleted);
+        Assert.assertNull(subscriptionStorage.loadSubscriptionById(id));
+        
+        Assert.assertTrue(
+                subscriptionStorage.loadByTopic(queryTopics).isEmpty());
     }
     
     private Subscription getSubscription(String topic, String channel, String feed){
