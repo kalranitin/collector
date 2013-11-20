@@ -24,11 +24,12 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import java.util.Collection;
+import java.util.HashMap;
 
 import org.skife.config.TimeSpan;
 
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 public class InMemorySubscriptionCache implements SubscriptionCache
@@ -60,25 +61,19 @@ public class InMemorySubscriptionCache implements SubscriptionCache
     }
 
     /**
-     * Loads Subscriptions for each of the topics in the given set.  If a cached
-     * result is found for a topic in the set, then that topic is removed from
-     * the original set.  This allows the caller to know the set of topics
-     * that are not in the cache
+     * Loads Subscriptions for each of the topics in the given set as a key-
+     * map from topic string to Subscription entity
      * @param topics
      * @return 
      */
     @Override
-    public Set<Subscription> loadTopicSubscriptions(Set<String> topics)
+    public Map<String,Subscription> loadTopicSubscriptions(Set<String> topics)
     {
         Subscription subscription;
-        String topic;
-        Set<Subscription> result = new HashSet<Subscription>();
+        Map<String,Subscription> result = new HashMap<String,Subscription>();
         
-        Iterator<String> topicIt = topics.iterator();
-        
-        while (topicIt.hasNext()) {
+        for(String topic:topics) {
             
-            topic = topicIt.next();
             subscription = subscriptionByTopicCache.getIfPresent(topic);
             
             // If no subscription is found in the cache, there's nothing to do
@@ -86,18 +81,15 @@ public class InMemorySubscriptionCache implements SubscriptionCache
                 continue;
             }
             
-            // otherwise, we know the subscription for the given topic and we
-            // can remove it from the original set 
-            topicIt.remove();
-
             // If the stored subscription for the topic is our placeholder for
-            // a known empty result, then we are done
+            // a known empty result, then replace the value we will store as 
+            // the subscription value for the current topic with null
             if (subscription == knownEmptyResult) {
-                continue;
+                subscription = null;
             }
             
             // otherwise, add the cached subscription to the result
-            result.add(subscription);
+            result.put(topic, subscription);
         }
         
         return result;
@@ -115,6 +107,9 @@ public class InMemorySubscriptionCache implements SubscriptionCache
             Collection<Subscription> subscriptions)
     {
         String topic;
+        
+        //Copy the list of topics, so as to not distrurb the user's data.
+        topicsQueried = new HashSet<String>(topicsQueried);
         
         // Add topics and subcsriptions to the cache as key-value pairs
         for (Subscription subscription : subscriptions) {

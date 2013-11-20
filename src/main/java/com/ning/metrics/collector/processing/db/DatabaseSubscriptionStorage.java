@@ -27,14 +27,11 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.Query;
 import org.skife.jdbi.v2.StatementContext;
-import org.skife.jdbi.v2.logging.PrintStreamLog;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.skife.jdbi.v2.util.LongMapper;
@@ -44,7 +41,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -99,8 +95,20 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     {
         final Set<String> topicSubQueries = decomposeTopicQuery(topicQuery);
         
-        final Set<Subscription> result = 
+        final Map<String, Subscription> cachedResults = 
                 subscriptionCache.loadTopicSubscriptions(topicSubQueries);
+        
+        final Set<Subscription> result = new HashSet<Subscription>();
+        
+        // Iterate through the results from the cache, and remove any topics
+        // that were found from the list of topics left to query, and add
+        // the non-null subscriptions to the list of results
+        for (Map.Entry<String,Subscription> entry : cachedResults.entrySet()) {
+            topicSubQueries.remove(entry.getKey());
+            if (entry.getValue() != null) {
+                result.add(entry.getValue());
+            }
+        }
         
         // all topics that are found in the cache will be removed, so if no
         // topic subqueries are left, we are done
@@ -124,9 +132,12 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                                     .map(new SubscriptionMapper())
                                     .list();
 
-                    return subscriptions;
+                    return subscriptions == null 
+                            ? new HashSet<Subscription>()
+                            : subscriptions;
                 }
             });
+            
             
             // Add the database results to the results from the cache
             result.addAll(dbResults);
@@ -152,7 +163,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
         for(String topic : WHITESPACE_SPLITTER.split(topicQuery)) {
             last = (last == null) 
                     ? topic 
-                    : String.format("%s %s", last, topic);
+                    : WHITESPACE_JOINER.join(last, topic);
             result.add(last);
         }
         
