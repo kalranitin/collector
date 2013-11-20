@@ -71,10 +71,14 @@ public class InMemorySubscriptionCache implements SubscriptionCache
     public Set<Subscription> loadTopicSubscriptions(Set<String> topics)
     {
         Subscription subscription;
-        
+        String topic;
         Set<Subscription> result = new HashSet<Subscription>();
-        for (String topic : topics) {
+        
+        Iterator<String> topicIt = topics.iterator();
+        
+        while (topicIt.hasNext()) {
             
+            topic = topicIt.next();
             subscription = subscriptionByTopicCache.getIfPresent(topic);
             
             // If no subscription is found in the cache, there's nothing to do
@@ -84,7 +88,7 @@ public class InMemorySubscriptionCache implements SubscriptionCache
             
             // otherwise, we know the subscription for the given topic and we
             // can remove it from the original set 
-            topics.remove(topic);
+            topicIt.remove();
 
             // If the stored subscription for the topic is our placeholder for
             // a known empty result, then we are done
