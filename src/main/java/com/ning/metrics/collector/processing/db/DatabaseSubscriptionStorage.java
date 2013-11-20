@@ -42,6 +42,8 @@ import org.skife.jdbi.v2.util.LongMapper;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -84,45 +86,77 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
         {
             subscriptionCache.removeFeedSubscriptions(subscription.getMetadata().getFeed());            
         }
+        if(!Strings.isNullOrEmpty(subscription.getTopic()))
+        {
+            subscriptionCache.removeTopicSubscriptions(subscription.getTopic());
+        }
         
         return result;
     }
 
     @Override
-    public Set<Subscription> loadByTopic(final String topic)
+    public Set<Subscription> loadByTopic(final String topicQuery)
     {
-        Set<Subscription> subscriptions = subscriptionCache.loadTopicSubscriptions(topic);
-        if(subscriptions != null && !subscriptions.isEmpty())
+        final Set<String> topicSubQueries = decomposeTopicQuery(topicQuery);
+        
+        final Set<Subscription> result = 
+                subscriptionCache.loadTopicSubscriptions(topicSubQueries);
+        
+        // all topics that are found in the cache will be removed, so if no
+        // topic subqueries are left, we are done
+        if(!topicSubQueries.isEmpty())
         {
-            return subscriptions;
+        
+            Collection<Subscription> dbResults = dbi.withHandle(
+                    new HandleCallback<Collection<Subscription>>()
+            {
+                @Override
+                public Collection<Subscription> withHandle(Handle handle) 
+                        throws Exception
+                {
+
+                    InClauseExpander in = new InClauseExpander(topicSubQueries);
+
+                    Collection<Subscription> subscriptions =  
+                            handle.createQuery(
+                                    "select id, metadata, channel, topic from subscriptions where topic in (" + in.getExpansion() + ")")
+                                    .bindNamedArgumentFinder(in)
+                                    .map(new SubscriptionMapper())
+                                    .list();
+
+                    return subscriptions;
+                }
+            });
+            
+            // Add the database results to the results from the cache
+            result.addAll(dbResults);
+            
+            // Update the cache with the new responses from the database
+            subscriptionCache.addTopicSubscriptions(topicSubQueries, dbResults);
         }
         
-        return dbi.withHandle(new HandleCallback<Set<Subscription>>()
-        {
-            @Override
-            public Set<Subscription> withHandle(Handle handle) throws Exception
-            {
-                // The logic is to look up all possible combinations from left to right separated by " "
-                // e.g. topic "a b c" should look up for subscriptions for "a", "a b", "a b c".
-                Iterable<String> parts = WHITESPACE_SPLITTER.split(topic);
-                List<String> topics = Lists.newArrayList();
-                List<String> reconsistuted_parts = Lists.newArrayList();
-                for (String part : parts) {
-                    reconsistuted_parts.add(part);
-                    topics.add(WHITESPACE_JOINER.join(reconsistuted_parts));
-                }
-                InClauseExpander in = new InClauseExpander(topics);
-                
-                Set<Subscription> subscriptions =  ImmutableSet.copyOf(handle.createQuery("select id, metadata, channel, topic from subscriptions where topic in (" + in.getExpansion() + ")")
-                                                 .bindNamedArgumentFinder(in)
-                                                 .map(new SubscriptionMapper())
-                                                 .list());
-                
-                subscriptionCache.addTopicSubscriptions(topic, subscriptions);
-                
-                return subscriptions;
-            }
-        });
+        return ImmutableSet.copyOf(result);
+    }
+    
+    /**
+     * Break down the given space-delimited topic string of the form "a b c" 
+     * into a list of the subqueries it contains, {"a", "a b", "a b c"}
+     * @param topicQuery
+     * @return 
+     */
+    private Set<String> decomposeTopicQuery(String topicQuery) {
+        Set<String> result = new HashSet<String>();
+        
+        String last = null;
+        
+        for(String topic : WHITESPACE_SPLITTER.split(topicQuery)) {
+            last = (last == null) 
+                    ? topic 
+                    : String.format("%s %s", last, topic);
+            result.add(last);
+        }
+        
+        return result;
     }
     
     public Set<Subscription> loadByFeed(final String feed)

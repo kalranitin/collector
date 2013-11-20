@@ -20,6 +20,7 @@ import com.ning.metrics.collector.processing.db.model.Subscription;
 
 import com.google.inject.Guice;
 import com.google.inject.Inject;
+import java.util.Iterator;
 
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -165,7 +166,7 @@ public class TestSubscriptionStorageImpl
         Assert.assertTrue(subscriptionStorage.loadByTopic(topic).isEmpty());
     }
     
-    @Test(enabled = false)
+    @Test
     public void testDeleteSubscriptionAfterLoadingMultiplesToTopicCache()
     {
         final String topic = "topic-1";
@@ -185,6 +186,102 @@ public class TestSubscriptionStorageImpl
         
         Assert.assertTrue(
                 subscriptionStorage.loadByTopic(queryTopics).isEmpty());
+    }
+    
+    @Test
+    public void testCacheMissToCacheHitWhenLoadingByFeed() {
+        String feed = "feed";
+        Subscription s1 = getSubscription("topic", "channel", feed);
+        subscriptionStorage.insert(s1);
+        
+        // Query for the first time
+        Set<Subscription> subscriptionSet = 
+                subscriptionStorage.loadByFeed(feed);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertEquals(1, subscriptionSet.size());
+        
+        Subscription s2 = subscriptionSet.iterator().next();
+        
+        // Query for the second time
+        subscriptionSet = 
+                subscriptionStorage.loadByFeed(feed);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertEquals(1, subscriptionSet.size());
+        
+        Subscription s3 = subscriptionSet.iterator().next();
+        
+        Assert.assertSame(s2, s3);
+    }
+    
+    @Test
+    public void testCacheMissToCacheHitWhenLoadingByTopic() {
+        String topic = "topic";
+        Subscription s1 = getSubscription(topic, "channel", "feed");
+        subscriptionStorage.insert(s1);
+        
+        // Query for the first time
+        Set<Subscription> subscriptionSet = 
+                subscriptionStorage.loadByTopic(topic);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertEquals(1, subscriptionSet.size());
+        
+        Subscription s2 = subscriptionSet.iterator().next();
+        
+        // Query for the second time
+        subscriptionSet = 
+                subscriptionStorage.loadByTopic(topic);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertEquals(1, subscriptionSet.size());
+        
+        Subscription s3 = subscriptionSet.iterator().next();
+        
+        Assert.assertSame(s2, s3);
+    }
+    
+    @Test
+    public void testCacheMissToPartialCacheHitWhenLoadingByTopic() {
+        String topic1 = "topic1";
+        String topic2 = topic1 + " topic2";
+        Subscription s1 = getSubscription(topic1, "channel", "feed");
+        Subscription s2 = getSubscription(topic2, "channel", "feed");
+        subscriptionStorage.insert(s1);
+        subscriptionStorage.insert(s2);
+        
+        // Query for the first topic
+        Set<Subscription> subscriptionSet = 
+                subscriptionStorage.loadByTopic(topic1);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertEquals(1, subscriptionSet.size());
+        
+        Subscription s3 = subscriptionSet.iterator().next();
+        
+        // Query for the second topic
+        subscriptionSet = 
+                subscriptionStorage.loadByTopic(topic2);
+        
+        Assert.assertNotNull(subscriptionSet);
+        Assert.assertFalse(subscriptionSet.isEmpty());
+        Assert.assertEquals(2, subscriptionSet.size());
+        
+        Iterator<Subscription> it = subscriptionSet.iterator();
+        
+        Subscription s4 = it.next();
+        Subscription s5 = it.next();
+        
+        // find the subscrioption with the topic that matches topic1
+        Subscription s3_2 = s4.getTopic().equals(topic1) ? s4 : s5;
+        
+        Assert.assertSame(s3, s3_2);
     }
     
     private Subscription getSubscription(String topic, String channel, String feed){

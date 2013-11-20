@@ -16,16 +16,18 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.ning.metrics.collector.processing.db.model.Subscription;
-
+import java.util.Collection;
 import java.util.Set;
 
 public interface SubscriptionCache
 {
-    public Set<Subscription> loadTopicSubscriptions(final String topic);
-    public void addTopicSubscriptions(final String topic, final Set<Subscription> subscriptions);
+    public Set<Subscription> loadTopicSubscriptions(final Set<String> topics);
+    public void addTopicSubscriptions(final Set<String> topic, 
+            final Collection<Subscription> subscriptions);
     public void removeTopicSubscriptions(final String topic);
     public Set<Subscription> loadFeedSubscriptions(final String feed);
-    public void addFeedSubscriptions(final String feed, final Set<Subscription> subscriptions);
+    public void addFeedSubscriptions(final String feed, 
+            final Set<Subscription> subscriptions);
     public void removeFeedSubscriptions(final String feed);
     public void cleanUp();
 }

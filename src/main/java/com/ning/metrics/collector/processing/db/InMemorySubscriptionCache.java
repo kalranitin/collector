@@ -23,17 +23,22 @@ import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
+import java.util.Collection;
 
 import org.skife.config.TimeSpan;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 public class InMemorySubscriptionCache implements SubscriptionCache
 {
-    final Cache<String, Set<Subscription>> subscriptionByTopicCache;
+    final Cache<String, Subscription> subscriptionByTopicCache;
     final Cache<String, Set<Subscription>> subscriptionByFeedCache;
     final TimeSpan cacheExpiryTime;
+    
+    // This subscription is used to cache a known emptyResult for a given topic
+    final Subscription knownEmptyResult;
     
     @Inject
     public InMemorySubscriptionCache(CollectorConfig config){
@@ -50,19 +55,75 @@ public class InMemorySubscriptionCache implements SubscriptionCache
                 .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
                 .recordStats()
                 .build();
+        
+        knownEmptyResult = new Subscription("placeholder", null, null);
     }
 
+    /**
+     * Loads Subscriptions for each of the topics in the given set.  If a cached
+     * result is found for a topic in the set, then that topic is removed from
+     * the original set.  This allows the caller to know the set of topics
+     * that are not in the cache
+     * @param topics
+     * @return 
+     */
     @Override
-    public Set<Subscription> loadTopicSubscriptions(String topic)
+    public Set<Subscription> loadTopicSubscriptions(Set<String> topics)
     {
-        Set<Subscription> subscriptions = subscriptionByTopicCache.getIfPresent(topic);
-        return subscriptions == null?new HashSet<Subscription>():subscriptions;
+        Subscription subscription;
+        
+        Set<Subscription> result = new HashSet<Subscription>();
+        for (String topic : topics) {
+            
+            subscription = subscriptionByTopicCache.getIfPresent(topic);
+            
+            // If no subscription is found in the cache, there's nothing to do
+            if (subscription == null) {
+                continue;
+            }
+            
+            // otherwise, we know the subscription for the given topic and we
+            // can remove it from the original set 
+            topics.remove(topic);
+
+            // If the stored subscription for the topic is our placeholder for
+            // a known empty result, then we are done
+            if (subscription == knownEmptyResult) {
+                continue;
+            }
+            
+            // otherwise, add the cached subscription to the result
+            result.add(subscription);
+        }
+        
+        return result;
     }
 
+    /**
+     * Add the given set of subscriptions to the cache based on their topics,
+     * and add a known-empty-result placeholder to the cache for any topics that
+     * were queried but no corresponding subscription was found
+     * @param topicsQueried
+     * @param subscriptions 
+     */
     @Override
-    public void addTopicSubscriptions(String topic, Set<Subscription> subscriptions)
+    public void addTopicSubscriptions(Set<String> topicsQueried, 
+            Collection<Subscription> subscriptions)
     {
-        subscriptionByTopicCache.put(topic, subscriptions);
+        String topic;
+        
+        // Add topics and subcsriptions to the cache as key-value pairs
+        for (Subscription subscription : subscriptions) {
+            topic = subscription.getTopic();
+            topicsQueried.remove(topic);
+            subscriptionByTopicCache.put(topic, subscription);
+        }
+       
+        // Add known-empty-result placeholders for any of the queried topics 
+        // that returned to subscription
+        for(String emptyTopic : topicsQueried) {
+            subscriptionByTopicCache.put(emptyTopic, knownEmptyResult);
+        }
     }
 
     @Override
