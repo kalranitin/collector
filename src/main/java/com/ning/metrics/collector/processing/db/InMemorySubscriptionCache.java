@@ -27,7 +27,6 @@ import com.google.inject.Inject;
 
 import org.skife.config.TimeSpan;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;

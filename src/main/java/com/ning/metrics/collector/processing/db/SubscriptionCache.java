@@ -19,7 +19,6 @@ import com.ning.metrics.collector.processing.db.model.Subscription;
 
 import com.google.common.base.Optional;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
