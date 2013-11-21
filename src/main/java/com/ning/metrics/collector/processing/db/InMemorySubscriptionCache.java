@@ -20,26 +20,25 @@ import com.ning.arecibo.jmx.MonitoringType;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.model.Subscription;
 
+import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
-import java.util.Collection;
-import java.util.HashMap;
 
 import org.skife.config.TimeSpan;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 public class InMemorySubscriptionCache implements SubscriptionCache
 {
-    final Cache<String, Subscription> subscriptionByTopicCache;
+    final Cache<String, Optional<Subscription>> subscriptionByTopicCache;
     final Cache<String, Set<Subscription>> subscriptionByFeedCache;
     final TimeSpan cacheExpiryTime;
     
-    // This subscription is used to cache a known emptyResult for a given topic
-    final Subscription knownEmptyResult;
     
     @Inject
     public InMemorySubscriptionCache(CollectorConfig config){
@@ -56,8 +55,6 @@ public class InMemorySubscriptionCache implements SubscriptionCache
                 .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
                 .recordStats()
                 .build();
-        
-        knownEmptyResult = new Subscription("placeholder", null, null);
     }
 
     /**
@@ -67,32 +64,10 @@ public class InMemorySubscriptionCache implements SubscriptionCache
      * @return 
      */
     @Override
-    public Map<String,Subscription> loadTopicSubscriptions(Set<String> topics)
+    public Map<String, Optional<Subscription>> loadTopicSubscriptions(Set<String> topics)
     {
-        Subscription subscription;
-        Map<String,Subscription> result = new HashMap<String,Subscription>();
-        
-        for(String topic:topics) {
-            
-            subscription = subscriptionByTopicCache.getIfPresent(topic);
-            
-            // If no subscription is found in the cache, there's nothing to do
-            if (subscription == null) {
-                continue;
-            }
-            
-            // If the stored subscription for the topic is our placeholder for
-            // a known empty result, then replace the value we will store as 
-            // the subscription value for the current topic with null
-            if (subscription == knownEmptyResult) {
-                subscription = null;
-            }
-            
-            // otherwise, add the cached subscription to the result
-            result.put(topic, subscription);
-        }
-        
-        return result;
+        Map<String, Optional<Subscription>> subscriptions = subscriptionByTopicCache.getAllPresent(topics);
+        return subscriptions == null?new HashMap<String, Optional<Subscription>>():subscriptions;
     }
 
     /**
@@ -103,25 +78,19 @@ public class InMemorySubscriptionCache implements SubscriptionCache
      * @param subscriptions 
      */
     @Override
-    public void addTopicSubscriptions(Set<String> topicsQueried, 
-            Collection<Subscription> subscriptions)
+    public void addTopicSubscriptions(final Map<String, Optional<Subscription>> subscriptions)
     {
-        String topic;
-        
-        //Copy the list of topics, so as to not distrurb the user's data.
-        topicsQueried = new HashSet<String>(topicsQueried);
-        
-        // Add topics and subcsriptions to the cache as key-value pairs
-        for (Subscription subscription : subscriptions) {
-            topic = subscription.getTopic();
-            topicsQueried.remove(topic);
-            subscriptionByTopicCache.put(topic, subscription);
-        }
-       
-        // Add known-empty-result placeholders for any of the queried topics 
-        // that returned to subscription
-        for(String emptyTopic : topicsQueried) {
-            subscriptionByTopicCache.put(emptyTopic, knownEmptyResult);
+        subscriptionByTopicCache.putAll(subscriptions);
+    }
+    
+    public void addTopicSubscriptions(final String topic, final Optional<Subscription> subscriptions){
+        subscriptionByTopicCache.put(topic,subscriptions);
+    }
+    
+    public void addEmptyTopicSubscriptions(final Set<String> topics){
+        Optional<Subscription> absentSubscription = Optional.absent();
+        for(String emptyTopic : topics) {    
+            subscriptionByTopicCache.put(emptyTopic,absentSubscription);
         }
     }
 

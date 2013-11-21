@@ -27,6 +27,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 
 import org.skife.jdbi.v2.Handle;
@@ -41,6 +42,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -95,7 +97,7 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
     {
         final Set<String> topicSubQueries = decomposeTopicQuery(topicQuery);
         
-        final Map<String, Subscription> cachedResults = 
+        final Map<String, Optional<Subscription>> cachedResults = 
                 subscriptionCache.loadTopicSubscriptions(topicSubQueries);
         
         final Set<Subscription> result = new HashSet<Subscription>();
@@ -103,11 +105,12 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
         // Iterate through the results from the cache, and remove any topics
         // that were found from the list of topics left to query, and add
         // the non-null subscriptions to the list of results
-        for (Map.Entry<String,Subscription> entry : cachedResults.entrySet()) {
-            topicSubQueries.remove(entry.getKey());
-            if (entry.getValue() != null) {
-                result.add(entry.getValue());
-            }
+        for (String topic : cachedResults.keySet()) {
+            if(cachedResults.get(topic).isPresent())
+            {
+                result.add(cachedResults.get(topic).get());
+                topicSubQueries.remove(topic);
+            }       
         }
         
         // all topics that are found in the cache will be removed, so if no
@@ -123,18 +126,31 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                         throws Exception
                 {
 
+                    final Set<Subscription> dbResult = new HashSet<Subscription>();
+                    
                     InClauseExpander in = new InClauseExpander(topicSubQueries);
-
-                    Collection<Subscription> subscriptions =  
+                    
+                    Iterator<Subscription> subscriptionsIter =  
                             handle.createQuery(
                                     "select id, metadata, channel, topic from subscriptions where topic in (" + in.getExpansion() + ")")
                                     .bindNamedArgumentFinder(in)
                                     .map(new SubscriptionMapper())
-                                    .list();
+                                    .iterator();
+                    
+                    
+                    if(subscriptionsIter != null)
+                    {
+                        while(subscriptionsIter.hasNext())
+                        {
+                            Subscription dbSubscription = subscriptionsIter.next();
+                            dbResult.add(dbSubscription);
+                            
+                            subscriptionCache.addTopicSubscriptions(dbSubscription.getTopic(), Optional.of(dbSubscription));
+                            topicSubQueries.remove(dbSubscription.getTopic());
+                        }
+                    }
 
-                    return subscriptions == null 
-                            ? new HashSet<Subscription>()
-                            : subscriptions;
+                    return dbResult;
                 }
             });
             
@@ -142,8 +158,11 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
             // Add the database results to the results from the cache
             result.addAll(dbResults);
             
-            // Update the cache with the new responses from the database
-            subscriptionCache.addTopicSubscriptions(topicSubQueries, dbResults);
+            // Add empty subscriptions to the cache
+            if(!topicSubQueries.isEmpty())
+            {
+                subscriptionCache.addEmptyTopicSubscriptions(topicSubQueries);
+            }
         }
         
         return ImmutableSet.copyOf(result);
