@@ -260,6 +260,10 @@ public class DatabaseSubscriptionStorage implements SubscriptionStorage
                         subscriptionCache.removeTopicSubscriptions(subscription.getTopic());
                     }
                     
+                    handle.createStatement("delete from feed_events where subscription_id = :id")
+                    .bind("id", id)
+                    .execute();
+                    
                     return 1 == handle.createStatement("delete from subscriptions where id = :id")
                             .bind("id", id)
                             .execute();

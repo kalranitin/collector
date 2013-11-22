@@ -21,6 +21,7 @@ import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.RolledUpFeedEvent;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -79,22 +80,22 @@ public class FeedRollUpProcessor
                 continue;
             }
             
-            if(feedEvent.getEvent() != null && RolledUpEventTypes.asSet.contains(feedEvent.getEvent().getEventType())){
+            if(feedEvent.getEvent() != null && !Strings.isNullOrEmpty(feedEvent.getEvent().getRollupKey())){
                 
-                List<FeedEvent> feedEventListByType = arrayListMultimap.get(feedEvent.getEvent().getEventType());
+                List<FeedEvent> feedEventListByRollupKey = arrayListMultimap.get(feedEvent.getEvent().getRollupKey());
                 
-                if(feedEventListByType == null){
-                    feedEventListByType = Lists.newArrayList();
+                if(feedEventListByRollupKey == null){
+                    feedEventListByRollupKey = Lists.newArrayList();
                 }
                 
-                if(!feedEventListByType.isEmpty()){
+                if(!feedEventListByRollupKey.isEmpty()){
                     
-                    FeedEvent compareFeedEvent = feedEventListByType.get(0);
+                    FeedEvent compareFeedEvent = feedEventListByRollupKey.get(0);
                     
                     if(feedEvent.getEvent().getCreatedDate().plusHours(24).isAfter(compareFeedEvent.getEvent().getCreatedDate()))
                     {
                         // event been iterated upon is a candidate for roll up
-                        arrayListMultimap.put(feedEvent.getEvent().getEventType(), feedEvent);
+                        arrayListMultimap.put(feedEvent.getEvent().getRollupKey(), feedEvent);
                         
                      // Remove the event from the list as it has to be grouped based on the type as it is grouped and we do now want duplicates
                         iterator.remove();
@@ -103,7 +104,7 @@ public class FeedRollUpProcessor
                 }
                 else
                 {
-                    arrayListMultimap.put(feedEvent.getEvent().getEventType(), feedEvent);
+                    arrayListMultimap.put(feedEvent.getEvent().getRollupKey(), feedEvent);
                     
                  // Remove the event from the list as it has to be grouped based on the type as it is grouped and we do now want duplicates
                     iterator.remove();
@@ -111,9 +112,9 @@ public class FeedRollUpProcessor
             }
         }
         
-        for(String eventType : arrayListMultimap.keySet())
+        for(String rollupKey : arrayListMultimap.keySet())
         {
-            compiledFeedEventList.add(new RolledUpFeedEvent(eventType, arrayListMultimap.get(eventType)));
+            compiledFeedEventList.add(new RolledUpFeedEvent(rollupKey, arrayListMultimap.get(rollupKey)));
         }
         
         // add rest of the events

@@ -44,12 +44,14 @@ public class FeedEventData
     private final List<String> removalTargets = new CopyOnWriteArrayList<String>();
     private String feedEventId = "";
     private String eventType = "";
+    private String rollupKey = "";
     public final static String FEED_EVENT_ID_KEY = "feedEventId";
     public final static String EVENT_TYPE_KEY = "eventType";
     public final static String CREATED_DATE_KEY = "createdDate";
     public final static String TOPICS_KEY = "topics";
     public final static String REMOVAL_TARGETS = "removalTargets";
     public final static String EVENT_TYPE_SUPPRESS = "eventSuppress";
+    public final static String ROLLUP_KEY = "rollupKey";
     
     //    @JsonCreator
     public FeedEventData()
@@ -83,6 +85,9 @@ public class FeedEventData
         else if (REMOVAL_TARGETS.equals(key)) {
             this.removalTargets.addAll((Collection) value);
         }
+        else if(ROLLUP_KEY.equals(key)){
+            this.rollupKey = (String) value;
+        }
         else {
             data.put(key, value);
         }
@@ -104,6 +109,10 @@ public class FeedEventData
     
     public String getEventType(){
         return eventType;
+    }
+    
+    public String getRollupKey(){
+        return rollupKey;
     }
     
     public DateTime getCreatedDate(){
@@ -188,11 +197,14 @@ public class FeedEventData
             jgen.writeObject(event.getEventType());
             jgen.writeFieldName(REMOVAL_TARGETS);
             jgen.writeObject(event.getRemovalTargets());
+            jgen.writeFieldName(ROLLUP_KEY);
+            jgen.writeObject(event.getRollupKey());
             
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
                 if (!TOPICS_KEY.equals(entry.getKey()) 
                         && !FEED_EVENT_ID_KEY.equals(entry.getKey()) 
                         && !EVENT_TYPE_KEY.equals(entry.getKey())
+                        && !ROLLUP_KEY.equals(entry.getKey())
                         && !REMOVAL_TARGETS.equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());
                     jgen.writeObject(entry.getValue());

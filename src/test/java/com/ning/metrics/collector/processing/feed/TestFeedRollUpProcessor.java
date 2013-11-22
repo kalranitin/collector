@@ -45,12 +45,12 @@ public class TestFeedRollUpProcessor
         DateTime dt = new DateTime(DateTimeZone.UTC);
 
         Subscription subscription = getSubscription(1L, "topic", "channel", "feed");
-        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event1\"")));
+        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event1\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName)));
         
         feed.addFeedEvents(Arrays.asList(
-                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event2\""),
-                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event3\""),
-                                            getFeedEvent(subscription, "4",dt.plusHours(25), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event4\"")
+                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event2\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event3\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                                            getFeedEvent(subscription, "4",dt.plusHours(25), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event4\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName)
                                         ) , 
                                         100);
         
@@ -71,13 +71,13 @@ public class TestFeedRollUpProcessor
         DateTime dt = new DateTime(DateTimeZone.UTC);
 
         Subscription subscription = getSubscription(1L, "topic", "channel", "feed");
-        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\"")));
+        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName)));
         
         feed.addFeedEvents(Arrays.asList(
-                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1","","\"event2\""),
-                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event3\""),
-                                            getFeedEvent(subscription, "4",dt.plusHours(3), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event4\""),
-                                            getFeedEvent(subscription, "5",dt.plusHours(4), "",FeedEventData.EVENT_TYPE_SUPPRESS,"\"mainEvent\"")
+                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1","","\"event2\"",""),
+                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event3\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                                            getFeedEvent(subscription, "4",dt.plusHours(3), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event4\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                                            getFeedEvent(subscription, "5",dt.plusHours(4), "",FeedEventData.EVENT_TYPE_SUPPRESS,"\"mainEvent\"","")
                                         ) , 
                                         100);
         
@@ -96,7 +96,7 @@ public class TestFeedRollUpProcessor
         return subscription;
     }
     
-    private FeedEvent getFeedEvent(Subscription subscription, String contentId, DateTime date, String visibility, String eventType, String removalTarget) throws JsonParseException, JsonMappingException, IOException{  
+    private FeedEvent getFeedEvent(Subscription subscription, String contentId, DateTime date, String visibility, String eventType, String removalTarget, String rollupKey) throws JsonParseException, JsonMappingException, IOException{  
         String eventData = "{"
                 + "\""+FeedEventData.FEED_EVENT_ID_KEY+"\": \""+contentId+"\","
                 + "\"content-type\": \"Meal\","
@@ -104,7 +104,8 @@ public class TestFeedRollUpProcessor
                 + "\""+FeedEventData.CREATED_DATE_KEY+"\": \""+date+"\","
                 + "\""+FeedEventData.EVENT_TYPE_KEY+"\": \""+eventType+"\","
                 + "\""+FeedEventData.REMOVAL_TARGETS+"\": ["+removalTarget+"],"
-                + "\""+FeedEventData.TOPICS_KEY+"\": [\"topic\"]"
+                + "\""+FeedEventData.TOPICS_KEY+"\": [\"topic\"],"
+                + "\""+FeedEventData.ROLLUP_KEY+"\": \""+rollupKey+"\""
          + "}";
         
         return new FeedEvent(mapper.readValue(eventData, FeedEventData.class), 

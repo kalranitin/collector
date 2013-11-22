@@ -448,7 +448,7 @@ public interface CollectorConfig
     
     @Description("The jdbc url for the database")
     @Config("collector.spoolWriter.jdbc.url")
-    @Default("jdbc:mysql://127.0.0.1:3306/ning-collector")
+    @Default("jdbc:mysql://127.0.0.1:3306/collector")
     String getJdbcUrl();
     
     @Description("The jdbc user name for the database")

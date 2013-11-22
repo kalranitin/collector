@@ -52,6 +52,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -118,18 +119,21 @@ public class DBSpoolProcessor implements EventSpoolProcessor
                //Check is event type is to suppress other events
                boolean isSuppressTypeEvent = Objects.equal(FeedEventData.EVENT_TYPE_SUPPRESS, feedEventData.getEventType());
                
+               Set<Subscription> subscriptions = new HashSet<Subscription>();
                for(String topic : feedEventData.getTopics()){
                    // If suppress type event then load all subsciptions which start with the topic else load it by exploding the topic
-                   Set<Subscription> subscriptions = isSuppressTypeEvent?subscriptionStorage.loadByStartsWithTopic(topic):subscriptionStorage.loadByTopic(topic);
-                   
+                   subscriptions.addAll(isSuppressTypeEvent?subscriptionStorage.loadByStartsWithTopic(topic):subscriptionStorage.loadByTopic(topic));
+               }
+               if(!subscriptions.isEmpty())
+               {
                    for(Subscription subscription : subscriptions)
                    {
                        addToBuffer(event.getName(),new FeedEvent(feedEventData, 
                                                            subscription.getChannel(), 
                                                            subscription.getId(), 
                                                            subscription.getMetadata()));
-                   }                   
-               }
+                   }
+               }                  
             }            
         }
         
