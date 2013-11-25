@@ -84,11 +84,7 @@ public class FeedRollUpProcessor
                 
                 List<FeedEvent> feedEventListByRollupKey = arrayListMultimap.get(feedEvent.getEvent().getRollupKey());
                 
-                if(feedEventListByRollupKey == null){
-                    feedEventListByRollupKey = Lists.newArrayList();
-                }
-                
-                if(!feedEventListByRollupKey.isEmpty()){
+                if(feedEventListByRollupKey != null && !feedEventListByRollupKey.isEmpty()){
                     
                     FeedEvent compareFeedEvent = feedEventListByRollupKey.get(0);
                     
