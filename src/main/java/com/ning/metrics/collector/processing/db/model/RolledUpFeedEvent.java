@@ -16,6 +16,7 @@
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,20 +30,43 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class RolledUpFeedEvent extends FeedEvent
 {
-    private final String rollUpType;
-    private final List<FeedEvent> feedEvents;
 
+    /**
+     * Generate a RolledUpFeedEvent that can be used for assembly because the
+     * list given in this method is directly used.
+     * @param rollUpType
+     * @param feedEvents
+     * @return
+     */
+    public static RolledUpFeedEvent createForAssembly(String rollUpType,
+            ArrayList<FeedEvent> feedEvents) {
+        return new RolledUpFeedEvent(rollUpType, feedEvents);
+    }
+
+    private final String rollUpType;
+    private final ArrayList<FeedEvent> feedEvents;
 
     @JsonCreator
-    public RolledUpFeedEvent(@JsonProperty("rollUpType") String rollUpType, @JsonProperty("feedEvents") List<FeedEvent> feedEvents){
+    public RolledUpFeedEvent(@JsonProperty("rollUpType") String rollUpType,
+            @JsonProperty("feedEvents") List<FeedEvent> feedEvents){
+        this(rollUpType, Lists.newArrayList(feedEvents));
+    }
+
+    /**
+     * Internal constructor that allows the given arrayList to be used directly
+     * @param rollUpType
+     * @param feedEvents
+     * @param useListDirectly
+     */
+    private RolledUpFeedEvent(String rollUpType,
+            ArrayList<FeedEvent> feedEvents) {
 
         super(null,null,null,null);
 
-        this.feedEvents = feedEvents;
         this.rollUpType = rollUpType;
+        this.feedEvents = feedEvents;
 
     }
-
 
     public String getRollUpType()
     {
@@ -57,62 +81,7 @@ public class RolledUpFeedEvent extends FeedEvent
 
     public List<FeedEvent> getFeedEvents()
     {
-        return feedEvents;
-    }
-
-    /**
-     * Implementation of the RolledUpFeedEvent class that can be used to
-     * construct an instance of the rolled up feed event an event at a time.
-     */
-    public static class Builder extends FeedEvent {
-
-        private final String rollUpType;
-        private final ArrayList<FeedEvent> feedEvents;
-
-        public Builder(String rollUpType) {
-
-            super(null,null,null,null);
-
-            this.rollUpType = rollUpType;
-            this.feedEvents = new ArrayList<FeedEvent>();
-        }
-
-        /**
-         * Build a feed event based on this rolled up feed event builder.  If
-         * there is only one event in the list of be built, then just return the
-         * original event.  If there is more than one, return a legit, immutable
-         * RolledUpFeedEvent
-         * @return
-         */
-        public FeedEvent build() {
-            if (feedEvents.size() == 1) {
-                return feedEvents.get(0);
-            }
-
-            return new RolledUpFeedEvent(rollUpType,
-                    ImmutableList.copyOf(feedEvents));
-        }
-
-
-        /**
-         * Add an event to the roll up
-         * @param event
-         */
-        public void add(FeedEvent event) {
-            feedEvents.add(event);
-        }
-
-        /**
-         * return the first feed event in the list to be rolled
-         * @return
-         */
-        public FeedEvent getFirst() {
-            if (feedEvents.isEmpty()) {
-                return null;
-            }
-
-            return feedEvents.get(0);
-        }
+        return ImmutableList.copyOf(feedEvents);
     }
 
 }

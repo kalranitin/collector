@@ -47,10 +47,10 @@ public class TestFeedRollUpProcessor
         DateTime dt = new DateTime(DateTimeZone.UTC);
 
         Subscription subscription = getSubscription(1L, "topic", "channel", "feed");
-        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event1\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName)));
+        Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event1\"",RolledUpEventTypes.CREATE_PHOTO.itemFieldName)));
 
         feed.addFeedEvents(Arrays.asList(
-                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event2\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event2\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
                                             getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event3\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
                                             getFeedEvent(subscription, "4",dt.plusHours(25), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"event4\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName)
                                         ) ,

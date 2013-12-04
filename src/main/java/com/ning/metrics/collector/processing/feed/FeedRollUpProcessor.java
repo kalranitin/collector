@@ -60,8 +60,8 @@ public class FeedRollUpProcessor
         FeedEventComparator feedEventComparator = new FeedEventComparator();
         Collections.sort(feedEventList,feedEventComparator);
 
-        HashMap<String, RolledUpFeedEvent.Builder> rolledEventMap =
-                new HashMap<String, RolledUpFeedEvent.Builder>();
+        HashMap<String, ArrayList<FeedEvent>> rolledEventMultiMap =
+                new HashMap<String, ArrayList<FeedEvent>>();
         Iterator<FeedEvent> iterator = feedEventList.iterator();
         Set<String> removalTargetSet = new HashSet<String>();
 
@@ -84,19 +84,21 @@ public class FeedRollUpProcessor
             if(feedEvent.getEvent() != null && !Strings.isNullOrEmpty(feedEvent.getEvent().getRollupKey())){
 
                 String rollupKey = feedEvent.getEvent().getRollupKey();
-                RolledUpFeedEvent.Builder rolledUpEventBuilder =
-                        rolledEventMap.get(rollupKey);
+                ArrayList<FeedEvent> rolledUpEventList =
+                        rolledEventMultiMap.get(rollupKey);
                 FeedEvent compareFeedEvent = null;
 
                 // a null rolled event build indicates a new rollup key
-                if(rolledUpEventBuilder == null) {
-                    rolledUpEventBuilder =
-                            new RolledUpFeedEvent.Builder(rollupKey);
-                    rolledEventMap.put(rollupKey, rolledUpEventBuilder);
-                    compiledFeedEventList.add(rolledUpEventBuilder);
+                if(rolledUpEventList == null) {
+                    rolledUpEventList = Lists.newArrayList();
+                    RolledUpFeedEvent rolledEvent =
+                            RolledUpFeedEvent.createForAssembly(
+                                    rollupKey, rolledUpEventList);
+                    rolledEventMultiMap.put(rollupKey, rolledUpEventList);
+                    compiledFeedEventList.add(rolledEvent);
                 }
                 else {
-                    compareFeedEvent = rolledUpEventBuilder.getFirst();
+                    compareFeedEvent = rolledUpEventList.get(0);
                 }
 
                 // If there is an event to compare this one to, only roll
@@ -105,31 +107,16 @@ public class FeedRollUpProcessor
                         .isAfter(compareFeedEvent.getEvent().getCreatedDate()))
                 {
                     // event been iterated upon is a candidate for roll up
-                    rolledUpEventBuilder.add(feedEvent);
-                    continue;
+                    rolledUpEventList.add(feedEvent);
                 }
-                // else, the event is left in as an un-rolled-up event
 
+                // otherwise ignore the old, would-be-rolled event
+                continue;
             }
 
             // An event that makes it through to the bottom of the while loop
             // should be added to the compiled list of events
             compiledFeedEventList.add(feedEvent);
-        }
-
-        // iterate through the compiled list and build the rolled up events
-        // that need building.
-        int i = 0;
-        for (FeedEvent event : compiledFeedEventList) {
-
-            // Build and replace any of the rolledupfeedevent builders in the
-            // result list
-            if (event instanceof RolledUpFeedEvent.Builder) {
-                compiledFeedEventList.set(i,
-                        ((RolledUpFeedEvent.Builder)event).build());
-            }
-
-            i++;
         }
 
         return new Feed(compiledFeedEventList);
