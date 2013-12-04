@@ -22,7 +22,6 @@ import com.ning.metrics.collector.processing.db.model.RolledUpFeedEvent;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
