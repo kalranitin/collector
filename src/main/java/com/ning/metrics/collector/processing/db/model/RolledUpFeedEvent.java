@@ -19,6 +19,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import java.util.ArrayList;
 
 import java.util.List;
 
@@ -28,19 +31,19 @@ public class RolledUpFeedEvent extends FeedEvent
 {
     private final String rollUpType;
     private final List<FeedEvent> feedEvents;
-    
-    
+
+
     @JsonCreator
     public RolledUpFeedEvent(@JsonProperty("rollUpType") String rollUpType, @JsonProperty("feedEvents") List<FeedEvent> feedEvents){
-        
+
         super(null,null,null,null);
-        
+
         this.feedEvents = feedEvents;
         this.rollUpType = rollUpType;
-        
+
     }
-    
-    
+
+
     public String getRollUpType()
     {
         return rollUpType;
@@ -55,6 +58,61 @@ public class RolledUpFeedEvent extends FeedEvent
     public List<FeedEvent> getFeedEvents()
     {
         return feedEvents;
+    }
+
+    /**
+     * Implementation of the RolledUpFeedEvent class that can be used to
+     * construct an instance of the rolled up feed event an event at a time.
+     */
+    public static class Builder extends FeedEvent {
+
+        private final String rollUpType;
+        private final ArrayList<FeedEvent> feedEvents;
+
+        public Builder(String rollUpType) {
+
+            super(null,null,null,null);
+
+            this.rollUpType = rollUpType;
+            this.feedEvents = new ArrayList<FeedEvent>();
+        }
+
+        /**
+         * Build a feed event based on this rolled up feed event builder.  If
+         * there is only one event in the list of be built, then just return the
+         * original event.  If there is more than one, return a legit, immutable
+         * RolledUpFeedEvent
+         * @return
+         */
+        public FeedEvent build() {
+            if (feedEvents.size() == 1) {
+                return feedEvents.get(0);
+            }
+
+            return new RolledUpFeedEvent(rollUpType,
+                    ImmutableList.copyOf(feedEvents));
+        }
+
+
+        /**
+         * Add an event to the roll up
+         * @param event
+         */
+        public void add(FeedEvent event) {
+            feedEvents.add(event);
+        }
+
+        /**
+         * return the first feed event in the list to be rolled
+         * @return
+         */
+        public FeedEvent getFirst() {
+            if (feedEvents.isEmpty()) {
+                return null;
+            }
+
+            return feedEvents.get(0);
+        }
     }
 
 }

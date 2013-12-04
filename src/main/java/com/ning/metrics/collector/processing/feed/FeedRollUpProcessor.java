@@ -27,12 +27,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -42,92 +44,106 @@ import java.util.Set;
 public class FeedRollUpProcessor
 {
     private static final Logger log = LoggerFactory.getLogger(FeedRollUpProcessor.class);
-    
-    
+
+
     public Feed applyRollUp(final Feed feed, final Map<String,Object> filterMap){
         final List<FeedEvent> compiledFeedEventList = Lists.newArrayList();
-        
+
         // filter out all events which do not match "any" of the provided key value pair
         List<FeedEvent> feedEventList = (filterMap == null || filterMap.isEmpty())?Lists.newArrayList(feed.getFeedEvents()) : Lists.newArrayList(Iterables.filter(feed.getFeedEvents(), FeedEvent.isAnyKeyValuMatching(filterMap)));
-        
+
         if(feedEventList.isEmpty())
         {
             return new Feed(compiledFeedEventList);
         }
-        
+
         FeedEventComparator feedEventComparator = new FeedEventComparator();
         Collections.sort(feedEventList,feedEventComparator);
-        
-        ArrayListMultimap<String, FeedEvent> arrayListMultimap = ArrayListMultimap.create();
+
+        HashMap<String, RolledUpFeedEvent.Builder> rolledEventMap =
+                new HashMap<String, RolledUpFeedEvent.Builder>();
         Iterator<FeedEvent> iterator = feedEventList.iterator();
         Set<String> removalTargetSet = new HashSet<String>();
-        
+
         while(iterator.hasNext()){
             FeedEvent feedEvent = iterator.next();
-            
+
             // Do not include suppress types of events
             if(Objects.equal(FeedEventData.EVENT_TYPE_SUPPRESS, feedEvent.getEvent().getEventType()))
             {
                 removalTargetSet.addAll(feedEvent.getEvent().getRemovalTargets());
-                iterator.remove();
                 continue;
             }
-            
+
             // If any of the removal targets are matching then the specific event is to be suppressed
             if(!removalTargetSet.isEmpty() && !Sets.intersection(removalTargetSet, ImmutableSet.copyOf(feedEvent.getEvent().getRemovalTargets())).isEmpty())
             {
-                iterator.remove();
                 continue;
             }
-            
+
             if(feedEvent.getEvent() != null && !Strings.isNullOrEmpty(feedEvent.getEvent().getRollupKey())){
-                
-                List<FeedEvent> feedEventListByRollupKey = arrayListMultimap.get(feedEvent.getEvent().getRollupKey());
-                
-                if(feedEventListByRollupKey != null && !feedEventListByRollupKey.isEmpty()){
-                    
-                    FeedEvent compareFeedEvent = feedEventListByRollupKey.get(0);
-                    
-                    if(feedEvent.getEvent().getCreatedDate().plusHours(24).isAfter(compareFeedEvent.getEvent().getCreatedDate()))
-                    {
-                        // event been iterated upon is a candidate for roll up
-                        arrayListMultimap.put(feedEvent.getEvent().getRollupKey(), feedEvent);
-                        
-                     // Remove the event from the list as it has to be grouped based on the type as it is grouped and we do now want duplicates
-                        iterator.remove();
-                        
-                    }
+
+                String rollupKey = feedEvent.getEvent().getRollupKey();
+                RolledUpFeedEvent.Builder rolledUpEventBuilder =
+                        rolledEventMap.get(rollupKey);
+                FeedEvent compareFeedEvent = null;
+
+                // a null rolled event build indicates a new rollup key
+                if(rolledUpEventBuilder == null) {
+                    rolledUpEventBuilder =
+                            new RolledUpFeedEvent.Builder(rollupKey);
+                    rolledEventMap.put(rollupKey, rolledUpEventBuilder);
+                    compiledFeedEventList.add(rolledUpEventBuilder);
                 }
-                else
+                else {
+                    compareFeedEvent = rolledUpEventBuilder.getFirst();
+                }
+
+                // If there is an event to compare this one to, only roll
+                if(compareFeedEvent == null ||
+                        feedEvent.getEvent().getCreatedDate().plusHours(24)
+                        .isAfter(compareFeedEvent.getEvent().getCreatedDate()))
                 {
-                    arrayListMultimap.put(feedEvent.getEvent().getRollupKey(), feedEvent);
-                    
-                 // Remove the event from the list as it has to be grouped based on the type as it is grouped and we do now want duplicates
-                    iterator.remove();
+                    // event been iterated upon is a candidate for roll up
+                    rolledUpEventBuilder.add(feedEvent);
+                    continue;
                 }
+                // else, the event is left in as an un-rolled-up event
+
             }
+
+            // An event that makes it through to the bottom of the while loop
+            // should be added to the compiled list of events
+            compiledFeedEventList.add(feedEvent);
         }
-        
-        for(String rollupKey : arrayListMultimap.keySet())
-        {
-            compiledFeedEventList.add(new RolledUpFeedEvent(rollupKey, arrayListMultimap.get(rollupKey)));
+
+        // iterate through the compiled list and build the rolled up events
+        // that need building.
+        int i = 0;
+        for (FeedEvent event : compiledFeedEventList) {
+
+            // Build and replace any of the rolledupfeedevent builders in the
+            // result list
+            if (event instanceof RolledUpFeedEvent.Builder) {
+                compiledFeedEventList.set(i,
+                        ((RolledUpFeedEvent.Builder)event).build());
+            }
+
+            i++;
         }
-        
-        // add rest of the events
-        compiledFeedEventList.addAll(feedEventList);
-        
+
         return new Feed(compiledFeedEventList);
     }
-    
+
     private static final class FeedEventComparator implements Comparator<FeedEvent>{
-        
+
         @Override
         public int compare(FeedEvent feedEvent1, FeedEvent feedEvent2)
         {
             // Sort feed events by descending date
             return feedEvent2.getEvent().getCreatedDate().compareTo(feedEvent1.getEvent().getCreatedDate());
         }
-        
+
     }
 
 }
