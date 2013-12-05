@@ -21,65 +21,66 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import java.util.ArrayList;
-
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class RolledUpFeedEvent extends FeedEvent
-{
+public class RolledUpFeedEvent extends FeedEvent {
 
     /**
      * Generate a RolledUpFeedEvent that can be used for assembly because the
      * list given in this method is directly used.
+     *
      * @param rollUpType
      * @param feedEvents
      * @return
      */
     public static RolledUpFeedEvent createForAssembly(String rollUpType,
-            ArrayList<FeedEvent> feedEvents) {
-        return new RolledUpFeedEvent(rollUpType, feedEvents);
+            List<FeedEvent> feedEvents) {
+        return new RolledUpFeedEvent(rollUpType, feedEvents, false);
     }
 
     private final String rollUpType;
-    private final ArrayList<FeedEvent> feedEvents;
+    private final List<FeedEvent> feedEvents;
 
     @JsonCreator
     public RolledUpFeedEvent(@JsonProperty("rollUpType") String rollUpType,
-            @JsonProperty("feedEvents") List<FeedEvent> feedEvents){
-        this(rollUpType, Lists.newArrayList(feedEvents));
+            @JsonProperty("feedEvents") List<FeedEvent> feedEvents) {
+        this(rollUpType, feedEvents, true);
     }
 
     /**
+     * Ï
      * Internal constructor that allows the given arrayList to be used directly
+     *
      * @param rollUpType
      * @param feedEvents
      * @param useListDirectly
      */
     private RolledUpFeedEvent(String rollUpType,
-            ArrayList<FeedEvent> feedEvents) {
-
-        super(null,null,null,null);
+            List<FeedEvent> feedEvents, boolean copyEventListContents) {
+        super(null, null, null, null);
 
         this.rollUpType = rollUpType;
-        this.feedEvents = feedEvents;
+
+        if (copyEventListContents) {
+            this.feedEvents = Lists.newArrayList(feedEvents);
+        }
+        else {
+            this.feedEvents = feedEvents;
+        }
 
     }
 
-    public String getRollUpType()
-    {
+    public String getRollUpType() {
         return rollUpType;
     }
 
-    public int getCount()
-    {
+    public int getCount() {
         return this.feedEvents.size();
     }
 
-
-    public List<FeedEvent> getFeedEvents()
-    {
+    public List<FeedEvent> getFeedEvents() {
         return ImmutableList.copyOf(feedEvents);
     }
 
