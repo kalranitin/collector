@@ -49,8 +49,7 @@ public class RolledUpFeedEvent extends FeedEvent {
         this(rollUpType, feedEvents, true);
     }
 
-    /**
-     * Ï
+    /** 
      * Internal constructor that allows the given arrayList to be used directly
      *
      * @param rollUpType
