@@ -23,7 +23,7 @@
 	<url>http://github.com/pierre/collector</url>
 	<scm>
 		<connection>scm:git:git://github.com/pierre/collector.git</connection>
-		<developerConnection>scm:git:git@github.com:pierre/collector.git</developerConnection>
+		<developerConnection>scm:git:git@github.com:ning/collector.git</developerConnection>
 		<url>http://github.com/pierre/collector/tree/master</url>
 	</scm>
 	<repositories>
