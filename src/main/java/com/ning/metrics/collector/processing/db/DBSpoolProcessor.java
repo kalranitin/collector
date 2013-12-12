@@ -111,10 +111,11 @@ public class DBSpoolProcessor implements EventSpoolProcessor
         {
             Event event = eventDeserializer.getNextEvent();
             log.info(String.format("Recieved DB Event to store with name as %s ",event.getName()));
-            log.info(String.format("DB Event body to store is %s",event.getData()));
             
             if(event.getName().equalsIgnoreCase(DBStorageTypes.FEED_EVENT.getDbStorageType()))
             {
+               log.info(String.format("DB Event body to store is %s",event.getData()));
+                 
                FeedEventData feedEventData = mapper.readValue(event.getData().toString(), FeedEventData.class);
                //Check is event type is to suppress other events
                boolean isSuppressTypeEvent = Objects.equal(FeedEventData.EVENT_TYPE_SUPPRESS, feedEventData.getEventType());
