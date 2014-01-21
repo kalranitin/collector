@@ -60,4 +60,33 @@ public class RolledUpCounterData
     {
         totalCount += incrementValue;
     }
+
+    @Override
+    public int hashCode()
+    {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((counterName == null) ? 0 : counterName.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        RolledUpCounterData other = (RolledUpCounterData) obj;
+        if (counterName == null) {
+            if (other.counterName != null)
+                return false;
+        }
+        else if (!counterName.equals(other.counterName))
+            return false;
+        return true;
+    }
+    
 }

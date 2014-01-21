@@ -48,4 +48,39 @@ public class CounterEvent
     {
         return counterEvents;
     }
+
+    @Override
+    public int hashCode()
+    {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((appId == null) ? 0 : appId.hashCode());
+        result = prime * result + ((counterEvents == null) ? 0 : counterEvents.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        CounterEvent other = (CounterEvent) obj;
+        if (appId == null) {
+            if (other.appId != null)
+                return false;
+        }
+        else if (!appId.equals(other.appId))
+            return false;
+        if (counterEvents == null) {
+            if (other.counterEvents != null)
+                return false;
+        }
+        else if (!counterEvents.equals(other.counterEvents))
+            return false;
+        return true;
+    }
 }

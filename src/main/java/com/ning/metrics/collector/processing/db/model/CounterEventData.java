@@ -93,9 +93,42 @@ public class CounterEventData
         counterValue += count;
         counters.put(counterName, counterValue);
     }
-    
-    
-    
-    
 
+    @Override
+    public int hashCode()
+    {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((createdDate == null) ? 0 : createdDate.hashCode());
+        result = prime * result + identifierCategory;
+        result = prime * result + ((uniqueIdentifier == null) ? 0 : uniqueIdentifier.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        CounterEventData other = (CounterEventData) obj;
+        if (createdDate == null) {
+            if (other.createdDate != null)
+                return false;
+        }
+        else if (!createdDate.equals(other.createdDate))
+            return false;
+        if (identifierCategory != other.identifierCategory)
+            return false;
+        if (uniqueIdentifier == null) {
+            if (other.uniqueIdentifier != null)
+                return false;
+        }
+        else if (!uniqueIdentifier.equals(other.uniqueIdentifier))
+            return false;
+        return true;
+    }
 }

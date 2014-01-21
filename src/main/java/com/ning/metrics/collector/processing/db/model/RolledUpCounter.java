@@ -57,6 +57,12 @@ public class RolledUpCounter
     private final DateTime toDate;
     private final Table<String, String, RolledUpCounterData> counterSummary;
     
+    public final static String COUNTER_SUMMARY_PREFIX = "counterSummary_";
+    public final static String APP_ID_KEY = "appId";
+    public final static String FROM_DATE_KEY = "fromDate";
+    public final static String TO_DATE_KEY = "toDate";
+    public final static String UNIQUES_KEY = "uniques";
+    
     
     public RolledUpCounter(final String appId, 
         final DateTime fromDate, 
@@ -107,7 +113,7 @@ public class RolledUpCounter
     public void updateRolledUpCounterData(final CounterEventData counterEventData, final List<String> identifierDistribution)
     {
      // This creates a string with e.g. counterRowName_1
-        final String counterRowName = "counterSummary_"+counterEventData.getIdentifierCategory();
+        final String counterRowName = COUNTER_SUMMARY_PREFIX + counterEventData.getIdentifierCategory();
         
         final Map<String,RolledUpCounterData> counterSummaryRow = counterSummary.row(counterRowName);
         
@@ -159,12 +165,56 @@ public class RolledUpCounter
                     }
                 }
                 
-                counterSummary.put(rowName, "uniques", new RolledUpCounterData("uniques", uniqueKeySet.size(), null));
+                counterSummary.put(rowName, UNIQUES_KEY, new RolledUpCounterData(UNIQUES_KEY, uniqueKeySet.size(), null));
             }
         }
         
     }
     
+    @Override
+    public int hashCode()
+    {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((appId == null) ? 0 : appId.hashCode());
+        result = prime * result + ((fromDate == null) ? 0 : fromDate.hashCode());
+        result = prime * result + ((toDate == null) ? 0 : toDate.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        RolledUpCounter other = (RolledUpCounter) obj;
+        if (appId == null) {
+            if (other.appId != null)
+                return false;
+        }
+        else if (!appId.equals(other.appId))
+            return false;
+        if (fromDate == null) {
+            if (other.fromDate != null)
+                return false;
+        }
+        else if (!fromDate.equals(other.fromDate))
+            return false;
+        if (toDate == null) {
+            if (other.toDate != null)
+                return false;
+        }
+        else if (!toDate.equals(other.toDate))
+            return false;
+        return true;
+    }
+
+
+
     public static class RolledUpCounterSerializer extends JsonSerializer<RolledUpCounter>{
 
         @Override
@@ -172,13 +222,13 @@ public class RolledUpCounter
         {
             jgen.writeStartObject();
             
-            jgen.writeFieldName("appId");
+            jgen.writeFieldName(APP_ID_KEY);
             jgen.writeObject(rolledUpCounter.getAppId());
             
-            jgen.writeFieldName("fromDate");
+            jgen.writeFieldName(FROM_DATE_KEY);
             jgen.writeObject(rolledUpCounter.getFromDate());
             
-            jgen.writeFieldName("toDate");
+            jgen.writeFieldName(TO_DATE_KEY);
             jgen.writeObject(rolledUpCounter.getToDate());
             
             for(String key : rolledUpCounter.getCounterSummary().rowKeySet()){
@@ -207,16 +257,16 @@ public class RolledUpCounter
             ObjectCodec codec = jp.getCodec();
             JsonNode node = codec.readTree(jp);
             
-            String appId = node.get("appId").asText();
-            DateTime fromDate = new DateTime(node.get("fromDate").asLong());
-            DateTime toDate = new DateTime(node.get("toDate").asLong());
+            String appId = node.get(APP_ID_KEY).asText();
+            DateTime fromDate = new DateTime(node.get(FROM_DATE_KEY).asLong());
+            DateTime toDate = new DateTime(node.get(TO_DATE_KEY).asLong());
             
             Iterator<String> fields = node.fieldNames();
             
             while(fields.hasNext())
             {
                 String fieldName = fields.next();
-                if(fieldName.startsWith("counterSummary_"))
+                if(fieldName.startsWith(COUNTER_SUMMARY_PREFIX))
                 {
                     Iterator<Entry<String, JsonNode>> nodeIterator = node.get(fieldName).fields();
                     
