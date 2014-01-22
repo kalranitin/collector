@@ -90,6 +90,9 @@ public class CollectorMysqlTestingHelper {
                 handle.execute("delete from subscriptions");
                 handle.execute("delete from feed_events");
                 handle.execute("delete from feeds");
+                handle.execute("delete from metrics_subscription");
+                handle.execute("delete from metrics_daily");
+                handle.execute("delete from metrics_daily_roll_up");
                 return null;
             }
             
@@ -104,14 +107,16 @@ public class CollectorMysqlTestingHelper {
     public void initDb() throws IOException {
         final String jdbcUrl = getJdbcUrl();
         final IDBI dbi = new DBI(jdbcUrl, USERNAME, PASSWORD);
-        final String ddl = IOUtils.toString(CollectorMysqlTestingHelper.class.getResourceAsStream("/db/mysql/collector_events.sql"));
+        final String feed_ddl = IOUtils.toString(CollectorMysqlTestingHelper.class.getResourceAsStream("/db/mysql/collector_events.sql"));
+        final String counter_ddl = IOUtils.toString(CollectorMysqlTestingHelper.class.getResourceAsStream("/db/mysql/collector_counter_events.sql"));
         
         log.info(String.format("Creating embedded db for url %s", jdbcUrl));
         log.info("Adding tables to the embedded db");
         dbi.withHandle(new HandleCallback<Void>() {
             @Override
             public Void withHandle(Handle handle) throws Exception {
-                handle.createScript(ddl).execute();
+                handle.createScript(feed_ddl).execute();
+                handle.createScript(counter_ddl).execute();
                 return null;
             }
         });

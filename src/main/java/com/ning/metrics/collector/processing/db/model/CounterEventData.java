@@ -24,6 +24,8 @@ import com.google.common.base.Objects;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -64,6 +66,13 @@ public class CounterEventData
         }
         
         return new DateTime(DateTimeZone.UTC);
+    }
+    
+    @JsonIgnore
+    public String getFormattedDate()
+    {
+        DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+        return formatter.print(getCreatedDate());
     }
 
     public String getUniqueIdentifier()

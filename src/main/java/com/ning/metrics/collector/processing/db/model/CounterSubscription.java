@@ -28,12 +28,12 @@ import javax.annotation.Nullable;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CounterSubscription
 {
-    private final Integer id;
+    private final Long id;
     private final String appId;
     private final ArrayListMultimap<Integer,String> identifierDistribution;
     
     @JsonCreator
-    public CounterSubscription(@JsonProperty("id") @Nullable Integer id, 
+    public CounterSubscription(@JsonProperty("id") @Nullable Long id, 
         @JsonProperty("appId") final String appId, 
         @JsonProperty("identifierDistribution") final ArrayListMultimap<Integer, String> identifierDistribution)
     {
@@ -43,7 +43,7 @@ public class CounterSubscription
     }
     
     @JsonIgnore
-    public Integer getId()
+    public Long getId()
     {
         return id;
     }

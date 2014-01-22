@@ -45,6 +45,7 @@ private static final ObjectMapper mapper = new ObjectMapper();
     public void testRollUp() throws Exception{
         List<CounterEventData> dailyCounterList = new ArrayList<CounterEventData>();
         dailyCounterList.add(prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        
         dailyCounterList.add(prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution")));
         dailyCounterList.add(prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile")));
         
@@ -66,6 +67,7 @@ private static final ObjectMapper mapper = new ObjectMapper();
         Assert.assertFalse(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().isEmpty());
         Assert.assertTrue(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile").getDistribution().isEmpty());
         Assert.assertEquals(new Integer(2), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", RolledUpCounter.UNIQUES_KEY).getTotalCount());
+        
         
     }
     

@@ -15,8 +15,10 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.CounterEvent;
+import com.google.common.collect.Multimap;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
+import com.ning.metrics.collector.processing.db.model.CounterSubscription;
+import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
 
 import org.joda.time.DateTime;
 
@@ -24,8 +26,15 @@ import java.util.List;
 
 public interface CounterStorage
 {
-    public void insertDailyMetrics(final CounterEvent counterEvent);
-    public void updateDailyMetrics(final CounterEventData counterEventData);
-    public List<CounterEventData> getDailyMetricsByAppId(final String appId, final DateTime fromDate, final DateTime toDate, final Integer counterFor);
+    public Long createCounterSubscription(final CounterSubscription counterSubscription);
+    public CounterSubscription loadCounterSubscription(final String appId);
+    
+    public void insertDailyMetrics(final Multimap<Long, CounterEventData> dailyCounters);
+    public List<CounterEventData> loadCounterEventData(final Long subscriptionId, final DateTime createdDate);
+    public boolean deleteDailyMetrics(final List<Long> dailyMetricsIds);
+    
+    public void insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter, final DateTime createdDate);
+    public RolledUpCounter loadRolledUpCounterById(final String id);
+    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate);
     
 }

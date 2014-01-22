@@ -15,6 +15,7 @@
  */
 package com.ning.metrics.collector.processing.db.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -37,6 +38,9 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -79,7 +83,7 @@ public class RolledUpCounter
         }
         else
         {
-            this.counterSummary = counterSummary;
+            this.counterSummary = HashBasedTable.create(counterSummary);
         }
     }
     
@@ -99,12 +103,40 @@ public class RolledUpCounter
     }
     public DateTime getFromDate()
     {
-        return fromDate;
+        if(this.fromDate != null)
+        {
+            try {
+                return new DateTime(this.fromDate,DateTimeZone.UTC);
+            }
+            catch (Exception e) {
+                return new DateTime(DateTimeZone.UTC);
+            }
+        }
+        
+        return new DateTime(DateTimeZone.UTC);
     }
     public DateTime getToDate()
     {
-        return toDate;
+        if(this.toDate != null)
+        {
+            try {
+                return new DateTime(this.toDate,DateTimeZone.UTC);
+            }
+            catch (Exception e) {
+                return new DateTime(DateTimeZone.UTC);
+            }
+        }
+        
+        return new DateTime(DateTimeZone.UTC);
     }
+    
+    @JsonIgnore
+    public String getFormattedDate()
+    {
+        DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+        return formatter.print(getFromDate());
+    }
+    
     public Table<String, String, RolledUpCounterData> getCounterSummary()
     {
         return counterSummary;
