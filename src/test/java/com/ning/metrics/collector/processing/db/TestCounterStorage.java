@@ -18,15 +18,25 @@ package com.ning.metrics.collector.processing.db;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
+import com.google.common.base.Objects;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
+import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 
+import org.joda.time.DateTime;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Test(groups = {"slow", "database"})
 public class TestCounterStorage
@@ -82,6 +92,90 @@ public class TestCounterStorage
         
         Assert.assertNotNull(counterSubscription);
         Assert.assertEquals(counterSubscription.getId(), id);
+        
+    }
+    
+    @Test
+    public void testInsertAndLoadDailyMetrics() throws Exception
+    {
+        
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution")));
+        multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"))); 
+        
+        counterStorage.insertDailyMetrics(multimap);
+        
+        List<CounterEventData> dailyList = counterStorage.loadDailyMetrics(1L, null);
+        
+        Assert.assertNotNull(dailyList);
+        Assert.assertFalse(dailyList.isEmpty());
+        Assert.assertEquals(2, dailyList.size());
+        Assert.assertTrue(Objects.equal("member123", dailyList.get(0).getUniqueIdentifier()) || Objects.equal("member321", dailyList.get(0).getUniqueIdentifier()));
+    }
+    
+    @Test
+    public void testInsertAndLoadGroupedDailyMetrics() throws Exception
+    {
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        
+        for(int j=0;j<100;j++)
+        {
+            multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution")));
+            multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile")));                
+        }            
+        
+        counterStorage.insertDailyMetrics(multimap);
+        
+        List<CounterEventData> dailyList = counterStorage.loadGroupedDailyMetrics(1L, new DateTime());
+        
+        Assert.assertNotNull(dailyList);
+        Assert.assertFalse(dailyList.isEmpty());
+        Assert.assertEquals(2, dailyList.size());
+        Assert.assertTrue(dailyList.get(0).getCounters().get("pageView") == 100);
+    }
+    
+    private static CounterEventData prepareCounterEventData(String id, int category, List<String> counters){
+        Map<String,Integer> counterMap = new HashMap<String, Integer>();
+        for(String s : counters)
+        {
+            counterMap.put(s, 1);
+        }
+        
+        return new CounterEventData(id, category, new DateTime(), counterMap);
+    }
+    
+    @Test
+    public void testDeleteDailyMetrics() throws Exception{
+        
+    }
+    
+    @Test
+    public void testInsertRolledUpCounter() throws Exception{
+        
+    }
+    
+    @Test
+    public void testUpdateRolledUpCounter() throws Exception{
+        
+    }
+    
+    @Test
+    public void testLoadRolledUpCounterById() throws Exception{
+        
+    }
+    
+    @Test
+    public void testLoadRolledUpCountersByDateRange() throws Exception{
+        
+    }
+    
+    @Test
+    public void testLoadRolledUpCountersByStartDate() throws Exception{
+        
+    }
+    
+    @Test
+    public void testLoadRolledUpCountersByEndDate() throws Exception{
         
     }
 

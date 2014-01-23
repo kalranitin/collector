@@ -18,6 +18,7 @@ package com.ning.metrics.collector.processing.db.model;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
+import com.google.common.base.Objects;
 
 import org.joda.time.DateTime;
 import org.testng.Assert;
@@ -29,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Test(groups = "fast")
 public class TestRollUpDailyCounter
@@ -68,6 +70,35 @@ private static final ObjectMapper mapper = new ObjectMapper();
         Assert.assertTrue(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile").getDistribution().isEmpty());
         Assert.assertEquals(new Integer(2), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", RolledUpCounter.UNIQUES_KEY).getTotalCount());
         
+        
+    }
+    
+    @Test
+    public void testGroupDailyCounterList() throws Exception{
+        List<CounterEventData> dailyCounterList = new ArrayList<CounterEventData>();
+        
+        dailyCounterList.add(prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficMobile")));
+        dailyCounterList.add(prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution")));
+            
+        dailyCounterList.add(prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile")));
+        dailyCounterList.add(prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile")));     
+        
+        Map<String,CounterEventData> groupMap = new ConcurrentHashMap<String, CounterEventData>();
+        
+        for(CounterEventData counterEventData : dailyCounterList){
+            CounterEventData groupedData = groupMap.get(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate());
+            if(Objects.equal(null, groupedData))
+            {
+                groupMap.put(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate(), counterEventData);
+                continue;
+            }
+            
+            groupedData.mergeCounters(counterEventData.getCounters());
+            groupMap.put(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate(), groupedData);            
+        }
+        
+        Assert.assertEquals(groupMap.values().size(), 2);
+        Assert.assertEquals(groupMap.values().iterator().next().getCounters().get("pageView"), new Integer(2));
         
     }
     

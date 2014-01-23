@@ -32,11 +32,15 @@ import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
 import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
 import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.PreparedBatch;
 import org.skife.jdbi.v2.Query;
+import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.StatementContext;
+import org.skife.jdbi.v2.Update;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.skife.jdbi.v2.util.LongMapper;
@@ -50,6 +54,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -118,7 +123,6 @@ public class DatabaseCounterStorage implements CounterStorage
             
             for(Entry<Long, CounterEventData> entry : dailyCounters.entries())
             {
-                
                 batch.bind("subscriptionId", entry.getKey())
                 .bind("metrics", mapper.writeValueAsString(entry.getValue()))
                 .bind("createdDate", entry.getValue().getFormattedDate())
@@ -132,7 +136,7 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public List<CounterEventData> loadCounterEventData(final Long subscriptionId, final DateTime createdDate)
+    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime createdDate)
     {
        return dbi.withHandle(new HandleCallback<List<CounterEventData>>() {
 
@@ -142,16 +146,66 @@ public class DatabaseCounterStorage implements CounterStorage
             final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, createdDate)?"":" and created_date = :createdDate");
             
             Query<Map<String, Object>> query =  handle.createQuery(queryStr)
-                    .bind("subscription_id", subscriptionId);
+                    .bind("subscriptionId", subscriptionId);
             
             if(!Objects.equal(null, createdDate))
             {
-                query.bind("createdDate", createdDate);
+                DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+                query.bind("createdDate", formatter.print(createdDate));
             }
             
             return ImmutableList.copyOf(query.map(new CounterEventDataMapper()).list());
             
         }});
+    }
+    
+    @Override
+    public List<CounterEventData> loadGroupedDailyMetrics(final Long subscriptionId, final DateTime createdDate){
+        return dbi.withHandle(new HandleCallback<List<CounterEventData>>() {
+
+            @Override
+            public List<CounterEventData> withHandle(Handle handle) throws Exception
+            {
+                final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, createdDate)?"":" and created_date = :createdDate");
+                
+                Query<Map<String, Object>> query =  handle.createQuery(queryStr)
+                        .bind("subscriptionId", subscriptionId);
+                
+                if(!Objects.equal(null, createdDate))
+                {
+                    DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+                    query.bind("createdDate", formatter.print(createdDate));
+                }
+                
+                Map<String,CounterEventData> groupMap = new ConcurrentHashMap<String, CounterEventData>();
+                
+                ResultIterator<CounterEventData> rs = query.map(new CounterEventDataMapper()).iterator();
+                
+                try {
+                    while(rs.hasNext())
+                    {
+                        CounterEventData counterEventData = rs.next();
+                        CounterEventData groupedData = groupMap.get(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate());
+                        
+                        if(Objects.equal(null, groupedData))
+                        {
+                            groupMap.put(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate(), counterEventData);
+                            continue;
+                        }
+                        
+                        groupedData.mergeCounters(counterEventData.getCounters());
+                        groupMap.put(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate(), groupedData);  
+                    }
+                }
+                finally{
+                    rs.close(); 
+                }
+                
+                
+                
+                return ImmutableList.copyOf(groupMap.values());
+                
+            }});
     }
 
     @Override
@@ -166,6 +220,32 @@ public class DatabaseCounterStorage implements CounterStorage
                 public Integer withHandle(Handle handle) throws Exception
                 {
                     return handle.createStatement("delete from metrics_daily where id in (" + joiner.join(dailyMetricsIds) + ")").execute();
+                }});
+            
+            return deleted > 0;
+        }
+        return false;
+    }
+    
+    public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime createdDate){
+        if(dbLock.tryLock()){
+            int deleted = dbi.withHandle(new HandleCallback<Integer>() {
+                
+                @Override
+                public Integer withHandle(Handle handle) throws Exception
+                {
+                    String queryStr = "delete from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, createdDate)?"":" and created_date = :createdDate");
+                    
+                    Update query =  handle.createStatement(queryStr)
+                            .bind("subscriptionId", subscriptionId);
+                    
+                    if(!Objects.equal(null, createdDate))
+                    {
+                        DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+                        query.bind("createdDate", formatter.print(createdDate));
+                    }
+                    
+                    return query.execute();
                 }});
             
             return deleted > 0;
@@ -187,6 +267,7 @@ public class DatabaseCounterStorage implements CounterStorage
                 zipStream.finish();
                 
                 final String dateStr = rolledUpCounter.getFormattedDate();
+                // Create id as "network_111_2014-01-20"
                 final String id = rolledUpCounter.getAppId()+dateStr;
                 
                 handle.createStatement("INSERT INTO metrics_daily_roll_up (id,subscription_id, metrics,created_date) VALUES (:id, :subscriptionId, :metrics, :createdDate) ON DUPLICATE KEY UPDATE metrics = :metrics")
@@ -219,8 +300,30 @@ public class DatabaseCounterStorage implements CounterStorage
     @Override
     public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate)
     {
-        // TODO Auto-generated method stub
-        return null;
+        return dbi.withHandle(new HandleCallback<List<RolledUpCounter>>() {
+
+            @Override
+            public List<RolledUpCounter> withHandle(Handle handle) throws Exception
+            {
+                final String queryStr = "select metrics from metrics_daily_roll_up where subscription_id = :subscriptionId"
+            +(Objects.equal(null, fromDate)?"":" and created_date >= :fromDate")
+            +(Objects.equal(null, toDate)?"":" and created_date <= :toDate");
+                
+                Query<Map<String, Object>> query =  handle.createQuery(queryStr)
+                        .bind("subscription_id", subscriptionId);
+                
+                if(!Objects.equal(null, fromDate))
+                {
+                    query.bind("createdDate", fromDate);
+                }
+                if(!Objects.equal(null, toDate))
+                {
+                    query.bind("createdDate", toDate);
+                }
+                
+                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper()).list());
+                
+            }});
     }
     
     public static class CounterSubscriptionMapper implements ResultSetMapper<CounterSubscription>
