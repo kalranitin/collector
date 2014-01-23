@@ -50,5 +50,7 @@ public class DBConfigModule extends AbstractModule
         bind(FeedStorage.class).to(DatabaseFeedStorage.class).asEagerSingleton();
         bind(FeedEventProcessor.class).asEagerSingleton();
         
+        bind(CounterStorage.class).to(DatabaseCounterStorage.class).asEagerSingleton();
+        
     }
 }
