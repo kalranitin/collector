@@ -35,16 +35,12 @@ public class DbHandler {
 
     private final CounterPartitioner partitioner;
     private final Connection con;
-    private final PreparedStatement upsert;
-    private final PreparedStatement updateCounterDates;
-    private final PreparedStatement dropPartition;
-    private final PreparedStatement createPartition;
-    private final PreparedStatement selectCount;
-    private final PreparedStatement selectCountsNotEqualTo;
-    private final PreparedStatement selectSingleCount;
-    private final PreparedStatement setMaxHeapTableSize;
 
-    private PreparedStatement createEventCountersTable;
+
+    private final PreparedStatement setMaxHeapTableSize;
+    //private final PreparedStatement createEventGroupsTable;
+    private final PreparedStatement createEventCountersTable;
+    //private final PreparedStatement createTimeZoneTable;
 
     private final Date today;
 
@@ -56,39 +52,9 @@ public class DbHandler {
         setMaxHeapTableSize = con.prepareStatement(
                 "set @@max_heap_table_size = 1073741824;");
 
-        dropPartition = con.prepareStatement("drop table if exists "
-                + TABLE_NAME_BASE + "?");
-        createPartition = con.prepareStatement(
-                "CREATE TABLE " + TABLE_NAME_BASE + "? (\n"
-                + "  `id` int(11) unsigned NOT NULL,\n"
-                + "  `count` int(11) DEFAULT NULL,\n"
-                + "  `count_start` date NOT NULL,\n"
-                + "  PRIMARY KEY (`id`,`count_start`)\n"
-                // + ",  KEY `id` (`id`)\n"
-                //                + ",  KEY `count` (`count`)\n"
-                //                + ",  KEY `count_start` (`count_start`)\n"
-                + ") ENGINE=memory DEFAULT CHARSET=utf8;");
-        upsert = con.prepareStatement(
-                "insert into " + TABLE_NAME_BASE
-                + "? (id, `count`, count_start) "
-                + "values (?, ?, ?) "
-                + "on duplicate key update count = count + ?");
+        createEventCountersTable = createEventCountersTableStatment();
+        //createEventGroupsTable = con.prepareStatement();
 
-        selectCount = con.prepareStatement(
-                "select count(*) from " + TABLE_NAME_BASE + "? "
-                + "where count_start = ?");
-
-        selectCountsNotEqualTo = con.prepareStatement(
-                "select count(*) from " + TABLE_NAME_BASE + "? "
-                + "where count_start = ? and count != ?");
-
-        updateCounterDates = con.prepareStatement("update "
-                + TABLE_NAME_BASE + "? "
-                + "set count_start = ? + interval ? day "
-                + "where count_start = ?");
-
-        selectSingleCount = con.prepareStatement("select `count` from "
-                + TABLE_NAME_BASE + "? where id = ? and count_start = ?");
 
         try (Statement st = con.createStatement();
                 ResultSet rs = st.executeQuery(
@@ -97,23 +63,21 @@ public class DbHandler {
             today = rs.getDate(1);
         }
 
-        setUpEventCountersTable();
     }
 
     /**
      * set up the event counters table
      */
-    private void setUpEventCountersTable() throws Exception {
+    private PreparedStatement createEventCountersTableStatment() throws Exception {
         StringBuilder createStatement = new StringBuilder();
 
-        createStatement.append("CREATE TABLE `event_counters` (\n"
+        createStatement.append("CREATE TABLE `event_counter` (\n"
                 + "  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,\n"
-                + "  `event_group` varchar(20) NOT NULL DEFAULT '',\n"
-                + "  `event_name` varchar(20) NOT NULL DEFAULT '',\n"
-                + "  `event_group_time_zone` smallint(2) NOT NULL,\n"
+                + "  `event_group_id` int(11) unsigned NOT NULL,\n"
+                + "  `event_name` varchar(20) NOT NULL,\n"
         );
 
-        for (int i = 0; i < Counter.DAYS_OF_HISTORY; i++) {
+        for (int i = 0; i < CounterServiceImpl.DAYS_OF_HISTORY; i++) {
             createStatement.append("  `daily_count_");
             createStatement.append(i);
             createStatement.append("` int(11) NOT NULL DEFAULT '0',\n");
@@ -124,8 +88,7 @@ public class DbHandler {
                 + "  KEY `event_group_time_zone` (`event_group_time_zone`)\n"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8;");
 
-        createEventCountersTable = con.prepareStatement(
-                createStatement.toString());
+        return con.prepareStatement(createStatement.toString());
     }
 
     public Connection getConnection() {
@@ -147,10 +110,7 @@ public class DbHandler {
         setMaxHeapTableSize.executeUpdate();
 
         for (int i = 0; i < CounterPartitioner.PARTITION_COUNT; i++) {
-            dropPartition.setInt(1, i);
-            createPartition.setInt(1, i);
-            dropPartition.executeUpdate();
-            createPartition.executeUpdate();
+
         }
     }
 
@@ -161,23 +121,11 @@ public class DbHandler {
         return result;
     }
 
-
     public int getNumberOfCountersForDate(Date date, int rem, int mod)
             throws Exception {
 
         int result = 0;
-        selectCount.setDate(2, date);
 
-        for (int i = rem; i < CounterPartitioner.PARTITION_COUNT; i += mod) {
-            selectCount.setInt(1, i);
-            try (ResultSet rs = selectCount.executeQuery()) {
-                rs.next();
-                result += rs.getInt(1);
-            }
-            catch (Exception ex) {
-                throw ex;
-            }
-        }
 
         return result;
     }
@@ -186,48 +134,17 @@ public class DbHandler {
             int rem, int mod) throws Exception {
         int result = 0;
 
-        selectCountsNotEqualTo.setDate(2, date);
-        selectCountsNotEqualTo.setInt(3, count);
-
-        for (int i = rem; i < CounterPartitioner.PARTITION_COUNT; i += mod) {
-            selectCountsNotEqualTo.setInt(1, i);
-            try (ResultSet rs = selectCountsNotEqualTo.executeQuery()) {
-                rs.next();
-                result += rs.getInt(1);
-            }
-            catch (Exception ex) {
-                throw ex;
-            }
-        }
 
         return result;
     }
 
     public void incrementCounterDatesBy(int days, int rem, int mod)
             throws Exception {
-        updateCounterDates.setDate(2, today);
-        updateCounterDates.setInt(3, days);
-        updateCounterDates.setDate(4, today);
 
-        for (int i = rem; i < CounterPartitioner.PARTITION_COUNT; i += mod) {
-            updateCounterDates.setInt(1, i);
-            updateCounterDates.executeUpdate();
-        }
 
     }
 
     public int getCountForCounter(int id, Date date) throws Exception {
-        selectSingleCount.setInt(1, partitioner.getPartition(id));
-        selectSingleCount.setInt(2, id);
-        selectSingleCount.setDate(3, date);
-
-        try (ResultSet rs = selectSingleCount.executeQuery()) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-        }
-
-        throw new Exception("Counter " + id + " for date " + date
-                + " not found");
+        return 0;
     }
 }

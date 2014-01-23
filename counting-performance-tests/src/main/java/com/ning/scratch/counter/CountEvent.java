@@ -15,6 +15,8 @@
  */
 package com.ning.scratch.counter;
 
+import java.util.List;
+
 /**
  * Stores the information about the a single incrementation of a given counter
  *
@@ -38,15 +40,15 @@ public class CountEvent {
 
     private final CounterCallback callback;
     private final String counterGroup;
-    private final String counterName;
+    private final List<String> counterNames;
     private final int incrementBy;
     private final String timeZone;
 
     public CountEvent(CounterCallback callback, String counterGroup,
-            String counterName, int incrementBy, String timeZone) {
+            List<String> counterNames, int incrementBy, String timeZone) {
         this.callback = callback;
         this.counterGroup = counterGroup;
-        this.counterName = counterName;
+        this.counterNames = counterNames;
         this.incrementBy = incrementBy;
         this.timeZone = timeZone;
     }
@@ -66,10 +68,10 @@ public class CountEvent {
     }
 
     /**
-     * @return the counterName
+     * @return the counterNames
      */
-    public String getCounterName() {
-        return counterName;
+    public List<String> getCounterNames() {
+        return counterNames;
     }
 
     /**

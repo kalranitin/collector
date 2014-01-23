@@ -24,7 +24,7 @@ import java.util.concurrent.LinkedBlockingQueue;
  *
  * @author kguthrie
  */
-public class Counter {
+public class CounterServiceImpl {
 
     public static final int DAYS_OF_HISTORY = 30;
 
@@ -34,7 +34,7 @@ public class Counter {
     public static final int DATABASE_WORKER_THREADS = 16;
 
     private static boolean initiailized = false;
-    private static Counter instance;
+    private static CounterServiceImpl instance;
 
     private final BlockingQueue<CountEvent> countQueue;
     private final CounterUpdater[] updaters;
@@ -42,15 +42,15 @@ public class Counter {
 
     private final DbHandler db;
 
-    public synchronized static Counter get() throws Exception {
+    public synchronized static CounterServiceImpl get() throws Exception {
         if (!initiailized) {
-            instance = new Counter();
+            instance = new CounterServiceImpl();
             initiailized = true;
         }
         return instance;
     }
 
-    private Counter() throws Exception {
+    private CounterServiceImpl() throws Exception {
         countQueue = new LinkedBlockingQueue<>();
         updaters = new CounterUpdater[DATABASE_WORKER_THREADS];
         dbHandlers = new DbHandler[DATABASE_WORKER_THREADS];

@@ -20,6 +20,8 @@ import com.ning.scratch.counter.CounterCallback;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.TimeZone;
 import java.util.concurrent.BlockingQueue;
@@ -36,7 +38,7 @@ public class DataGenerator implements Runnable {
     private final BlockingQueue<CountEvent> outputQueue;
     private final Random rand;
     private final CounterCallback callback;
-    private final long numberOfIncrements;
+    private final long numberOfVisits;
 
     private int[] networkSize;
     private String[] networkName;
@@ -49,7 +51,7 @@ public class DataGenerator implements Runnable {
             CounterCallback callback) throws Exception {
         this.outputQueue = outputQueue;
         this.callback = callback;
-        this.numberOfIncrements = numberOfIncrements;
+        this.numberOfVisits = numberOfIncrements;
 
         rand = new Random(System.currentTimeMillis());
 
@@ -97,30 +99,25 @@ public class DataGenerator implements Runnable {
     @Override
     public void run() {
 
-        long increments = 0;
+        long visits = 0;
 
         long start = System.currentTimeMillis();
         long stop;
 
-        long reportInterval = numberOfIncrements / 500;
+        long reportInterval = numberOfVisits / 500;
 
-        while (increments < numberOfIncrements) {
+        while (visits < numberOfVisits) {
             int networkNum = getNextNetwork();
             String network = networkName[networkNum];
-            String[] counters = getNextCounters();
+            List<String> counters = getNextCounters();
             String timeZone = networkTimeZone[networkNum];
 
             try {
-                for (String counter : counters) {
 
-                    if (counter == null) {
-                        continue;
-                    }
+                CountEvent next = new CountEvent(
+                        callback, network, counters, 1, timeZone);
 
-                    CountEvent next = new CountEvent(
-                            callback, network, counter, 1, timeZone);
-
-                    while (!outputQueue.offer(next, 1000, TimeUnit.SECONDS)) {
+                while (!outputQueue.offer(next, 1, TimeUnit.SECONDS)) {
 
                     }
 
@@ -132,7 +129,7 @@ public class DataGenerator implements Runnable {
 //                        System.out.flush();
 //                        start = System.currentTimeMillis();
 //                    }
-                }
+
             }
             catch (InterruptedException ie) {
                 break;
@@ -165,53 +162,52 @@ public class DataGenerator implements Runnable {
      *
      * @return
      */
-    private String[] getNextCounters() {
+    private List<String> getNextCounters() {
 
-        String[] result = new String[3];
-        result[2] = null;
+        List<String> result = new ArrayList<>(3);
 
         boolean isMember = rand.nextBoolean();
 
         if (isMember) {
-            result[0] = CountEvent.MEMBER_VISIT;
+            result.add(CountEvent.MEMBER_VISIT);
             switch (rand.nextInt(4)) {
                 case 0:
                 case 1: {
-                    result[1] = CountEvent.MEMBER_DESKTOP_VISIT;
+                    result.add(CountEvent.MEMBER_DESKTOP_VISIT);
                     break;
                 }
                 case 2: {
-                    result[1] = CountEvent.MEMBER_PHONE_VISIT;
+                    result.add(CountEvent.MEMBER_PHONE_VISIT);
                     break;
                 }
                 case 3: {
-                    result[1] = CountEvent.MEMBER_TABLET_VISIT;
+                    result.add(CountEvent.MEMBER_TABLET_VISIT);
                     break;
                 }
             }
 
             if (rand.nextBoolean()) {
-                result[2] = CountEvent.MEMBER_CONTRIBUTE;
+                result.add(CountEvent.MEMBER_CONTRIBUTE);
             }
         }
         else {
-            result[0] = CountEvent.NON_MEMBER_VISIT;
+            result.add(CountEvent.NON_MEMBER_VISIT);
             switch (rand.nextInt(5)) {
                 case 0:
                 case 1: {
-                    result[1] = CountEvent.NON_MEMBER_DESKTOP_VISIT;
+                    result.add(CountEvent.NON_MEMBER_DESKTOP_VISIT);
                     break;
                 }
                 case 2: {
-                    result[1] = CountEvent.NON_MEMBER_PHONE_VISIT;
+                    result.add(CountEvent.NON_MEMBER_PHONE_VISIT);
                     break;
                 }
                 case 3: {
-                    result[1] = CountEvent.NON_MEMBER_TABLET_VISIT;
+                    result.add(CountEvent.NON_MEMBER_TABLET_VISIT);
                     break;
                 }
                 case 4: {
-                    result[1] = CountEvent.NON_MEMBER_ROBOT_VISIT;
+                    result.add(CountEvent.NON_MEMBER_ROBOT_VISIT);
                     break;
                 }
             }
