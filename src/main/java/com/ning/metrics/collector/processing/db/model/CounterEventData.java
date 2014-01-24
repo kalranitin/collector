@@ -28,6 +28,7 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -73,6 +74,15 @@ public class CounterEventData
     {
         DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
         return formatter.print(getCreatedDate());
+    }
+    
+    @JsonIgnore
+    public void mergeCounters(Map<String, Integer> mergeFrom)
+    {
+        for(Entry<String, Integer> mapEntry : mergeFrom.entrySet())
+        {
+            incrementCounter(mapEntry.getKey(), mapEntry.getValue());
+        }
     }
 
     public String getUniqueIdentifier()

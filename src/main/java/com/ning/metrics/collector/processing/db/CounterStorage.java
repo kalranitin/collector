@@ -30,8 +30,10 @@ public interface CounterStorage
     public CounterSubscription loadCounterSubscription(final String appId);
     
     public void insertDailyMetrics(final Multimap<Long, CounterEventData> dailyCounters);
-    public List<CounterEventData> loadCounterEventData(final Long subscriptionId, final DateTime createdDate);
+    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime createdDate);
+    public List<CounterEventData> loadGroupedDailyMetrics(final Long subscriptionId, final DateTime createdDate);
     public boolean deleteDailyMetrics(final List<Long> dailyMetricsIds);
+    public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime createdDate);
     
     public void insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter, final DateTime createdDate);
     public RolledUpCounter loadRolledUpCounterById(final String id);
