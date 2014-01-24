@@ -66,6 +66,7 @@ public class DatabaseCounterStorage implements CounterStorage
     private final CollectorConfig config;
     private final Lock dbLock;
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static final String DAILY_METRICS_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
     
     @Inject
     public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config)
@@ -120,12 +121,12 @@ public class DatabaseCounterStorage implements CounterStorage
         public Void withHandle(Handle handle) throws Exception
         {
             PreparedBatch batch = handle.prepareBatch("insert into metrics_daily (subscription_id,metrics,created_date) values (:subscriptionId, :metrics, :createdDate)");
-            
+            final DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
             for(Entry<Long, CounterEventData> entry : dailyCounters.entries())
             {
                 batch.bind("subscriptionId", entry.getKey())
                 .bind("metrics", mapper.writeValueAsString(entry.getValue()))
-                .bind("createdDate", entry.getValue().getFormattedDate())
+                .bind("createdDate", formatter.print(entry.getValue().getCreatedDate()))
                 .add();
             }
             
@@ -136,22 +137,22 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime createdDate)
+    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime toDateTime)
     {
        return dbi.withHandle(new HandleCallback<List<CounterEventData>>() {
 
         @Override
         public List<CounterEventData> withHandle(Handle handle) throws Exception
         {
-            final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, createdDate)?"":" and created_date = :createdDate");
+            final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, toDateTime)?"":" and created_date <= :toDateTime");
             
             Query<Map<String, Object>> query =  handle.createQuery(queryStr)
                     .bind("subscriptionId", subscriptionId);
             
-            if(!Objects.equal(null, createdDate))
+            if(!Objects.equal(null, toDateTime))
             {
-                DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-                query.bind("createdDate", formatter.print(createdDate));
+                DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
+                query.bind("toDateTime", formatter.print(toDateTime));
             }
             
             return ImmutableList.copyOf(query.map(new CounterEventDataMapper()).list());
@@ -160,21 +161,21 @@ public class DatabaseCounterStorage implements CounterStorage
     }
     
     @Override
-    public List<CounterEventData> loadGroupedDailyMetrics(final Long subscriptionId, final DateTime createdDate){
+    public List<CounterEventData> loadGroupedDailyMetrics(final Long subscriptionId, final DateTime toDateTime){
         return dbi.withHandle(new HandleCallback<List<CounterEventData>>() {
 
             @Override
             public List<CounterEventData> withHandle(Handle handle) throws Exception
             {
-                final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, createdDate)?"":" and created_date = :createdDate");
+                final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, toDateTime)?"":" and created_date <= :toDateTime");
                 
                 Query<Map<String, Object>> query =  handle.createQuery(queryStr)
                         .bind("subscriptionId", subscriptionId);
                 
-                if(!Objects.equal(null, createdDate))
+                if(!Objects.equal(null, toDateTime))
                 {
-                    DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-                    query.bind("createdDate", formatter.print(createdDate));
+                    DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
+                    query.bind("toDateTime", formatter.print(toDateTime));
                 }
                 
                 Map<String,CounterEventData> groupMap = new ConcurrentHashMap<String, CounterEventData>();
@@ -209,6 +210,7 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
+    @Deprecated
     public boolean deleteDailyMetrics(final List<Long> dailyMetricsIds)
     {
         if(dbLock.tryLock()){
@@ -227,22 +229,22 @@ public class DatabaseCounterStorage implements CounterStorage
         return false;
     }
     
-    public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime createdDate){
+    public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime toDateTime){
         if(dbLock.tryLock()){
             int deleted = dbi.withHandle(new HandleCallback<Integer>() {
                 
                 @Override
                 public Integer withHandle(Handle handle) throws Exception
                 {
-                    String queryStr = "delete from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, createdDate)?"":" and created_date = :createdDate");
+                    String queryStr = "delete from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, toDateTime)?"":" and created_date <= :toDateTime");
                     
                     Update query =  handle.createStatement(queryStr)
                             .bind("subscriptionId", subscriptionId);
                     
-                    if(!Objects.equal(null, createdDate))
+                    if(!Objects.equal(null, toDateTime))
                     {
-                        DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-                        query.bind("createdDate", formatter.print(createdDate));
+                        DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
+                        query.bind("toDateTime", formatter.print(toDateTime));
                     }
                     
                     return query.execute();
@@ -254,12 +256,12 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public void insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter, final DateTime createdDate)
+    public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter, final DateTime createdDate)
     {
-        dbi.withHandle(new HandleCallback<Void>() {
+        return dbi.withHandle(new HandleCallback<String>() {
 
             @Override
-            public Void withHandle(Handle handle) throws Exception
+            public String withHandle(Handle handle) throws Exception
             {
                 final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 final GZIPOutputStream zipStream = new GZIPOutputStream(outputStream);
@@ -277,7 +279,7 @@ public class DatabaseCounterStorage implements CounterStorage
                 .bind("createdDate", dateStr)
                 .execute();
                 
-                return null;
+                return id;
             }});          
     }
 
@@ -310,15 +312,17 @@ public class DatabaseCounterStorage implements CounterStorage
             +(Objects.equal(null, toDate)?"":" and created_date <= :toDate");
                 
                 Query<Map<String, Object>> query =  handle.createQuery(queryStr)
-                        .bind("subscription_id", subscriptionId);
+                        .bind("subscriptionId", subscriptionId);
+                
+                DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
                 
                 if(!Objects.equal(null, fromDate))
                 {
-                    query.bind("createdDate", fromDate);
+                    query.bind("fromDate", formatter.print(fromDate));
                 }
                 if(!Objects.equal(null, toDate))
                 {
-                    query.bind("createdDate", toDate);
+                    query.bind("toDate", formatter.print(toDate));
                 }
                 
                 return ImmutableList.copyOf(query.map(new RolledUpCounterMapper()).list());

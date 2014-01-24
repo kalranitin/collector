@@ -10,7 +10,7 @@ CREATE TABLE `metrics_daily` (
   `id` BIGINT NULL AUTO_INCREMENT,
   `subscription_id` INT NOT NULL,
   `metrics` VARCHAR(512) NULL,
-  `created_date` DATE NOT NULL,
+  `created_date` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   INDEX `metrics_day_subscription_id_idx` (`subscription_id` ASC),
   INDEX `metrics_day_dt_indx` (`created_date` ASC))
