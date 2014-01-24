@@ -27,6 +27,7 @@ import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -126,7 +127,7 @@ public class TestCounterStorage
         
         counterStorage.insertDailyMetrics(multimap);
         
-        List<CounterEventData> dailyList = counterStorage.loadGroupedDailyMetrics(1L, new DateTime());
+        List<CounterEventData> dailyList = counterStorage.loadGroupedDailyMetrics(1L, new DateTime(DateTimeZone.UTC));
         
         Assert.assertNotNull(dailyList);
         Assert.assertFalse(dailyList.isEmpty());
@@ -141,7 +142,7 @@ public class TestCounterStorage
             counterMap.put(s, 1);
         }
         
-        return new CounterEventData(id, category, new DateTime(), counterMap);
+        return new CounterEventData(id, category, new DateTime(DateTimeZone.UTC), counterMap);
     }
     
     @Test
