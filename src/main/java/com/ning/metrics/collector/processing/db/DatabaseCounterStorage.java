@@ -254,9 +254,21 @@ public class DatabaseCounterStorage implements CounterStorage
         }
         return false;
     }
+    
+    @Override
+    public List<Long> getSubscritionIdsFromDailyMetrics(){
+        return dbi.withHandle(new HandleCallback<List<Long>>() {
+
+            @Override
+            public List<Long> withHandle(Handle handle) throws Exception
+            {
+                return ImmutableList.copyOf(handle.createQuery("select distinct(subscription_id) from metrics_daily").map(LongMapper.FIRST).list());
+                
+            }});
+    }
 
     @Override
-    public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter, final DateTime createdDate)
+    public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter)
     {
         return dbi.withHandle(new HandleCallback<String>() {
 

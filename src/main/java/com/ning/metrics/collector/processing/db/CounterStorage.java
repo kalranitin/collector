@@ -34,8 +34,9 @@ public interface CounterStorage
     public List<CounterEventData> loadGroupedDailyMetrics(final Long subscriptionId, final DateTime toDateTime);
     public boolean deleteDailyMetrics(final List<Long> dailyMetricsIds);
     public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime toDateTime);
+    public List<Long> getSubscritionIdsFromDailyMetrics();
     
-    public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter, final DateTime createdDate);
+    public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter);
     public RolledUpCounter loadRolledUpCounterById(final String id);
     public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate);
     

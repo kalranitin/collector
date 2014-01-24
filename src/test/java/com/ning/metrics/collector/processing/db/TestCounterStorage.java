@@ -176,5 +176,24 @@ public class TestCounterStorage
         Assert.assertTrue(dailyList.size() == 1);
         
     }
+    
+    @Test
+    public void testGetSubscritionIdsFromDailyMetrics()
+    {
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        
+        DateTime dateTime = new DateTime(DateTimeZone.UTC);
+        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution"),dateTime));
+        multimap.put(2L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"),dateTime));       
+        multimap.put(3L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        
+        counterStorage.insertDailyMetrics(multimap);
+        
+        List<Long> subscriptionIds = counterStorage.getSubscritionIdsFromDailyMetrics();
+        
+        Assert.assertNotNull(subscriptionIds);
+        Assert.assertFalse(subscriptionIds.isEmpty());
+        Assert.assertTrue(subscriptionIds.size() == 3);
+    }
 
 }

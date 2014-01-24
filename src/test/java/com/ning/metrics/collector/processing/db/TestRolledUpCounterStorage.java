@@ -120,7 +120,7 @@ public class TestRolledUpCounterStorage
         DateTime dateTime = new DateTime(formatter.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
-        String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter, dateTime);
+        String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
         Assert.assertNotNull(id);
         Assert.assertEquals(id, "network_1112014-01-24");
@@ -132,7 +132,7 @@ public class TestRolledUpCounterStorage
         DateTime dateTime = new DateTime(formatter.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
-        String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter, dateTime);
+        String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
         rolledUpCounter = counterStorage.loadRolledUpCounterById(id);
         
@@ -148,7 +148,7 @@ public class TestRolledUpCounterStorage
         Assert.assertEquals(new Integer(5), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getTotalCount());
         Assert.assertEquals(new Integer(3), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", RolledUpCounter.UNIQUES_KEY).getTotalCount());
         
-        id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter, dateTime);
+        id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
         Assert.assertNotNull(id);
         Assert.assertEquals(id, "network_1112014-01-24");
@@ -165,9 +165,9 @@ public class TestRolledUpCounterStorage
         RolledUpCounter rolledUpCounter_23 = prepareRolledUpCounterData(date_23, date_23);
         RolledUpCounter rolledUpCounter_24 = prepareRolledUpCounterData(date_24, date_24);
         
-        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_22, null);
-        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_23, null);
-        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_24, null);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_22);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_23);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_24);
         
         List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24);
         
@@ -181,7 +181,7 @@ public class TestRolledUpCounterStorage
         DateTime dateTime = new DateTime(formatter.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
-        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter, dateTime);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
         List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, dateTime, null);
         
@@ -197,7 +197,7 @@ public class TestRolledUpCounterStorage
         DateTime dateTime = new DateTime(formatter.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
-        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter, dateTime);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
         List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, dateTime);
         
