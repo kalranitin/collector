@@ -305,4 +305,81 @@ public class CounterEventAggregatorTest {
 
         return result;
     }
+
+    @Test
+    public void testLiveFlush() throws Exception {
+        final int incrementsPerCounter = 1024 * 4;
+        final int numThreads = 32;
+        final int numberOfCounters = 1024;
+        final int flushCount = 128;
+
+        final CounterEvent[] samples
+                = genenrateUniformRandomCounts(
+                        numberOfCounters, incrementsPerCounter);
+
+        Thread[] workers = new Thread[numThreads];
+
+        for (int i = 0; i < workers.length; i++) {
+
+            final int worker = i;
+
+            workers[i] = new Thread(new Runnable() {
+
+                @Override
+                public void run() {
+                    for (int i = worker; i < samples.length; i += numThreads) {
+                        aggregator.addEvent(samples[i]);
+                    }
+                }
+            });
+        }
+
+        for (Thread t : workers) {
+            t.start();
+        }
+
+        List<Iterable<CounterEvent>> flushes
+                = Lists.newLinkedList();
+
+        for (int i = 0; i < flushCount; i++) {
+            flushes.add(aggregator.flush());
+        }
+
+        for (Thread t : workers) {
+            t.join();
+        }
+
+        for (Iterable<CounterEvent> events : flushes) {
+            for (CounterEvent event : events) {
+                aggregator.addEvent(event);
+            }
+        }
+
+        Iterable<CounterEvent> aggregatedEvents = aggregator.flush();
+
+        int i = 0;
+        for (CounterEvent event : aggregatedEvents) {
+            i++;
+            Assert.assertNotSame(event, event1);
+            Assert.assertEquals(counterGroup1, event.getAppId());
+
+            int j = 0;
+            for (CounterEventData data : event.getCounterEvents()) {
+                Assert.assertEquals(1, ++j);
+                Assert.assertEquals(countDate1.getMillis(),
+                        data.getCreatedDate().getMillis());
+                Assert.assertEquals(2, data.getCounters().size());
+                Assert.assertEquals(
+                        count11 * incrementsPerCounter,
+                        (int) data.getCounters().get(counter11));
+                Assert.assertEquals(
+                        count12 * incrementsPerCounter,
+                        (int) data.getCounters().get(counter12));
+            }
+
+        }
+
+        Assert.assertEquals(numberOfCounters, i);
+
+    }
 }

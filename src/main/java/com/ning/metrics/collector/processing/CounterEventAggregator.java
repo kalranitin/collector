@@ -36,14 +36,52 @@ import org.joda.time.DateTime;
  */
 public class CounterEventAggregator {
 
-    private ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> curr;
-    private ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> swap;
-    private ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> idle;
+    private ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter>[] aggregateMaps;
+    private int workingMap;
+    private AtomicInteger[] aggregateMapRefCounters;
 
     public CounterEventAggregator() {
-        curr = new ConcurrentHashMap<>();
-        swap = new ConcurrentHashMap<>();
-        idle = new ConcurrentHashMap<>();
+        aggregateMaps = new ConcurrentHashMap[2];
+        aggregateMapRefCounters = new AtomicInteger[2];
+        workingMap = 0;
+
+        aggregateMaps[0] = new ConcurrentHashMap<>();
+        aggregateMaps[1] = new ConcurrentHashMap<>();
+        aggregateMapRefCounters[0] = new AtomicInteger(0);
+        aggregateMapRefCounters[1] = new AtomicInteger(0);
+    }
+
+    /**
+     * get the index for the current aggregation map, and handle all the
+     * reference counting and fringe-condition error checkin
+     *
+     * @return
+     */
+    private int getAggregateMap() {
+        int mapInUseAtStart = workingMap;
+
+        aggregateMapRefCounters[mapInUseAtStart].incrementAndGet();
+
+        // If the working map has not changed in this short period we are fine,
+        if (mapInUseAtStart == workingMap) {
+            return mapInUseAtStart;
+        }
+
+        // but potentially, the working map could have switched in these two
+        // lines, so if it has, we need to decrement and return a recursive call
+        releaseAggregateMap(mapInUseAtStart);
+
+        return getAggregateMap();
+    }
+
+    /**
+     * Release the reference on the given working map by decrementing its
+     * reference count
+     *
+     * @return
+     */
+    private void releaseAggregateMap(int mapInUse) {
+        aggregateMapRefCounters[mapInUse].decrementAndGet();
     }
 
     /**
@@ -55,14 +93,20 @@ public class CounterEventAggregator {
 
         String counterGroup = event.getAppId();
 
-        for (CounterEventData counterEventData : event.getCounterEvents()) {
-            addEventCounterData(counterGroup, counterEventData);
-        }
+        int mapToUse = getAggregateMap();
 
+        try {
+            for (CounterEventData counterEventData : event.getCounterEvents()) {
+                addEventCounterData(counterGroup, counterEventData, mapToUse);
+            }
+        }
+        finally {
+            releaseAggregateMap(mapToUse);
+        }
     }
 
     private void addEventCounterData(
-            String counterGroup, CounterEventData data) {
+            String counterGroup, CounterEventData data, int mapToUse) {
 
         int identifier = data.getIdentifierCategory();
         DateTime eventDate = data.getCreatedDate();
@@ -73,17 +117,17 @@ public class CounterEventAggregator {
             String counter = entry.getKey();
             int count = entry.getValue();
             addEventCounter(counterGroup, counter, identifier,
-                    uniqueId, eventDateString, eventDate, count);
+                    uniqueId, eventDateString, eventDate, count, mapToUse);
         }
 
     }
 
     private void addEventCounter(String counterGroup, String counterName,
             int idenfier, String uniqueId, String eventDateString,
-            DateTime eventDate, int count) {
+            DateTime eventDate, int count, int mapToUse) {
 
         ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> mapInUse
-                = curr;
+                = aggregateMaps[mapToUse];
 
         AggregatedCounterKey counterKey = new AggregatedCounterKey(
                 counterGroup, eventDateString, eventDate,
@@ -109,12 +153,21 @@ public class CounterEventAggregator {
 
         List<CounterEvent> result = Lists.newArrayList();
 
-        // Swap the maps;
-        ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> flush = curr;
-        curr = idle;
-        idle = swap;
-        swap = flush;
+        int mapToFlush = workingMap;
 
+
+        // Switch which map is being used
+        workingMap = workingMap != 0 ? 0 : 1;
+
+        //Wait for references to mapToFlush to
+        while (aggregateMapRefCounters[mapToFlush].get() > 0) {
+            //This shouldn't take long
+        }
+
+        ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> flush
+                = aggregateMaps[mapToFlush];
+
+        //Copy the entryset from the flush map
         // Iterate through the non-active map, and create counter event for each
         // aggregated counter
         for (Map.Entry<AggregatedCounterKey, AggregatedCounter> e
@@ -124,6 +177,8 @@ public class CounterEventAggregator {
 
             result.add(convert(key, val));
         }
+
+        flush.clear();
 
         return ImmutableList.copyOf(result);
     }
