@@ -101,8 +101,8 @@ public class TestCounterStorage
     {
         
         Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
-        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution")));
-        multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"))); 
+        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC))); 
         
         counterStorage.insertDailyMetrics(multimap);
         
@@ -121,8 +121,8 @@ public class TestCounterStorage
         
         for(int j=0;j<100;j++)
         {
-            multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution")));
-            multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile")));                
+            multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+            multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));                
         }            
         
         counterStorage.insertDailyMetrics(multimap);
@@ -135,49 +135,65 @@ public class TestCounterStorage
         Assert.assertTrue(dailyList.get(0).getCounters().get("pageView") == 100);
     }
     
-    private static CounterEventData prepareCounterEventData(String id, int category, List<String> counters){
+    private static CounterEventData prepareCounterEventData(String id, int category, List<String> counters, DateTime createdDateTime){
         Map<String,Integer> counterMap = new HashMap<String, Integer>();
         for(String s : counters)
         {
             counterMap.put(s, 1);
         }
         
-        return new CounterEventData(id, category, new DateTime(DateTimeZone.UTC), counterMap);
+        return new CounterEventData(id, category, createdDateTime, counterMap);
     }
     
     @Test
     public void testDeleteDailyMetrics() throws Exception{
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        
+        DateTime dateTime = new DateTime(DateTimeZone.UTC);
+        
+        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution"),dateTime));
+        multimap.put(1L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"),dateTime));       
+        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        
+        counterStorage.insertDailyMetrics(multimap);
+        
+        List<CounterEventData> dailyList = counterStorage.loadGroupedDailyMetrics(1L, dateTime);
+        
+        Assert.assertNotNull(dailyList);
+        Assert.assertFalse(dailyList.isEmpty());
+        
+        boolean deleted = counterStorage.deleteDailyMetrics(1L, dateTime);
+        
+        Assert.assertTrue(deleted);
+        
+        dailyList = counterStorage.loadGroupedDailyMetrics(1L, dateTime);
+        Assert.assertNotNull(dailyList);
+        Assert.assertTrue(dailyList.isEmpty());
+        
+        dailyList = counterStorage.loadGroupedDailyMetrics(1L, dateTime.plusHours(1));
+        Assert.assertNotNull(dailyList);
+        Assert.assertFalse(dailyList.isEmpty());
+        Assert.assertTrue(dailyList.size() == 1);
         
     }
     
     @Test
-    public void testInsertRolledUpCounter() throws Exception{
+    public void testGetSubscritionIdsFromDailyMetrics()
+    {
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         
-    }
-    
-    @Test
-    public void testUpdateRolledUpCounter() throws Exception{
+        DateTime dateTime = new DateTime(DateTimeZone.UTC);
+        multimap.put(1L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution"),dateTime));
+        multimap.put(2L, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"),dateTime));       
+        multimap.put(3L, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
         
-    }
-    
-    @Test
-    public void testLoadRolledUpCounterById() throws Exception{
+        counterStorage.insertDailyMetrics(multimap);
         
-    }
-    
-    @Test
-    public void testLoadRolledUpCountersByDateRange() throws Exception{
+        List<Long> subscriptionIds = counterStorage.getSubscritionIdsFromDailyMetrics();
         
-    }
-    
-    @Test
-    public void testLoadRolledUpCountersByStartDate() throws Exception{
-        
-    }
-    
-    @Test
-    public void testLoadRolledUpCountersByEndDate() throws Exception{
-        
+        Assert.assertNotNull(subscriptionIds);
+        Assert.assertFalse(subscriptionIds.isEmpty());
+        Assert.assertTrue(subscriptionIds.size() == 3);
     }
 
 }
