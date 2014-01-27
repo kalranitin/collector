@@ -41,9 +41,9 @@ public class CounterEventAggregator {
     private ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> idle;
 
     public CounterEventAggregator() {
-        curr = new ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter>();
-        swap = new ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter>();
-        idle = new ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter>();
+        curr = new ConcurrentHashMap<>();
+        swap = new ConcurrentHashMap<>();
+        idle = new ConcurrentHashMap<>();
     }
 
     /**
@@ -86,7 +86,7 @@ public class CounterEventAggregator {
                 = curr;
 
         AggregatedCounterKey counterKey = new AggregatedCounterKey(
-                counterGroup, counterName, eventDateString, eventDate,
+                counterGroup, eventDateString, eventDate,
                 idenfier, uniqueId);
         AggregatedCounter counter = new AggregatedCounter();
         AggregatedCounter existingCounter;
@@ -138,7 +138,7 @@ public class CounterEventAggregator {
     private CounterEvent convert(AggregatedCounterKey key,
             AggregatedCounter counter) {
 
-        Map<String, Integer> simpleMap = new HashMap<String, Integer>();
+        Map<String, Integer> simpleMap = new HashMap<>();
 
         for (Map.Entry<String, AtomicInteger> e
                 : counter.getCounts().entrySet()) {
@@ -161,17 +161,15 @@ public class CounterEventAggregator {
     private static final class AggregatedCounterKey {
 
         private final String counterGroup;
-        private final String counterName;
         private final String counterDateString;
         private final int identifierCategory;
         private final String uniqueId;
         private final DateTime counterDate;
 
         public AggregatedCounterKey(String counterGroup,
-                String counterName, String counterDateString,
-                DateTime counterDate, int identifierCategory, String uniqueId) {
+                String counterDateString, DateTime counterDate,
+                int identifierCategory, String uniqueId) {
             this.counterGroup = counterGroup;
-            this.counterName = counterName;
             this.counterDateString = counterDateString;
             this.counterDate = counterDate;
             this.identifierCategory = identifierCategory;
@@ -183,13 +181,6 @@ public class CounterEventAggregator {
          */
         public String getCounterGroup() {
             return counterGroup;
-        }
-
-        /**
-         * @return the counterName
-         */
-        public String getCounterName() {
-            return counterName;
         }
 
         /**
@@ -239,9 +230,6 @@ public class CounterEventAggregator {
             if ((this.counterGroup == null) ? (other.counterGroup != null) : !this.counterGroup.equals(other.counterGroup)) {
                 return false;
             }
-            if ((this.counterName == null) ? (other.counterName != null) : !this.counterName.equals(other.counterName)) {
-                return false;
-            }
             if ((this.counterDateString == null) ? (other.counterDateString != null) : !this.counterDateString.equals(other.counterDateString)) {
                 return false;
             }
@@ -258,7 +246,6 @@ public class CounterEventAggregator {
         public int hashCode() {
             int hash = 7;
             hash = 97 * hash + (this.counterGroup != null ? this.counterGroup.hashCode() : 0);
-            hash = 97 * hash + (this.counterName != null ? this.counterName.hashCode() : 0);
             hash = 97 * hash + (this.counterDateString != null ? this.counterDateString.hashCode() : 0);
             hash = 97 * hash + this.identifierCategory;
             hash = 97 * hash + (this.uniqueId != null ? this.uniqueId.hashCode() : 0);
@@ -298,7 +285,7 @@ public class CounterEventAggregator {
             if (!initialized) {
                 synchronized (this) {
                     if (!initialized) {
-                        counts = new ConcurrentHashMap<String, AtomicInteger>();
+                        counts = new ConcurrentHashMap<>();
                         initialized = true;
                     }
                 }
