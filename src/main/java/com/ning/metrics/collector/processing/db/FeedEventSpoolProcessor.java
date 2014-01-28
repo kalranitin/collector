@@ -62,10 +62,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-public class DBSpoolProcessor implements EventSpoolProcessor
+public class FeedEventSpoolProcessor implements EventSpoolProcessor
 {
-    private static final Logger log = LoggerFactory.getLogger(DBSpoolProcessor.class);
-    private final IDBI dbi;
+    private static final Logger log = LoggerFactory.getLogger(FeedEventSpoolProcessor.class);
     private final CollectorConfig config;
     private final SubscriptionStorage subscriptionStorage;
     private final FeedEventStorage feedEventStorage;
@@ -78,9 +77,8 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     private final Scheduler quartzScheduler;
     
     @Inject
-    public DBSpoolProcessor(final IDBI dbi, final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final FeedEventStorage feedEventStorage, final Scheduler quartzScheduler) throws SchedulerException
+    public FeedEventSpoolProcessor(final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final FeedEventStorage feedEventStorage, final Scheduler quartzScheduler) throws SchedulerException
     {
-        this.dbi = dbi;
         this.config = config;
         this.subscriptionStorage = subscriptionStorage;
         this.feedEventStorage = feedEventStorage;
@@ -244,7 +242,11 @@ public class DBSpoolProcessor implements EventSpoolProcessor
             
             log.info("Shutting Down Quartz Scheduler");
             try {
-                quartzScheduler.shutdown(true);
+                if(!quartzScheduler.isShutdown())
+                {
+                    quartzScheduler.shutdown(true);
+                }
+                
             }
             catch (SchedulerException e) {
                 log.error("Unexpected error while shutting down Quartz Scheduler!",e);
@@ -268,17 +270,17 @@ public class DBSpoolProcessor implements EventSpoolProcessor
     private static class FeedEventInserter implements Runnable{
 
         private final ExecutorService es;
-        private final DBSpoolProcessor dbSpoolProcessor;
+        private final FeedEventSpoolProcessor feedEventSpoolProcessor;
         
-        public FeedEventInserter(ExecutorService es,DBSpoolProcessor dbSpoolProcessor){
+        public FeedEventInserter(ExecutorService es,FeedEventSpoolProcessor feedEventSpoolProcessor){
             this.es = es;
-            this.dbSpoolProcessor = dbSpoolProcessor;
+            this.feedEventSpoolProcessor = feedEventSpoolProcessor;
         }
         
         @Override
         public void run()
         {
-            dbSpoolProcessor.flushFeedEventsToDB();
+            feedEventSpoolProcessor.flushFeedEventsToDB();
             es.submit(this);
             
         }

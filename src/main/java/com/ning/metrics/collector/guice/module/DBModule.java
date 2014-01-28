@@ -16,17 +16,21 @@
 package com.ning.metrics.collector.guice.module;
 
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
+import com.ning.metrics.collector.processing.db.CounterEventCacheProcessor;
+import com.ning.metrics.collector.processing.db.CounterEventSpoolProcessor;
+import com.ning.metrics.collector.processing.db.CounterStorage;
+import com.ning.metrics.collector.processing.db.DatabaseCounterStorage;
 import com.ning.metrics.collector.processing.db.DatabaseFeedStorage;
 import com.ning.metrics.collector.processing.db.FeedEventProcessor;
 import com.ning.metrics.collector.processing.db.FeedEventStorage;
-import com.ning.metrics.collector.processing.db.DBSpoolProcessor;
+import com.ning.metrics.collector.processing.db.FeedEventSpoolProcessor;
 import com.ning.metrics.collector.processing.db.DatabaseFeedEventStorage;
 import com.ning.metrics.collector.processing.db.FeedStorage;
+import com.ning.metrics.collector.processing.db.InMemoryCounterCacheProcessor;
 import com.ning.metrics.collector.processing.db.InMemorySubscriptionCache;
 import com.ning.metrics.collector.processing.db.SubscriptionCache;
 import com.ning.metrics.collector.processing.db.SubscriptionStorage;
 import com.ning.metrics.collector.processing.db.DatabaseSubscriptionStorage;
-
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -51,7 +55,7 @@ public class DBModule implements Module
         binder.bind(IDBI.class).to(DBI.class).asEagerSingleton();
         binder.bind(DBI.class).toProvider(CollectorDBIProvider.class).asEagerSingleton();
         
-        builder.export(DBSpoolProcessor.class).as("com.ning.metrics.collector:name=DBSpoolProcessor");
+        builder.export(FeedEventSpoolProcessor.class).as("com.ning.metrics.collector:name=FeedEventSpoolProcessor");
         
         binder.bind(SubscriptionCache.class).to(InMemorySubscriptionCache.class).asEagerSingleton();
         
@@ -62,6 +66,13 @@ public class DBModule implements Module
         binder.bind(FeedStorage.class).to(DatabaseFeedStorage.class).asEagerSingleton();
         
         binder.bind(FeedEventProcessor.class).asEagerSingleton();
+        
+        builder.export(CounterEventSpoolProcessor.class).as("com.ning.metrics.collector:name=CounterEventSpoolProcessor");
+        
+        binder.bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton();
+        binder.bind(CounterStorage.class).to(DatabaseCounterStorage.class).asEagerSingleton();
+        
+        
         
     }
 

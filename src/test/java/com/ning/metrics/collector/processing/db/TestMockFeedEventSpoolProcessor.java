@@ -39,9 +39,9 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-public class TestMockDBSpoolProcessor
+public class TestMockFeedEventSpoolProcessor
 {
-    private DBSpoolProcessor dbSpoolProcessor;
+    private FeedEventSpoolProcessor feedEventSpoolProcessor;
     private Event event;
     private EventDeserializer eventDeserializer;
     private SerializationType serializationType;
@@ -61,14 +61,14 @@ public class TestMockDBSpoolProcessor
         subscriptionStorage = Mockito.mock(SubscriptionStorage.class);
         feedEventStorage = Mockito.mock(FeedEventStorage.class);
         quartzScheduler = Mockito.mock(Scheduler.class);
-        file = new File(System.getProperty("java.io.tmpdir")+"/dbtest.json");
+        file = new File(System.getProperty("java.io.tmpdir")+"/feedEventTest.json");
         FileUtils.touch(file);
         //Mockito.when(file.getPath()).thenReturn(System.getProperty("java.io.tmpdir"));
         
         Mockito.when(config.getSpoolWriterExecutorShutdownTime()).thenReturn(new TimeSpan("1s"));
         Mockito.when(quartzScheduler.isStarted()).thenReturn(true);
         
-        dbSpoolProcessor = new DBSpoolProcessor(null, config, subscriptionStorage, feedEventStorage,quartzScheduler);
+        feedEventSpoolProcessor = new FeedEventSpoolProcessor(config, subscriptionStorage, feedEventStorage,quartzScheduler);
     }
     
     @AfterMethod
@@ -83,7 +83,7 @@ public class TestMockDBSpoolProcessor
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);
         Mockito.when(eventDeserializer.getNextEvent()).thenReturn(event);
         Mockito.when(event.getName()).thenReturn("nonFeedEvent");
-        dbSpoolProcessor.processEventFile(null, serializationType, file, null);
+        feedEventSpoolProcessor.processEventFile(null, serializationType, file, null);
         
         Mockito.verify(serializationType,Mockito.times(1)).getDeSerializer(Mockito.<InputStream>any());
         Mockito.verify(eventDeserializer, Mockito.times(2)).hasNextEvent();
@@ -124,13 +124,13 @@ public class TestMockDBSpoolProcessor
         }
         
         
-        dbSpoolProcessor.processEventFile(null, serializationType, file, null);
+        feedEventSpoolProcessor.processEventFile(null, serializationType, file, null);
         // Sleeping so that the insertion call is done successfully.
         if(testThread){
             Thread.sleep(5000);
         }
         
-        dbSpoolProcessor.close();
+        feedEventSpoolProcessor.close();
         
         
         Mockito.verify(serializationType,Mockito.times(1)).getDeSerializer(Mockito.<InputStream>any());

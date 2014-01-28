@@ -21,6 +21,7 @@ import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -67,13 +68,15 @@ public class DatabaseCounterStorage implements CounterStorage
     private final Lock dbLock;
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final String DAILY_METRICS_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    private final CounterEventCacheProcessor counterEventCacheProcessor;
     
     @Inject
-    public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config)
+    public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config, final CounterEventCacheProcessor counterEventCacheProcessor)
     {
         this.dbi = dbi;
         this.config = config;
         this.dbLock = new MySqlLock("counter-event-storage", dbi);
+        this.counterEventCacheProcessor = counterEventCacheProcessor;
         mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
         mapper.registerModule(new JodaModule());
         mapper.registerModule(new GuavaModule());
@@ -99,15 +102,27 @@ public class DatabaseCounterStorage implements CounterStorage
     @Override
     public CounterSubscription loadCounterSubscription(final String appId)
     {
+        Optional<CounterSubscription> cachedResult = this.counterEventCacheProcessor.getCounterSubscription(appId);
+        
+        if(cachedResult.isPresent())
+        {
+            return cachedResult.get();
+        }
+        
         return dbi.withHandle(new HandleCallback<CounterSubscription>()
             {
+            
                 @Override
                 public CounterSubscription withHandle(Handle handle) throws Exception
                 {
-                    return handle.createQuery("select id, identifier, distribution_for from metrics_subscription where identifier = :appId")
+                    CounterSubscription counterSubscription = handle.createQuery("select id, identifier, distribution_for from metrics_subscription where identifier = :appId")
                                  .bind("appId", appId)
                                  .map(new CounterSubscriptionMapper())
                                  .first();
+                    
+                    counterEventCacheProcessor.addCounterSubscription(appId, Optional.of(counterSubscription));
+                    
+                    return counterSubscription;
                 }
             });
     }

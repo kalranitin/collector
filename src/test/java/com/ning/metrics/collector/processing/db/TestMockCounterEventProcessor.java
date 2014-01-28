@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2013 Ning, Inc.
+ * Copyright 2010-2014 Ning, Inc.
  *
  * Ning licenses this file to you under the Apache License, version 2.0
  * (the "License"); you may not use this file except in compliance with the
@@ -15,20 +15,7 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-public enum DBStorageTypes
+public class TestMockCounterEventProcessor
 {
-    SUBSCRIPTION("subscription"),
-    FEED_EVENT("FeedEvent"),
-    COUNTER_EVENT("CounterEvent"),
-    FEED("feed");
-    
-    private String dbStorateType;
-    
-    private DBStorageTypes(String dbStorateType){
-        this.dbStorateType = dbStorateType;
-    }
-    
-    public String getDbStorageType(){
-        return this.dbStorateType;
-    }
+
 }

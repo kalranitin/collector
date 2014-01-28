@@ -53,6 +53,10 @@ public class CounterEventData
         {
             this.createdDate = createdDate;
         }
+        else
+        {
+            this.createdDate = new DateTime(this.createdDate,DateTimeZone.UTC);
+        }
     }
    
     public DateTime getCreatedDate(){

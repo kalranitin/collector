@@ -417,7 +417,7 @@ public interface CollectorConfig
      * Comma (,) seperated class names for processing the events.
      * */
     @Config("collector.spoolWriter.classes")
-    @Default("com.ning.metrics.collector.processing.db.DBSpoolProcessor")
+    @Default("com.ning.metrics.collector.processing.db.FeedEventSpoolProcessor")
     String getSpoolWriterClassNames();
     
     /**
@@ -495,4 +495,14 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.feedEvent.retention.period")
     @Default("30d")
     TimeSpan getFeedEventRetentionPeriod();
+    
+    @Description("How long the Counter Events should reside in cache")
+    @Config("collector.spoolWriter.counterEvent.dbflush.time")
+    @Default("15m")
+    TimeSpan getCounterEventDBFlushTime();
+    
+    @Description("The maximum allowed number of counter events in the cache for each subscription id before flush is done")
+    @Config("collector.spoolWriter.counterEvent.cache.flush.limit")
+    @Default("1000")
+    long getMaxCounterEventFlushCacheCount();
 }
