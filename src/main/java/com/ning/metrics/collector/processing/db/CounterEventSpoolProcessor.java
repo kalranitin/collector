@@ -64,6 +64,7 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
     {
         // File has Smile type of events
         EventDeserializer eventDeserializer = serializationType.getDeSerializer(new FileInputStream(file));
+        boolean counterEventsProcessed = false;
         
         /*Add all eligible counter events to the buffer which would be drained periodically based on the size*/
         while(eventDeserializer.hasNextEvent())
@@ -92,7 +93,14 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
                {   
                    this.counterEventCacheProcessor.addCounterEventData(counterSubscription.getId(), counterEventData);
                }
-            }            
+               
+               counterEventsProcessed = true;
+            }
+        }
+        
+        if(counterEventsProcessed)
+        {
+            this.counterEventCacheProcessor.processRemainingCounters();
         }
         
     }
@@ -102,7 +110,7 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
     public void close()
     {
         counterEventCacheProcessor.cleanUp();
-//        counterStorage.cleanUp();             
+        counterStorage.cleanUp();             
     }
 
     @Override

@@ -53,25 +53,20 @@ import java.util.concurrent.TimeUnit;
 public class InMemoryCounterCacheProcessor implements CounterEventCacheProcessor
 {
     private static final Logger log = LoggerFactory.getLogger(InMemoryCounterCacheProcessor.class);
-    final Cache<String, Optional<CounterSubscription>> counterSubscriptionByAppId;
+    
     final Cache<Long, Queue<CounterEventData>> counterEventsBySubscriptionId;
     private final ExecutorService executorService;
     private final TimeSpan executorShutdownTimeOut;
-    final TimeSpan cacheExpiryTime;
     final TimeSpan counterEventDBFlushTime;
     
     @Inject
     public InMemoryCounterCacheProcessor(final CollectorConfig config, final CounterStorage counterStorage)
     {
-        this.cacheExpiryTime = config.getSubscriptionCacheTimeout();
+        
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
         this.counterEventDBFlushTime = config.getCounterEventDBFlushTime();
         
-        this.counterSubscriptionByAppId = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
-                .recordStats()
-                .build();
+        
         
         this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("CounterEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
         
@@ -114,27 +109,12 @@ public class InMemoryCounterCacheProcessor implements CounterEventCacheProcessor
                             }
                             
                             multimap.putAll(removalNotification.getKey(), groupMap.values());
-                            
-                            counterStorage.insertDailyMetrics(multimap);
-                            
+                            counterStorage.insertDailyMetrics(multimap);                            
                         }
                     }},  this.executorService))
                 .recordStats()
                 .build();
         
-    }
-    
-    @Override
-    public Optional<CounterSubscription> getCounterSubscription(final String appId)
-    {
-        Optional<CounterSubscription> counterSubscription =  this.counterSubscriptionByAppId.getIfPresent(appId);
-        return counterSubscription == null?Optional.<CounterSubscription>absent():counterSubscription;
-    }
-    
-    @Override
-    public void addCounterSubscription(final String appId, final Optional<CounterSubscription> counterSubscription)
-    {
-        this.counterSubscriptionByAppId.put(appId, counterSubscription);
     }
     
     @Override
@@ -151,14 +131,17 @@ public class InMemoryCounterCacheProcessor implements CounterEventCacheProcessor
     }
     
     @Override
+    public void processRemainingCounters(){
+        this.counterEventsBySubscriptionId.cleanUp();
+    }
+    
+    @Override
     public void cleanUp()
     {
         this.counterEventsBySubscriptionId.cleanUp();
-        this.counterSubscriptionByAppId.cleanUp();
         this.counterEventsBySubscriptionId.invalidateAll();
-        this.counterSubscriptionByAppId.invalidateAll();
         
-        log.info("Shutting Down Executor Service for Feed Event Storage");
+        log.info("Shutting Down Executor Service for Counter Event Cache Storage");
         executorService.shutdown();
         
         try {
@@ -170,73 +153,38 @@ public class InMemoryCounterCacheProcessor implements CounterEventCacheProcessor
         executorService.shutdownNow();
     }
     
-    @Monitored(description = "Number of counter subscriptions in buffer", monitoringType = {MonitoringType.VALUE})
-    public long getTopicSubscriptionsInCache(){
-        return counterSubscriptionByAppId.size();
-    }
-    
-    @Monitored(description = "The number of times Counter Subscription lookup methods have returned a cached value", monitoringType = {MonitoringType.VALUE})
-    public long getTopicSubscriptionsCacheHitCount(){
-        return counterSubscriptionByAppId.stats().hitCount();
-    }
-    
-    @Monitored(description = "The ratio of counter subscription cache requests which were hits", monitoringType = {MonitoringType.VALUE})
-    public double getTopicSubscriptionsCacheHitRate(){
-        return counterSubscriptionByAppId.stats().hitRate();
-    }
-    
-    @Monitored(description = "The total number of times that Counter Subscription lookup methods attempted to load new values", monitoringType = {MonitoringType.VALUE})
-    public long getTopicSubscriptionsCacheLoadCount(){
-        return counterSubscriptionByAppId.stats().loadCount();
-    }
-    
-    @Monitored(description = "The number of times Counter Subscription lookup methods have returned an uncached (newly loaded) value, or null", monitoringType = {MonitoringType.VALUE})
-    public long getTopicSubscriptionsCacheMissCount(){
-        return counterSubscriptionByAppId.stats().missCount();
-    }
-    
-    @Monitored(description = "The ratio of Counter Subscription requests which were misses", monitoringType = {MonitoringType.VALUE})
-    public double getTopicSubscriptionsCacheMissRate(){
-        return counterSubscriptionByAppId.stats().missRate();
-    }
-    
-    @Monitored(description = "The number of times Counter Subscription lookup methods have returned either a cached or uncached value", monitoringType = {MonitoringType.VALUE})
-    public long getTopicSubscriptionsCacheRequestCount(){
-        return counterSubscriptionByAppId.stats().requestCount();
-    }
-    
     @Monitored(description = "Number of Counter Events in buffer", monitoringType = {MonitoringType.VALUE})
-    public long getFeedSubscriptionsInCache(){
+    public long getCounterEventsInCache(){
         return counterEventsBySubscriptionId.size();
     }
     
     @Monitored(description = "The number of times Counter Events lookup methods have returned a cached value", monitoringType = {MonitoringType.VALUE})
-    public long getFeedSubscriptionsCacheHitCount(){
+    public long getCounterEventsCacheHitCount(){
         return counterEventsBySubscriptionId.stats().hitCount();
     }
     
     @Monitored(description = "The ratio of Counter Events requests which were hits", monitoringType = {MonitoringType.VALUE})
-    public double getFeedSubscriptionsCacheHitRate(){
+    public double getCounterEventsCacheHitRate(){
         return counterEventsBySubscriptionId.stats().hitRate();
     }
     
     @Monitored(description = "The total number of times that Counter Events lookup methods attempted to load new values", monitoringType = {MonitoringType.VALUE})
-    public long getFeedSubscriptionsCacheLoadCount(){
+    public long getCounterEventsCacheLoadCount(){
         return counterEventsBySubscriptionId.stats().loadCount();
     }
     
     @Monitored(description = "The number of times Counter Events lookup methods have returned an uncached (newly loaded) value, or null", monitoringType = {MonitoringType.VALUE})
-    public long getFeedSubscriptionsCacheMissCount(){
+    public long getCounterEventsCacheMissCount(){
         return counterEventsBySubscriptionId.stats().missCount();
     }
     
     @Monitored(description = "The ratio of Counter Events requests which were misses", monitoringType = {MonitoringType.VALUE})
-    public double getFeedSubscriptionsCacheMissRate(){
+    public double getCounterEventsCacheMissRate(){
         return counterEventsBySubscriptionId.stats().missRate();
     }
     
     @Monitored(description = "The number of times Counter Events lookup methods have returned either a cached or uncached value", monitoringType = {MonitoringType.VALUE})
-    public long getFeedSubscriptionsCacheRequestCount(){
+    public long getCounterEventsCacheRequestCount(){
         return counterEventsBySubscriptionId.stats().requestCount();
     }
 

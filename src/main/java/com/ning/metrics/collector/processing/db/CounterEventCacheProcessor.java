@@ -15,14 +15,11 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.google.common.base.Optional;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
-import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 
 public interface CounterEventCacheProcessor
 {
-    public Optional<CounterSubscription> getCounterSubscription(final String appId);
-    public void addCounterSubscription(final String appId, final Optional<CounterSubscription> counterSubscription);
     public void addCounterEventData(final Long subscriptionId, final CounterEventData counterEventData);
+    public void processRemainingCounters();
     public void cleanUp();
 }

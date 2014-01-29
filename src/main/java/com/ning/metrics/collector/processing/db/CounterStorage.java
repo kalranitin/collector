@@ -40,4 +40,6 @@ public interface CounterStorage
     public RolledUpCounter loadRolledUpCounterById(final String id);
     public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate);
     
+    public void cleanUp();
+    
 }

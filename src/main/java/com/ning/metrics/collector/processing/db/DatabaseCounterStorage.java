@@ -22,6 +22,8 @@ import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -35,6 +37,7 @@ import com.ning.metrics.collector.processing.db.util.MySqlLock;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+import org.skife.config.TimeSpan;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.PreparedBatch;
@@ -68,18 +71,35 @@ public class DatabaseCounterStorage implements CounterStorage
     private final Lock dbLock;
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final String DAILY_METRICS_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
-    private final CounterEventCacheProcessor counterEventCacheProcessor;
+    final Cache<String, Optional<CounterSubscription>> counterSubscriptionByAppId;
+    final TimeSpan cacheExpiryTime;
     
     @Inject
-    public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config, final CounterEventCacheProcessor counterEventCacheProcessor)
+    public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config)
     {
         this.dbi = dbi;
         this.config = config;
         this.dbLock = new MySqlLock("counter-event-storage", dbi);
-        this.counterEventCacheProcessor = counterEventCacheProcessor;
+        this.cacheExpiryTime = config.getSubscriptionCacheTimeout();
+        this.counterSubscriptionByAppId = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
+                .recordStats()
+                .build();
         mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
         mapper.registerModule(new JodaModule());
         mapper.registerModule(new GuavaModule());
+    }
+    
+    private Optional<CounterSubscription> getCounterSubscription(final String appId)
+    {
+        Optional<CounterSubscription> counterSubscription =  this.counterSubscriptionByAppId.getIfPresent(appId);
+        return counterSubscription == null?Optional.<CounterSubscription>absent():counterSubscription;
+    }
+    
+    private void addCounterSubscription(final String appId, final Optional<CounterSubscription> counterSubscription)
+    {
+        this.counterSubscriptionByAppId.put(appId, counterSubscription);
     }
 
     @Override
@@ -102,7 +122,7 @@ public class DatabaseCounterStorage implements CounterStorage
     @Override
     public CounterSubscription loadCounterSubscription(final String appId)
     {
-        Optional<CounterSubscription> cachedResult = this.counterEventCacheProcessor.getCounterSubscription(appId);
+        Optional<CounterSubscription> cachedResult = getCounterSubscription(appId);
         
         if(cachedResult.isPresent())
         {
@@ -120,7 +140,7 @@ public class DatabaseCounterStorage implements CounterStorage
                                  .map(new CounterSubscriptionMapper())
                                  .first();
                     
-                    counterEventCacheProcessor.addCounterSubscription(appId, Optional.of(counterSubscription));
+                    addCounterSubscription(appId, Optional.of(counterSubscription));
                     
                     return counterSubscription;
                 }
@@ -402,6 +422,13 @@ public class DatabaseCounterStorage implements CounterStorage
             }
         }
         
+    }
+    
+    @Override
+    public void cleanUp()
+    {
+        this.counterSubscriptionByAppId.cleanUp();
+        this.counterSubscriptionByAppId.invalidateAll();
     }
 
 }

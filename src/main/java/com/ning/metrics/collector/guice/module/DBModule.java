@@ -69,8 +69,9 @@ public class DBModule implements Module
         
         builder.export(CounterEventSpoolProcessor.class).as("com.ning.metrics.collector:name=CounterEventSpoolProcessor");
         
-        binder.bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton();
         binder.bind(CounterStorage.class).to(DatabaseCounterStorage.class).asEagerSingleton();
+        binder.bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton();
+        
         
         
         

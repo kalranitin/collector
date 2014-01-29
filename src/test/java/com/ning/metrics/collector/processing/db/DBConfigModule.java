@@ -50,8 +50,9 @@ public class DBConfigModule extends AbstractModule
         bind(FeedStorage.class).to(DatabaseFeedStorage.class).asEagerSingleton();
         bind(FeedEventProcessor.class).asEagerSingleton();
         
-        bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton(); 
         bind(CounterStorage.class).to(DatabaseCounterStorage.class).asEagerSingleton();
+        bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton(); 
+        
           
         
     }
