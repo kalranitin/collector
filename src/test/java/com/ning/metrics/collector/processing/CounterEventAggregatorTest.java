@@ -145,7 +145,7 @@ public class CounterEventAggregatorTest {
         long stop = System.currentTimeMillis();
 
         long ratePerSecond = (1000L * (long) (incrementsPerThreads)
-                * ((long) numberOfThreads)) / (stop - start);
+                * ((long) numberOfThreads)) / (stop - start + 1);
 
         System.out.println(ratePerSecond + " incr/s on the same counter");
 
@@ -217,7 +217,7 @@ public class CounterEventAggregatorTest {
         long stop = System.currentTimeMillis();
 
         long ratePerSecond = (1000L * (long) (incrementsPerCounter)
-                * ((long) numberOfCounters)) / (stop - start);
+                * ((long) numberOfCounters)) / (stop - start + 1);
 
         System.out.println(ratePerSecond + " incr/s on the multiple counter");
 
@@ -228,7 +228,7 @@ public class CounterEventAggregatorTest {
         stop = System.currentTimeMillis();
 
         long flushRatePerSecond = (1000L
-                * ((long) numberOfCounters)) / (stop - start);
+                * ((long) numberOfCounters)) / (stop - start + 1);
 
         System.out.println(flushRatePerSecond
                 + " aggregated events flushed per second");

@@ -20,8 +20,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.sun.org.apache.xalan.internal.utils.Objects;
-
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -30,21 +28,20 @@ public class CounterEvent
 {
     private final String appId;
     private final List<CounterEventData> counterEvents;
-    
+
     @JsonCreator
-    public CounterEvent(@JsonProperty("appId") String appId, 
+    public CounterEvent(@JsonProperty("appId") String appId,
         @JsonProperty("buckets") List<CounterEventData> counterEvents)
     {
         this.appId = appId;
-        if(Objects.equals(null, counterEvents))
-        {
+        if (null == counterEvents)        {
             this.counterEvents = null;
         }
         else
         {
             this.counterEvents = ImmutableList.copyOf(counterEvents);
         }
-        
+
     }
 
     public String getAppId()
