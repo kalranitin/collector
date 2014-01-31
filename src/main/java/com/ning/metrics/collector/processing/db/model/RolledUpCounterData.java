@@ -55,6 +55,11 @@ public class RolledUpCounterData
         return distribution;
     }
     
+    public Integer getUniqueCount()
+    {
+        return this.distribution == null?0:distribution.size();
+    }
+    
     @JsonIgnore
     public void incrementCounter(Integer incrementValue)
     {

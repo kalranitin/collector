@@ -72,7 +72,7 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
             Event event = eventDeserializer.getNextEvent();
             log.debug(String.format("Recieved DB Event to store with name as %s ",event.getName()));
             
-            if(event.getName().equalsIgnoreCase(DBStorageTypes.COUNTER_EVENT.getDbStorageType()))
+            if(DBStorageTypes.COUNTER_EVENT.getDbStorageType().equalsIgnoreCase(event.getName()))
             {
                log.debug(String.format("DB Event body to store is %s",event.getData()));
                

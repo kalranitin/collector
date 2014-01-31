@@ -90,6 +90,8 @@ public class TestCounterMetricsSerialization
         RolledUpCounterData counterData1 = new RolledUpCounterData("pageView", 6, distributionMap);
         counterSummary.put("counterSummary_0", "pageView", counterData1);
         
+        Assert.assertEquals(new Integer(3), counterData1.getUniqueCount());
+        
         RolledUpCounter rolledUpCounter = new RolledUpCounter("app123", new DateTime(), new DateTime(), counterSummary);
         
         Assert.assertNotNull(mapper.writeValueAsString(rolledUpCounter));
@@ -97,16 +99,17 @@ public class TestCounterMetricsSerialization
     
     @Test
     public void testRolledUpCounterDeserialization() throws Exception{
-        String rollUpJson = "{\"appId\":\"app123\",\"fromDate\":1389829178063,\"toDate\":1389829178070,\"counterSummary_0\":{\"pageView\":{\"counterName\":\"pageView\",\"totalCount\":6,\"distribution\":{\"member2\":3,\"member3\":1,\"member1\":2}}}}";
+        String rollUpJson = "{\"appId\":\"app123\",\"fromDate\":1389829178063,\"toDate\":1389829178070,\"counterSummary_1\":{\"pageView\":{\"counterName\":\"pageView\",\"totalCount\":6,\"distribution\":{\"member2\":3,\"member3\":1,\"member1\":2}}}}";
         
         RolledUpCounter rolledUpCounter = mapper.readValue(rollUpJson, RolledUpCounter.class);
         
         Assert.assertNotNull(rolledUpCounter);
         Assert.assertEquals("app123", rolledUpCounter.getAppId());
-        Assert.assertTrue(rolledUpCounter.getCounterSummary().containsRow("counterSummary_0"));
-        Assert.assertTrue(rolledUpCounter.getCounterSummary().contains("counterSummary_0", "pageView"));
-        Assert.assertEquals(new Integer(6), rolledUpCounter.getCounterSummary().get("counterSummary_0", "pageView").getTotalCount());
-        Assert.assertFalse(rolledUpCounter.getCounterSummary().get("counterSummary_0", "pageView").getDistribution().isEmpty());
+        Assert.assertTrue(rolledUpCounter.getCounterSummary().containsRow("counterSummary_1"));
+        Assert.assertTrue(rolledUpCounter.getCounterSummary().contains("counterSummary_1", "pageView"));
+        Assert.assertEquals(new Integer(6), rolledUpCounter.getCounterSummary().get("counterSummary_1", "pageView").getTotalCount());
+        Assert.assertFalse(rolledUpCounter.getCounterSummary().get("counterSummary_1", "pageView").getDistribution().isEmpty());
+        Assert.assertEquals(new Integer(3), rolledUpCounter.getCounterSummary().get("counterSummary_1", "pageView").getUniqueCount());
         
     }
 

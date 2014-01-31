@@ -82,7 +82,7 @@ public class DatabaseCounterStorage implements CounterStorage
         this.dbLock = new MySqlLock("counter-event-storage", dbi);
         this.cacheExpiryTime = config.getSubscriptionCacheTimeout();
         this.counterSubscriptionByAppId = CacheBuilder.newBuilder()
-                .maximumSize(1000)
+                .maximumSize(config.getMaxCounterSubscriptionCacheCount())
                 .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
                 .recordStats()
                 .build();
@@ -221,16 +221,17 @@ public class DatabaseCounterStorage implements CounterStorage
                     while(rs.hasNext())
                     {
                         CounterEventData counterEventData = rs.next();
-                        CounterEventData groupedData = groupMap.get(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate());
+                        final String counterKey = counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate();
+                        CounterEventData groupedData = groupMap.get(counterKey);
                         
                         if(Objects.equal(null, groupedData))
                         {
-                            groupMap.put(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate(), counterEventData);
+                            groupMap.put(counterKey, counterEventData);
                             continue;
                         }
                         
                         groupedData.mergeCounters(counterEventData.getCounters());
-                        groupMap.put(counterEventData.getUniqueIdentifier()+counterEventData.getFormattedDate(), groupedData);  
+                        groupMap.put(counterKey, groupedData);  
                     }
                 }
                 finally{

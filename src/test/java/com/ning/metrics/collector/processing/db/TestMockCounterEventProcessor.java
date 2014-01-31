@@ -70,7 +70,7 @@ public class TestMockCounterEventProcessor
         org.apache.commons.io.FileUtils.deleteQuietly(file);
     }
     
-    @Test
+    @Test(groups = "slow")
     public void testExcludeEmptyCounterEvents() throws Exception{
         
         
@@ -88,7 +88,7 @@ public class TestMockCounterEventProcessor
         Mockito.verify(event, Mockito.times(2)).getName();
     }
     
-    @Test
+    @Test(groups = "slow")
     public void testExceludeInvalidAppId() throws Exception{
         
         String jsonData = "{\"appId\": \"network_id:111\","
@@ -113,7 +113,7 @@ public class TestMockCounterEventProcessor
         
     }
     
-    @Test
+    @Test(groups = "slow")
     public void testAddCounterEvents() throws Exception{
         final ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JodaModule());
@@ -144,11 +144,4 @@ public class TestMockCounterEventProcessor
         
         Mockito.verify(counterEventCacheProcessor,Mockito.times(2)).addCounterEventData(Mockito.anyLong(), Mockito.<CounterEventData>any());
     }
-    
-    
-    
-    
-    
-    
-
 }

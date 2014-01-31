@@ -501,6 +501,11 @@ public interface CollectorConfig
     @Default("15m")
     TimeSpan getCounterEventDBFlushTime();
     
+    @Description("The maximum allowed number of counter subscriptions in the cache")
+    @Config("collector.spoolWriter.counterEvent.subscription.cache.limit")
+    @Default("1000")
+    long getMaxCounterSubscriptionCacheCount();
+    
     @Description("The maximum allowed number of counter events in the cache for each subscription id before flush is done")
     @Config("collector.spoolWriter.counterEvent.cache.flush.limit")
     @Default("1000")
