@@ -107,11 +107,11 @@ public class TestCounterStorage
         
         counterStorage.insertDailyMetrics(multimap);
         
-        List<CounterEventData> dailyList = counterStorage.loadDailyMetrics(1L, null);
+        List<CounterEventData> dailyList = counterStorage.loadDailyMetrics(1L, null, 1, 1);
         
         Assert.assertNotNull(dailyList);
         Assert.assertFalse(dailyList.isEmpty());
-        Assert.assertEquals(2, dailyList.size());
+        Assert.assertEquals(1, dailyList.size());
         Assert.assertTrue(Objects.equal("member123", dailyList.get(0).getUniqueIdentifier()) || Objects.equal("member321", dailyList.get(0).getUniqueIdentifier()));
     }
     

@@ -172,22 +172,38 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime toDateTime)
-    {
+    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime toDateTime, final Integer limit, final Integer offset)
+    {   
        return dbi.withHandle(new HandleCallback<List<CounterEventData>>() {
 
         @Override
         public List<CounterEventData> withHandle(Handle handle) throws Exception
         {
-            final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, toDateTime)?"":" and created_date <= :toDateTime");
+            final Optional<DateTime> toDateTimeOptional = Optional.fromNullable(toDateTime);
+            final Optional<Integer> limitOptional = Optional.fromNullable(limit);
+            final Optional<Integer> offsetOptional = Optional.fromNullable(offset);
+            
+            final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId" 
+            +(toDateTimeOptional.isPresent()?" and created_date <= :toDateTime":"")
+            +(limitOptional.isPresent()?" limit :limit":"")
+            +(limitOptional.isPresent() && offsetOptional.isPresent()?" offset :offset":"");
             
             Query<Map<String, Object>> query =  handle.createQuery(queryStr)
                     .bind("subscriptionId", subscriptionId);
             
-            if(!Objects.equal(null, toDateTime))
+            if(toDateTimeOptional.isPresent())
             {
                 DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
-                query.bind("toDateTime", formatter.print(toDateTime));
+                query.bind("toDateTime", formatter.print(toDateTimeOptional.get()));
+            }
+            if(limitOptional.isPresent())
+            {
+                query.bind("limit", limitOptional.get());
+                
+                if(offsetOptional.isPresent())
+                {
+                    query.bind("offset", offsetOptional.get());
+                }
             }
             
             return ImmutableList.copyOf(query.map(new CounterEventDataMapper()).list());

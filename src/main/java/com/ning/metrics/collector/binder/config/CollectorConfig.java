@@ -510,4 +510,9 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.counterEvent.cache.flush.limit")
     @Default("1000")
     long getMaxCounterEventFlushCacheCount();
+    
+    @Description("The maximum allowed number of counter events to be fetched in bulk while performing roll up operation")
+    @Config("collector.spoolWriter.counterEvent.db.fetch.limit")
+    @Default("1000")
+    int getMaxCounterEventFetchCount();
 }

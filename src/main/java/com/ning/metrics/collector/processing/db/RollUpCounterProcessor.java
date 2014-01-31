@@ -27,7 +27,7 @@ import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -45,20 +45,38 @@ public class RollUpCounterProcessor
     }
     
     public void rollUpDailyCounters(final CounterSubscription counterSubscription){
-        DateTime toDateTime = new DateTime(DateTimeZone.UTC);
+        final DateTime toDateTime = new DateTime(DateTimeZone.UTC);
+        final Integer recordFetchLimit = config.getMaxCounterEventFetchCount();
+        Integer recordOffSetCounter = 0;
+        boolean fetchMoreRecords = true;
         
-        // Load daily counters stored for the respective subscription limiting to now()
-        List<CounterEventData> dailyCounterList = counterStorage.loadGroupedDailyMetrics(counterSubscription.getId(), toDateTime);
         Map<String,RolledUpCounter> rolledUpCounterMap = new ConcurrentHashMap<String, RolledUpCounter>();
         
-        if(!Objects.equal(null, dailyCounterList) && !dailyCounterList.isEmpty())
+        log.info(String.format("Running roll up process for Counter Subscription [%s]", counterSubscription.getAppId()));
+        
+        while(fetchMoreRecords)
         {
-            for(CounterEventData counterEventData : dailyCounterList)
+         // Load daily counters stored for the respective subscription limiting to now() and getMaxCounterEventFetchCount
+            Iterator<CounterEventData> dailyCounterList = counterStorage.loadDailyMetrics(counterSubscription.getId(), toDateTime, recordFetchLimit, recordOffSetCounter).iterator();
+            if(Objects.equal(null, dailyCounterList) || !dailyCounterList.hasNext())
             {
-                RolledUpCounter rolledUpCounter = rolledUpCounterMap.get(counterSubscription.getAppId()+counterEventData.getFormattedDate());
+                fetchMoreRecords = false;
+                break;
+            }
+            
+            // increment recordOffset to fetch next getMaxCounterEventFetchCount
+            recordOffSetCounter += recordFetchLimit;
+            
+            while(dailyCounterList.hasNext())
+            {
+                final CounterEventData counterEventData = dailyCounterList.next();
+                final String rolledUpCounterKey = counterSubscription.getAppId()+counterEventData.getFormattedDate();
+                
+                RolledUpCounter rolledUpCounter = rolledUpCounterMap.get(rolledUpCounterKey);
+                
                 if(Objects.equal(null, rolledUpCounter))
                 {
-                    rolledUpCounter = counterStorage.loadRolledUpCounterById(counterSubscription.getAppId()+counterEventData.getFormattedDate());
+                    rolledUpCounter = counterStorage.loadRolledUpCounterById(rolledUpCounterKey);
                     if(Objects.equal(null, rolledUpCounter))
                     {
                         rolledUpCounter = new RolledUpCounter(counterSubscription.getAppId(), counterEventData.getCreatedDate(), counterEventData.getCreatedDate());
@@ -66,10 +84,13 @@ public class RollUpCounterProcessor
                 }
                 
                 rolledUpCounter.updateRolledUpCounterData(counterEventData, counterSubscription.getIdentifierDistribution().get(counterEventData.getIdentifierCategory()));
-                rolledUpCounterMap.put(counterSubscription.getAppId()+counterEventData.getFormattedDate(), rolledUpCounter);
-                
+                rolledUpCounterMap.put(rolledUpCounterKey, rolledUpCounter);
             }
             
+        }
+        
+        if(!rolledUpCounterMap.isEmpty())
+        {
             for(RolledUpCounter rolledUpCounter : rolledUpCounterMap.values())
             {
                 // Evaluate Uniqes for rolled up counters
@@ -82,7 +103,10 @@ public class RollUpCounterProcessor
             // Delete daily metrics which have been accounted for the roll up. 
             // There may be more additions done since this process started which is why the evaluation time is passed on.
             counterStorage.deleteDailyMetrics(counterSubscription.getId(), toDateTime);
-        }
+        }   
+        
+        log.info(String.format("Roll up process for Counter Subscription [%s] completed successfully!", counterSubscription.getAppId()));
+        
     }
 
 }

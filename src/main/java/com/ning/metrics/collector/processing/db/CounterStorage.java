@@ -30,7 +30,7 @@ public interface CounterStorage
     public CounterSubscription loadCounterSubscription(final String appId);
     
     public void insertDailyMetrics(final Multimap<Long, CounterEventData> dailyCounters);
-    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime toDateTime);
+    public List<CounterEventData> loadDailyMetrics(final Long subscriptionId, final DateTime toDateTime, final Integer limit, final Integer offset);
     public List<CounterEventData> loadGroupedDailyMetrics(final Long subscriptionId, final DateTime toDateTime);
     public boolean deleteDailyMetrics(final List<Long> dailyMetricsIds);
     public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime toDateTime);
