@@ -15,6 +15,7 @@
  */
 package com.ning.metrics.collector.processing.db;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
@@ -72,6 +73,8 @@ public class DatabaseCounterStorage implements CounterStorage
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final String DAILY_METRICS_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
     final Cache<String, Optional<CounterSubscription>> counterSubscriptionByAppId;
+    // while serialization and deserialization of multimap the keys are converted to String while we need Integer
+    final static TypeReference<ArrayListMultimap<Integer,String>> multimapIntegerKeyTypeRef = new TypeReference<ArrayListMultimap<Integer,String>>() {};
     final TimeSpan cacheExpiryTime;
     
     @Inject
@@ -112,7 +115,7 @@ public class DatabaseCounterStorage implements CounterStorage
                 {
                     return handle.createStatement("insert into metrics_subscription (identifier, distribution_for) values (:identifier, :distributionFor)")
                                  .bind("identifier", counterSubscription.getAppId())
-                                 .bind("distributionFor", mapper.writeValueAsString(counterSubscription.getIdentifierDistribution()))
+                                 .bind("distributionFor", mapper.writerWithType(multimapIntegerKeyTypeRef).writeValueAsString(counterSubscription.getIdentifierDistribution()))
                                  .executeAndReturnGeneratedKeys(LongMapper.FIRST)
                                  .first();
                 }
@@ -401,7 +404,7 @@ public class DatabaseCounterStorage implements CounterStorage
         public CounterSubscription map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
-                return new CounterSubscription(r.getLong("id"), r.getString("identifier"), mapper.readValue(r.getString("distribution_for"), ArrayListMultimap.class));
+                return new CounterSubscription(r.getLong("id"), r.getString("identifier"), (ArrayListMultimap<Integer, String>) mapper.readValue(r.getString("distribution_for"), multimapIntegerKeyTypeRef));
             }
             catch (IOException e) {
                 throw new UnsupportedOperationException("Error handling not implemented!", e);

@@ -64,6 +64,8 @@ public class RollUpCounterProcessor
                 break;
             }
             
+            log.debug(String.format("Processing counter events for %s on offset %d", counterSubscription.getAppId(), recordOffSetCounter));
+            
             // increment recordOffset to fetch next getMaxCounterEventFetchCount
             recordOffSetCounter += recordFetchLimit;
             
@@ -87,10 +89,13 @@ public class RollUpCounterProcessor
                 rolledUpCounterMap.put(rolledUpCounterKey, rolledUpCounter);
             }
             
+            log.debug(String.format("Roll up completed %s on offset %d", counterSubscription.getAppId(), recordOffSetCounter));
+            
         }
         
         if(!rolledUpCounterMap.isEmpty())
         {
+            log.debug(String.format("Evaluating Uniques and updating roll up counter for %s", counterSubscription.getAppId()));
             for(RolledUpCounter rolledUpCounter : rolledUpCounterMap.values())
             {
                 // Evaluate Uniqes for rolled up counters
@@ -100,6 +105,7 @@ public class RollUpCounterProcessor
                 counterStorage.insertOrUpdateRolledUpCounter(counterSubscription.getId(), rolledUpCounter);
             }
             
+            log.debug(String.format("Deleting daily counters for %s which are <= %s", counterSubscription.getAppId(), toDateTime));
             // Delete daily metrics which have been accounted for the roll up. 
             // There may be more additions done since this process started which is why the evaluation time is passed on.
             counterStorage.deleteDailyMetrics(counterSubscription.getId(), toDateTime);

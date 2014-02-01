@@ -55,6 +55,7 @@ public class TestCounterMetricsSerialization
         Assert.assertTrue(counterSubscription.getIdentifierDistribution().get(1).contains("pageView"));
     }
     
+    
     @Test
     public void testCounterEventDeserialization() throws Exception{
         String jsonData = "{\"appId\": \"network_id:111\","

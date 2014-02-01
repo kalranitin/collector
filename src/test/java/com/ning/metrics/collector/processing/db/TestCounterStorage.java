@@ -90,10 +90,10 @@ public class TestCounterStorage
         Assert.assertNotNull(id);
         
         counterSubscription = counterStorage.loadCounterSubscription("network_111");
-        counterSubscription = counterStorage.loadCounterSubscription("network_111");
         
         Assert.assertNotNull(counterSubscription);
         Assert.assertEquals(counterSubscription.getId(), id);
+        Assert.assertTrue(counterSubscription.getIdentifierDistribution().containsKey(1));
         
     }
     

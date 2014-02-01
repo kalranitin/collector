@@ -15,11 +15,10 @@
  */
 package com.ning.metrics.collector.processing.db;
 
+import com.google.inject.AbstractModule;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
-
-import com.google.inject.AbstractModule;
 
 import org.skife.config.ConfigurationObjectFactory;
 import org.skife.jdbi.v2.DBI;
@@ -52,8 +51,5 @@ public class DBConfigModule extends AbstractModule
         
         bind(CounterStorage.class).to(DatabaseCounterStorage.class).asEagerSingleton();
         bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton(); 
-        
-          
-        
     }
 }

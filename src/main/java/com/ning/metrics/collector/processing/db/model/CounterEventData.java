@@ -36,13 +36,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CounterEventData
 {
     private final String uniqueIdentifier;
-    private final int identifierCategory;
+    private final Integer identifierCategory;
     private DateTime createdDate;
     private final Map<String, Integer> counters = new ConcurrentHashMap<String, Integer>();
     
     @JsonCreator
     public CounterEventData(@JsonProperty("uniqueIdentifier") String uniqueIdentifier, 
-        @JsonProperty("identifierCategory") int identifierCategory, 
+        @JsonProperty("identifierCategory") Integer identifierCategory, 
         @JsonProperty("createdDate") DateTime createdDate,
         @JsonProperty("counters") Map<String, Integer> counters)
     {
@@ -94,7 +94,7 @@ public class CounterEventData
         return uniqueIdentifier;
     }
 
-    public int getIdentifierCategory()
+    public Integer getIdentifierCategory()
     {
         return identifierCategory;
     }

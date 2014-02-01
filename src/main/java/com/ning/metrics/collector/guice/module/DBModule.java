@@ -28,6 +28,7 @@ import com.ning.metrics.collector.processing.db.DatabaseFeedEventStorage;
 import com.ning.metrics.collector.processing.db.FeedStorage;
 import com.ning.metrics.collector.processing.db.InMemoryCounterCacheProcessor;
 import com.ning.metrics.collector.processing.db.InMemorySubscriptionCache;
+import com.ning.metrics.collector.processing.db.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.SubscriptionCache;
 import com.ning.metrics.collector.processing.db.SubscriptionStorage;
 import com.ning.metrics.collector.processing.db.DatabaseSubscriptionStorage;
@@ -71,9 +72,6 @@ public class DBModule implements Module
         
         binder.bind(CounterStorage.class).to(DatabaseCounterStorage.class).asEagerSingleton();
         binder.bind(CounterEventCacheProcessor.class).to(InMemoryCounterCacheProcessor.class).asEagerSingleton();
-        
-        
-        
         
     }
 
