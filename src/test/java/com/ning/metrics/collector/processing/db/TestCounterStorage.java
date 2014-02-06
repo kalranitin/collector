@@ -16,13 +16,12 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Objects;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
+import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 
@@ -38,12 +37,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 @Test(groups = {"slow", "database"})
 public class TestCounterStorage
 {
     private CollectorMysqlTestingHelper helper;
-    private static final ObjectMapper mapper = new ObjectMapper();
+    
+    @Inject
+    ObjectMapper mapper;
     
     @Inject
     CounterStorage counterStorage;
@@ -58,10 +60,7 @@ public class TestCounterStorage
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
         
-        Guice.createInjector(new DBConfigModule()).injectMembers(this);
-        
-        mapper.registerModule(new JodaModule());
-        mapper.registerModule(new GuavaModule());
+        Guice.createInjector(new CollectorObjectMapperModule(), new DBConfigModule()).injectMembers(this);
                 
     }
     
@@ -93,6 +92,12 @@ public class TestCounterStorage
         
         Assert.assertNotNull(counterSubscription);
         Assert.assertEquals(counterSubscription.getId(), id);
+        Assert.assertTrue(counterSubscription.getIdentifierDistribution().containsKey(1));
+        
+        counterSubscription = counterStorage.loadCounterSubscriptionById(id);
+        
+        Assert.assertNotNull(counterSubscription);
+        Assert.assertEquals(counterSubscription.getAppId(), "network_111");
         Assert.assertTrue(counterSubscription.getIdentifierDistribution().containsKey(1));
         
     }
@@ -175,6 +180,29 @@ public class TestCounterStorage
         Assert.assertNotNull(dailyList);
         Assert.assertFalse(dailyList.isEmpty());
         Assert.assertTrue(dailyList.size() == 1);
+        
+    }
+    
+    @Test(threadPoolSize=3, invocationCount = 10, timeOut = 1000)
+    public void testMultiThreadedDeleteDailyMetrics() throws Exception{
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        
+        DateTime dateTime = new DateTime(DateTimeZone.UTC);
+        
+        Random random = new Random();
+        long subscriptionId = random.nextInt(3);
+        
+        multimap.put(subscriptionId, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet","contribution"),dateTime));
+        multimap.put(subscriptionId, prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile"),dateTime));       
+        multimap.put(subscriptionId, prepareCounterEventData("member123", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        
+        counterStorage.insertDailyMetrics(multimap);
+        
+        counterStorage.deleteDailyMetrics(subscriptionId, new DateTime(DateTimeZone.UTC));
+        
+        List<CounterEventData> dailyList = counterStorage.loadDailyMetrics(subscriptionId, new DateTime(DateTimeZone.UTC), null,null);
+        Assert.assertNotNull(dailyList);
+        Assert.assertTrue(dailyList.isEmpty());
         
     }
     

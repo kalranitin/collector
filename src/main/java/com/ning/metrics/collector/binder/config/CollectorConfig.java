@@ -280,7 +280,7 @@ public interface CollectorConfig
     String getFiltersPath();
 
     @Config("collector.filters.event-type")
-    @Default("FeedEvent")
+    @Default("CounterEvent")
     String getFiltersEventType();
     
     /**
@@ -417,7 +417,7 @@ public interface CollectorConfig
      * Comma (,) seperated class names for processing the events.
      * */
     @Config("collector.spoolWriter.classes")
-    @Default("com.ning.metrics.collector.processing.db.FeedEventSpoolProcessor")
+    @Default("com.ning.metrics.collector.processing.db.FeedEventSpoolProcessor,com.ning.metrics.collector.processing.db.CounterEventSpoolProcessor")
     String getSpoolWriterClassNames();
     
     /**
@@ -497,9 +497,9 @@ public interface CollectorConfig
     TimeSpan getFeedEventRetentionPeriod();
     
     @Description("How long the Counter Events should reside in cache")
-    @Config("collector.spoolWriter.counterEvent.dbflush.time")
+    @Config("collector.spoolWriter.counterEvent.memory.flush.time")
     @Default("15m")
-    TimeSpan getCounterEventDBFlushTime();
+    TimeSpan getCounterEventMemoryFlushTime();
     
     @Description("The maximum allowed number of counter subscriptions in the cache")
     @Config("collector.spoolWriter.counterEvent.subscription.cache.limit")
@@ -515,4 +515,9 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.counterEvent.db.fetch.limit")
     @Default("1000")
     int getMaxCounterEventFetchCount();
+    
+    @Description("Cron Trigger for roll up processor execution")
+    @Config("collector.spoolWriter.counterEvent.rollup.process.cron")
+    @Default("0 0/30 * * * ?")
+    String getCounterRollUpProcessorCronExpression();
 }

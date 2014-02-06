@@ -16,20 +16,16 @@
 
 package com.ning.metrics.collector.processing;
 
+import com.google.inject.Inject;
 import com.ning.metrics.collector.guice.module.EventCollectorModule;
-import com.ning.metrics.collector.processing.EventSpoolDispatcher;
 import com.ning.metrics.collector.realtime.RealTimeQueueTestModule;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.ThriftEnvelopeEvent;
 import com.ning.metrics.serialization.thrift.ThriftEnvelope;
 import com.ning.metrics.serialization.thrift.ThriftField;
 
-import com.google.inject.Inject;
-
 import org.joda.time.DateTime;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
@@ -79,6 +75,5 @@ public class TestSizeThresholdEventSpoolDispatcher
         Thread.sleep(2000);
         Assert.assertEquals(dispatcher.getStats().getWrittenEvents(), 3);
 
-        Assert.assertEquals(dispatcher.getStats().getHdfsFlushes(), 1);
     }
 }

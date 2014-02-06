@@ -32,6 +32,8 @@ public class DBConfigModule extends AbstractModule
         ConfigurationObjectFactory configFactory = new CollectorConfigurationObjectFactory(System.getProperties());
         bind(ConfigurationObjectFactory.class).toInstance(configFactory);
         
+        
+        
         final CollectorConfig collectorConfig = configFactory.build(CollectorConfig.class);
         bind(CollectorConfig.class).toInstance(collectorConfig);
         

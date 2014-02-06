@@ -16,13 +16,12 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
+import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
+import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
@@ -36,17 +35,17 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Test(groups = {"slow", "database"})
 public class TestCounterRollUpProcessor
 {
     private CollectorMysqlTestingHelper helper;
-    private static final ObjectMapper mapper = new ObjectMapper();
+    
+    @Inject
+    ObjectMapper mapper;
     
     @Inject
     CounterStorage counterStorage;
@@ -64,10 +63,7 @@ public class TestCounterRollUpProcessor
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
         
-        Guice.createInjector(new DBConfigModule()).injectMembers(this);
-        
-        mapper.registerModule(new JodaModule());
-        mapper.registerModule(new GuavaModule());
+        Guice.createInjector(new CollectorObjectMapperModule(), new DBConfigModule()).injectMembers(this);
                 
     }
     
@@ -119,7 +115,7 @@ public class TestCounterRollUpProcessor
         
         counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_111"));
         
-        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC));
+        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null);
         
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertTrue(rolledUpCounterList.size() == 1);

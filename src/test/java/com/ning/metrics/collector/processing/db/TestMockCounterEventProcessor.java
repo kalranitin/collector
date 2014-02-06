@@ -18,8 +18,9 @@ package com.ning.metrics.collector.processing.db;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
+import com.google.inject.Inject;
 import com.mchange.v2.io.FileUtils;
-import com.ning.metrics.collector.binder.config.CollectorConfig;
+import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
@@ -27,13 +28,18 @@ import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
 
 import org.mockito.Mockito;
+import org.quartz.JobKey;
+import org.quartz.Scheduler;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.InputStream;
 
+@Test(groups = "fast")
+@Guice(modules = CollectorObjectMapperModule.class)
 public class TestMockCounterEventProcessor
 {
     private Event event;
@@ -43,6 +49,11 @@ public class TestMockCounterEventProcessor
     private File file;
     private CounterEventCacheProcessor counterEventCacheProcessor;
     private CounterEventSpoolProcessor counterEventSpoolProcessor;
+    private Scheduler quartzScheduler;
+    
+    @Inject
+    private ObjectMapper mapper;
+    
     
     @BeforeMethod
     public void setup() throws Exception
@@ -52,11 +63,15 @@ public class TestMockCounterEventProcessor
         serializationType = Mockito.mock(SerializationType.class);
         counterStorage = Mockito.mock(CounterStorage.class);
         counterEventCacheProcessor = Mockito.mock(CounterEventCacheProcessor.class);
+        quartzScheduler = Mockito.mock(Scheduler.class);
         
-        file = new File(System.getProperty("java.io.tmpdir")+"/feedEventTest.json");
+        file = new File(System.getProperty("java.io.tmpdir")+"/counterEventTest.json");
         FileUtils.touch(file);
         
-        counterEventSpoolProcessor = new CounterEventSpoolProcessor(null, counterStorage, null, counterEventCacheProcessor);
+        Mockito.when(quartzScheduler.isStarted()).thenReturn(true);
+        Mockito.when(quartzScheduler.checkExists(Mockito.any(JobKey.class))).thenReturn(true);
+        
+        counterEventSpoolProcessor = new CounterEventSpoolProcessor(null, counterStorage, quartzScheduler, counterEventCacheProcessor, mapper);
         
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);

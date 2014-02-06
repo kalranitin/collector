@@ -16,11 +16,14 @@
 
 package com.ning.metrics.collector.guice.module;
 
+import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
+import com.google.inject.servlet.ServletModule;
 import com.ning.arecibo.jmx.AreciboMonitoringModule;
 import com.ning.arecibo.metrics.guice.AreciboMetricsModule;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
 import com.ning.metrics.collector.endpoint.resources.ScribeModule;
+import com.ning.metrics.collector.guice.providers.CollectorJacksonJsonProvider;
 import com.ning.metrics.collector.nagios.CollectorServiceCheck;
 import com.ning.metrics.collector.nagios.NagiosMonitor;
 import com.ning.metrics.collector.realtime.RealTimeQueueModule;
@@ -28,9 +31,6 @@ import com.ning.metrics.collector.util.F5PoolMemberControl;
 import com.ning.nagios.FakeNagiosMonitor;
 import com.ning.nagios.ServiceCheck;
 import com.ning.nagios.ServiceMonitor;
-
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
-import com.google.inject.servlet.ServletModule;
 import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
 import com.yammer.metrics.guice.InstrumentationModule;
@@ -41,10 +41,10 @@ import org.skife.config.ConfigurationObjectFactory;
 import org.weakref.jmx.guice.ExportBuilder;
 import org.weakref.jmx.guice.MBeanModule;
 
-import javax.management.MBeanServer;
-
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
+
+import javax.management.MBeanServer;
 
 public class ServerModule extends ServletModule
 {
@@ -58,6 +58,7 @@ public class ServerModule extends ServletModule
         final CollectorConfig config = configFactory.build(CollectorConfig.class);
         bind(ConfigurationObjectFactory.class).toInstance(configFactory);
         bind(CollectorConfig.class).toInstance(config);
+        install(new CollectorObjectMapperModule());
 
         installStats();
         installHealthChecks();
@@ -140,7 +141,7 @@ public class ServerModule extends ServletModule
 
     protected void installJaxrsSupport(final CollectorConfig config)
     {
-        bind(JacksonJsonProvider.class).asEagerSingleton();
+        bind(JacksonJsonProvider.class).toProvider(CollectorJacksonJsonProvider.class).asEagerSingleton();
 
         install(new RequestHandlersModule());
         install(new FiltersModule(config));

@@ -16,32 +16,31 @@
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Objects;
+import com.google.inject.Inject;
+import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 
 import org.joda.time.DateTime;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Test(groups = "fast")
+@Guice(modules = CollectorObjectMapperModule.class)
 public class TestRollUpDailyCounter
 {
-private static final ObjectMapper mapper = new ObjectMapper();
+    @Inject
+    private ObjectMapper mapper;
     
-    @BeforeClass
-    public void setUpObjectMapper() throws Exception{
-        mapper.registerModule(new JodaModule());
-        mapper.registerModule(new GuavaModule());
-    }
     
     @Test
     public void testRollUp() throws Exception{
@@ -69,6 +68,15 @@ private static final ObjectMapper mapper = new ObjectMapper();
         Assert.assertFalse(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().isEmpty());
         Assert.assertTrue(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile").getDistribution().isEmpty());
         Assert.assertEquals(new Integer(2), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", RolledUpCounter.UNIQUES_KEY).getTotalCount());
+        
+        Set<String> aggregatedCounterNames = new HashSet<String>(Arrays.asList("pageView"));
+        
+        rolledUpCounter.aggregateCounterDataFor(aggregatedCounterNames);
+        
+        Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
+        Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1",RolledUpCounter.UNIQUES_KEY));
+        Assert.assertNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile"));
+        
     }
     
     @Test

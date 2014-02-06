@@ -64,7 +64,7 @@ public class InMemoryCounterCacheProcessor implements CounterEventCacheProcessor
     {
         
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
-        this.counterEventDBFlushTime = config.getCounterEventDBFlushTime();
+        this.counterEventDBFlushTime = config.getCounterEventMemoryFlushTime();
         
         
         

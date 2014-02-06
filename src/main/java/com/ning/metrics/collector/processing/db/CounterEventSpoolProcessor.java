@@ -15,9 +15,10 @@
  */
 package com.ning.metrics.collector.processing.db;
 
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.TriggerBuilder.newTrigger;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.inject.Inject;
@@ -27,9 +28,13 @@ import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.CounterEvent;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
+import com.ning.metrics.collector.processing.quartz.CounterEventScannerJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
 
+import org.quartz.CronScheduleBuilder;
+import org.quartz.CronTrigger;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.slf4j.Logger;
@@ -38,25 +43,33 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CounterEventSpoolProcessor implements EventSpoolProcessor
 {
     private static final Logger log = LoggerFactory.getLogger(CounterEventSpoolProcessor.class);
     private final CollectorConfig config;
     private final CounterStorage counterStorage;
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper;
     private static final String PROCESSOR_NAME = "CounterEventDBWriter";
     private final CounterEventCacheProcessor counterEventCacheProcessor;
+    private final Scheduler quartzScheduler;
+    private final AtomicBoolean isCronJobScheduled = new AtomicBoolean(false);
 
     @Inject
-    public CounterEventSpoolProcessor(final CollectorConfig config, final CounterStorage counterStorage, final Scheduler quartzScheduler, final CounterEventCacheProcessor counterEventCacheProcessor) throws SchedulerException
+    public CounterEventSpoolProcessor(final CollectorConfig config, final CounterStorage counterStorage, final Scheduler quartzScheduler, final CounterEventCacheProcessor counterEventCacheProcessor, final ObjectMapper mapper) throws SchedulerException
     {
         this.config = config;
         this.counterStorage = counterStorage;
         this.counterEventCacheProcessor = counterEventCacheProcessor;
+        this.mapper = mapper;
         
-        mapper.registerModule(new JodaModule());
-        mapper.registerModule(new GuavaModule());
+        this.quartzScheduler = quartzScheduler;
+        if(!quartzScheduler.isStarted())
+        {
+            quartzScheduler.start();
+            scheduleCounterEventRollUpCronJob();
+        }
     } 
 
     @Override
@@ -101,6 +114,17 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
         if(counterEventsProcessed)
         {
             this.counterEventCacheProcessor.processRemainingCounters();
+            
+            if (!isCronJobScheduled.get()) {
+                
+                try {
+                    scheduleCounterEventRollUpCronJob();
+                }
+                catch (SchedulerException e) {
+                   log.error("Exception occurred while scheduling cron job for counter roll ups.",e);
+                }
+            }
+            
         }
         
     }
@@ -110,7 +134,42 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
     public void close()
     {
         counterEventCacheProcessor.cleanUp();
-        counterStorage.cleanUp();             
+        counterStorage.cleanUp();   
+        
+        log.info("Shutting Down Quartz Scheduler");
+        try {
+            if(!quartzScheduler.isShutdown())
+            {
+                quartzScheduler.shutdown(true);
+            }
+            
+        }
+        catch (SchedulerException e) {
+            log.error("Unexpected error while shutting down Quartz Scheduler!",e);
+        }
+        log.info("Quartz Scheduler shutdown success");
+    }
+    
+    private void scheduleCounterEventRollUpCronJob() throws SchedulerException
+    {
+        if(this.quartzScheduler.isStarted() && !isCronJobScheduled.get())
+        {
+            final JobKey jobKey = new JobKey("counterProcessorCronJob", "counterProcessorCronJobGroup");
+            
+            if(!this.quartzScheduler.checkExists(jobKey))
+            {
+                final CronTrigger cronTrigger = newTrigger()
+                        .withIdentity("counterProcessorCronTrigger", "counterProcessorCronTriggerGroup")
+                        .withSchedule(CronScheduleBuilder.cronSchedule(config.getCounterRollUpProcessorCronExpression()).withMisfireHandlingInstructionIgnoreMisfires())
+                        .build();
+                
+                quartzScheduler.scheduleJob(newJob(CounterEventScannerJob.class).withIdentity(jobKey).build()
+                    ,cronTrigger);
+            }
+            
+            isCronJobScheduled.set(true);
+            
+        }
     }
 
     @Override

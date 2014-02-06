@@ -33,7 +33,10 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Objects;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 
@@ -43,6 +46,7 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +70,7 @@ public class RolledUpCounter
     public final static String FROM_DATE_KEY = "fromDate";
     public final static String TO_DATE_KEY = "toDate";
     public final static String UNIQUES_KEY = "uniques";
+    public static final DateTimeFormatter ROLLUP_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
     
     
     public RolledUpCounter(final String appId, 
@@ -133,8 +138,7 @@ public class RolledUpCounter
     @JsonIgnore
     public String getFormattedDate()
     {
-        DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-        return formatter.print(getFromDate());
+        return ROLLUP_COUNTER_DATE_FORMATTER.print(getFromDate());
     }
     
     public Table<String, String, RolledUpCounterData> getCounterSummary()
@@ -175,10 +179,7 @@ public class RolledUpCounter
                     
                 rolledUpCounterData.getDistribution().put(counterEventData.getUniqueIdentifier(), distributionCount);
             }
-            
         }
-        
-        
     }
     
     public void evaluateUniques()
@@ -201,6 +202,26 @@ public class RolledUpCounter
             }
         }
         
+    }
+    
+    public void aggregateCounterDataFor(Set<String> counterNames)
+    {
+        if(!Objects.equal(null, counterNames) && !counterNames.isEmpty())
+        {
+            if(!Objects.equal(null, counterSummary) && !counterSummary.isEmpty())
+            {
+                counterNames.add(UNIQUES_KEY);
+                
+                Set<String> columnNames = counterSummary.columnKeySet();
+                Iterables.retainAll(columnNames, counterNames);
+                
+                for(String rowName : counterSummary.rowKeySet())
+                {
+                    counterSummary.remove(rowName, columnNames);
+                }
+                
+            }
+        }
     }
     
     @Override

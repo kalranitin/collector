@@ -16,11 +16,10 @@
 
 package com.ning.metrics.collector.processing;
 
+import com.google.inject.AbstractModule;
 import com.ning.metrics.collector.FastCollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
-
-import com.google.inject.AbstractModule;
 
 import org.skife.config.ConfigurationObjectFactory;
 
@@ -40,5 +39,7 @@ public class ConfigTestModule extends AbstractModule
         
         final CollectorConfig collectorConfig = configFactory.build(FastCollectorConfig.class);
         bind(CollectorConfig.class).toInstance(collectorConfig);
+        
+        
     }
 }

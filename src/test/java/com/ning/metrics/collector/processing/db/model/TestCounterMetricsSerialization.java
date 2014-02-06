@@ -16,29 +16,25 @@
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
+import com.google.inject.Inject;
+import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 
 import org.joda.time.DateTime;
 import org.testng.Assert;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @Test(groups = "fast")
+@Guice(modules = CollectorObjectMapperModule.class)
 public class TestCounterMetricsSerialization
 {
-    private static final ObjectMapper mapper = new ObjectMapper();
-    
-    @BeforeClass
-    public void setUpObjectMapper() throws Exception{
-        mapper.registerModule(new JodaModule());
-        mapper.registerModule(new GuavaModule());
-    }
+    @Inject
+    private ObjectMapper mapper;
     
     @Test
     public void testCounterSubscriptionDeserialization() throws Exception{
@@ -77,6 +73,8 @@ public class TestCounterMetricsSerialization
         Assert.assertEquals("network_id:111", counterEvent.getAppId());
         Assert.assertEquals("member:123", counterEvent.getCounterEvents().get(0).getUniqueIdentifier());
         Assert.assertTrue(counterEvent.getCounterEvents().get(0).getCounters().containsKey("pageView"));
+        
+        System.out.println(mapper.writeValueAsString(counterEvent));
     }
     
     @Test

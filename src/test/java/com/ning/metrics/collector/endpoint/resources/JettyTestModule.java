@@ -18,10 +18,10 @@ package com.ning.metrics.collector.endpoint.resources;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.servlet.ServletModule;
-
 import com.ning.metrics.collector.FastCollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
+import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 import com.ning.metrics.collector.guice.module.EventCollectorModule;
 import com.ning.metrics.collector.guice.module.FiltersModule;
 import com.ning.metrics.collector.guice.module.RequestHandlersModule;
@@ -30,17 +30,16 @@ import com.ning.metrics.collector.processing.PersistentWriterFactory;
 import com.ning.metrics.collector.realtime.RealTimeQueueModule;
 import com.ning.metrics.serialization.writer.MockEventWriter;
 import com.ning.metrics.serialization.writer.ThresholdEventWriter;
-
 import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.guice.spi.container.servlet.GuiceContainer;
-
-import javax.management.MBeanServer;
 
 import org.skife.config.ConfigurationObjectFactory;
 
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
+
+import javax.management.MBeanServer;
 
 public class JettyTestModule extends AbstractModule
 {
@@ -64,6 +63,7 @@ public class JettyTestModule extends AbstractModule
     {
         final ConfigurationObjectFactory configFactory = new CollectorConfigurationObjectFactory(System.getProperties());
         final CollectorConfig config = configFactory.build(AutoFlushConfig.class);
+        install(new CollectorObjectMapperModule());
         bind(MBeanServer.class).toInstance(ManagementFactory.getPlatformMBeanServer());
         
         // Install all production (real) modules...

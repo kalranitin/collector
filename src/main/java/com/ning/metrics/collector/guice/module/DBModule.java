@@ -16,6 +16,7 @@
 package com.ning.metrics.collector.guice.module;
 
 import com.ning.metrics.collector.guice.providers.CollectorDBIProvider;
+import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.CounterEventCacheProcessor;
 import com.ning.metrics.collector.processing.db.CounterEventSpoolProcessor;
 import com.ning.metrics.collector.processing.db.CounterStorage;
@@ -28,7 +29,6 @@ import com.ning.metrics.collector.processing.db.DatabaseFeedEventStorage;
 import com.ning.metrics.collector.processing.db.FeedStorage;
 import com.ning.metrics.collector.processing.db.InMemoryCounterCacheProcessor;
 import com.ning.metrics.collector.processing.db.InMemorySubscriptionCache;
-import com.ning.metrics.collector.processing.db.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.SubscriptionCache;
 import com.ning.metrics.collector.processing.db.SubscriptionStorage;
 import com.ning.metrics.collector.processing.db.DatabaseSubscriptionStorage;

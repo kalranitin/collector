@@ -16,10 +16,7 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
-import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
@@ -46,6 +43,7 @@ import org.skife.jdbi.v2.Query;
 import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.Update;
+import org.skife.jdbi.v2.exceptions.CallbackFailedException;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.skife.jdbi.v2.util.LongMapper;
@@ -59,6 +57,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.zip.GZIPInputStream;
@@ -70,28 +69,26 @@ public class DatabaseCounterStorage implements CounterStorage
     private final IDBI dbi;
     private final CollectorConfig config;
     private final Lock dbLock;
-    private static final ObjectMapper mapper = new ObjectMapper();
-    private static final String DAILY_METRICS_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+    private final ObjectMapper mapper;
+    private static final DateTimeFormatter DAILY_METRICS_STORAGE_DATE_FORMATER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
     final Cache<String, Optional<CounterSubscription>> counterSubscriptionByAppId;
     // while serialization and deserialization of multimap the keys are converted to String while we need Integer
     final static TypeReference<ArrayListMultimap<Integer,String>> multimapIntegerKeyTypeRef = new TypeReference<ArrayListMultimap<Integer,String>>() {};
     final TimeSpan cacheExpiryTime;
     
     @Inject
-    public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config)
+    public DatabaseCounterStorage(final IDBI dbi, final CollectorConfig config, final ObjectMapper mapper)
     {
         this.dbi = dbi;
         this.config = config;
         this.dbLock = new MySqlLock("counter-event-storage", dbi);
         this.cacheExpiryTime = config.getSubscriptionCacheTimeout();
+        this.mapper = mapper;
         this.counterSubscriptionByAppId = CacheBuilder.newBuilder()
                 .maximumSize(config.getMaxCounterSubscriptionCacheCount())
                 .expireAfterAccess(cacheExpiryTime.getPeriod(),cacheExpiryTime.getUnit())
                 .recordStats()
                 .build();
-        mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
-        mapper.registerModule(new JodaModule());
-        mapper.registerModule(new GuavaModule());
     }
     
     private Optional<CounterSubscription> getCounterSubscription(final String appId)
@@ -140,10 +137,29 @@ public class DatabaseCounterStorage implements CounterStorage
                 {
                     CounterSubscription counterSubscription = handle.createQuery("select id, identifier, distribution_for from metrics_subscription where identifier = :appId")
                                  .bind("appId", appId)
-                                 .map(new CounterSubscriptionMapper())
+                                 .map(new CounterSubscriptionMapper(mapper))
                                  .first();
                     
-                    addCounterSubscription(appId, Optional.of(counterSubscription));
+                    addCounterSubscription(appId, Optional.fromNullable(counterSubscription));
+                    
+                    return counterSubscription;
+                }
+            });
+    }
+    
+    @Override
+    public CounterSubscription loadCounterSubscriptionById(final Long subscriptionId)
+    {   
+        return dbi.withHandle(new HandleCallback<CounterSubscription>()
+            {
+            
+                @Override
+                public CounterSubscription withHandle(Handle handle) throws Exception
+                {
+                    CounterSubscription counterSubscription = handle.createQuery("select id, identifier, distribution_for from metrics_subscription where id = :subscriptionId")
+                                 .bind("subscriptionId", subscriptionId)
+                                 .map(new CounterSubscriptionMapper(mapper))
+                                 .first();
                     
                     return counterSubscription;
                 }
@@ -159,12 +175,11 @@ public class DatabaseCounterStorage implements CounterStorage
         public Void withHandle(Handle handle) throws Exception
         {
             PreparedBatch batch = handle.prepareBatch("insert into metrics_daily (subscription_id,metrics,created_date) values (:subscriptionId, :metrics, :createdDate)");
-            final DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
             for(Entry<Long, CounterEventData> entry : dailyCounters.entries())
             {
                 batch.bind("subscriptionId", entry.getKey())
                 .bind("metrics", mapper.writeValueAsString(entry.getValue()))
-                .bind("createdDate", formatter.print(entry.getValue().getCreatedDate()))
+                .bind("createdDate", DAILY_METRICS_STORAGE_DATE_FORMATER.print(entry.getValue().getCreatedDate()))
                 .add();
             }
             
@@ -196,8 +211,7 @@ public class DatabaseCounterStorage implements CounterStorage
             
             if(toDateTimeOptional.isPresent())
             {
-                DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
-                query.bind("toDateTime", formatter.print(toDateTimeOptional.get()));
+                query.bind("toDateTime", DAILY_METRICS_STORAGE_DATE_FORMATER.print(toDateTimeOptional.get()));
             }
             if(limitOptional.isPresent())
             {
@@ -209,7 +223,7 @@ public class DatabaseCounterStorage implements CounterStorage
                 }
             }
             
-            return ImmutableList.copyOf(query.map(new CounterEventDataMapper()).list());
+            return ImmutableList.copyOf(query.map(new CounterEventDataMapper(mapper)).list());
             
         }});
     }
@@ -228,13 +242,12 @@ public class DatabaseCounterStorage implements CounterStorage
                 
                 if(!Objects.equal(null, toDateTime))
                 {
-                    DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
-                    query.bind("toDateTime", formatter.print(toDateTime));
+                    query.bind("toDateTime", DAILY_METRICS_STORAGE_DATE_FORMATER.print(toDateTime));
                 }
                 
                 Map<String,CounterEventData> groupMap = new ConcurrentHashMap<String, CounterEventData>();
                 
-                ResultIterator<CounterEventData> rs = query.map(new CounterEventDataMapper()).iterator();
+                ResultIterator<CounterEventData> rs = query.map(new CounterEventDataMapper(mapper)).iterator();
                 
                 try {
                     while(rs.hasNext())
@@ -264,50 +277,27 @@ public class DatabaseCounterStorage implements CounterStorage
             }});
     }
 
-    @Override
-    @Deprecated
-    public boolean deleteDailyMetrics(final List<Long> dailyMetricsIds)
-    {
-        if(dbLock.tryLock()){
-            int deleted = dbi.withHandle(new HandleCallback<Integer>() {
-                
-                Joiner joiner = Joiner.on(",").skipNulls();
-                
-                @Override
-                public Integer withHandle(Handle handle) throws Exception
-                {
-                    return handle.createStatement("delete from metrics_daily where id in (" + joiner.join(dailyMetricsIds) + ")").execute();
-                }});
-            
-            return deleted > 0;
-        }
-        return false;
-    }
     
     public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime toDateTime){
-        if(dbLock.tryLock()){
-            int deleted = dbi.withHandle(new HandleCallback<Integer>() {
-                
-                @Override
-                public Integer withHandle(Handle handle) throws Exception
-                {
-                    String queryStr = "delete from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, toDateTime)?"":" and created_date <= :toDateTime");
-                    
-                    Update query =  handle.createStatement(queryStr)
-                            .bind("subscriptionId", subscriptionId);
-                    
-                    if(!Objects.equal(null, toDateTime))
-                    {
-                        DateTimeFormatter formatter = DateTimeFormat.forPattern(DAILY_METRICS_DATE_FORMAT);
-                        query.bind("toDateTime", formatter.print(toDateTime));
-                    }
-                    
-                    return query.execute();
-                }});
+        int deleted = dbi.withHandle(new HandleCallback<Integer>() {
             
-            return deleted > 0;
-        }
-        return false;
+            @Override
+            public Integer withHandle(Handle handle) throws Exception
+            {
+                String queryStr = "delete from metrics_daily where subscription_id = :subscriptionId"+(Objects.equal(null, toDateTime)?"":" and created_date <= :toDateTime");
+                
+                Update query =  handle.createStatement(queryStr)
+                        .bind("subscriptionId", subscriptionId);
+                
+                if(!Objects.equal(null, toDateTime))
+                {
+                    query.bind("toDateTime", DAILY_METRICS_STORAGE_DATE_FORMATER.print(toDateTime));
+                }
+                
+                return query.execute();
+            }});
+        
+        return deleted > 0;
     }
     
     @Override
@@ -358,16 +348,18 @@ public class DatabaseCounterStorage implements CounterStorage
                 @Override
                 public RolledUpCounter withHandle(Handle handle) throws Exception
                 {
+                    Optional<Set<String>> optional = Optional.absent();
+                    
                     return handle.createQuery("select metrics from metrics_daily_roll_up where id = :id")
                                  .bind("id", id)
-                                 .map(new RolledUpCounterMapper())
+                                 .map(new RolledUpCounterMapper(mapper,optional))
                                  .first();
                 }
             });
     }
 
     @Override
-    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate)
+    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames)
     {
         return dbi.withHandle(new HandleCallback<List<RolledUpCounter>>() {
 
@@ -381,24 +373,29 @@ public class DatabaseCounterStorage implements CounterStorage
                 Query<Map<String, Object>> query =  handle.createQuery(queryStr)
                         .bind("subscriptionId", subscriptionId);
                 
-                DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
                 
                 if(!Objects.equal(null, fromDate))
                 {
-                    query.bind("fromDate", formatter.print(fromDate));
+                    query.bind("fromDate", RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(fromDate));
                 }
                 if(!Objects.equal(null, toDate))
                 {
-                    query.bind("toDate", formatter.print(toDate));
+                    query.bind("toDate", RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(toDate));
                 }
                 
-                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper()).list());
+                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames)).list());
                 
             }});
     }
     
     public static class CounterSubscriptionMapper implements ResultSetMapper<CounterSubscription>
     {
+        private final ObjectMapper mapper;
+        
+        public CounterSubscriptionMapper(final ObjectMapper mapper){
+            this.mapper = mapper;
+        }
+        
         @SuppressWarnings("unchecked")
         @Override
         public CounterSubscription map(int index, ResultSet r, StatementContext ctx) throws SQLException
@@ -415,6 +412,12 @@ public class DatabaseCounterStorage implements CounterStorage
     
     public static class CounterEventDataMapper implements ResultSetMapper<CounterEventData>
     {
+        private final ObjectMapper mapper;
+        
+        public CounterEventDataMapper(final ObjectMapper mapper){
+            this.mapper = mapper;
+        }
+        
         @Override
         public CounterEventData map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
@@ -430,12 +433,25 @@ public class DatabaseCounterStorage implements CounterStorage
     
     public static class RolledUpCounterMapper implements ResultSetMapper<RolledUpCounter>
     {
+        private final ObjectMapper mapper;
+        private final Optional<Set<String>> fetchCounterNames;
+        
+        public RolledUpCounterMapper(final ObjectMapper mapper, final Optional<Set<String>> fetchCounterNames){
+            this.mapper = mapper;
+            this.fetchCounterNames = fetchCounterNames;
+        }
+        
         @Override
         public RolledUpCounter map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
                 GZIPInputStream zipStream = new GZIPInputStream(r.getBinaryStream("metrics"));
-                return mapper.readValue(zipStream, RolledUpCounter.class);
+                RolledUpCounter rolledUpCounter = mapper.readValue(zipStream, RolledUpCounter.class);
+                if(!Objects.equal(null, rolledUpCounter) && !Objects.equal(null, fetchCounterNames) && fetchCounterNames.isPresent())
+                {
+                    rolledUpCounter.aggregateCounterDataFor(fetchCounterNames.get());
+                }
+                return rolledUpCounter; 
             }
             catch (IOException e) {
                 throw new UnsupportedOperationException("Error handling not implemented!", e);
@@ -449,6 +465,7 @@ public class DatabaseCounterStorage implements CounterStorage
     {
         this.counterSubscriptionByAppId.cleanUp();
         this.counterSubscriptionByAppId.invalidateAll();
+        dbLock.unlock();
     }
 
 }
