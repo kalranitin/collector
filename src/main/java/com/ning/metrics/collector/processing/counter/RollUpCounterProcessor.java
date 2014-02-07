@@ -147,7 +147,7 @@ public class RollUpCounterProcessor
     {
         CounterSubscription counterSubscription = counterStorage.loadCounterSubscription(appId);
         if(counterSubscription == null)
-        {
+        {   
             return Lists.newArrayList();
         }
         DateTime fromDate = fromDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(fromDateOpt.get()),DateTimeZone.UTC):null;

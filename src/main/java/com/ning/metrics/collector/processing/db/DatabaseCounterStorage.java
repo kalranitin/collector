@@ -359,7 +359,7 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean exceludeDistribution)
+    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution)
     {
         return dbi.withHandle(new HandleCallback<List<RolledUpCounter>>() {
 
@@ -383,7 +383,7 @@ public class DatabaseCounterStorage implements CounterStorage
                     query.bind("toDate", RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(toDate));
                 }
                 
-                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames,exceludeDistribution)).list());
+                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames,excludeDistribution)).list());
                 
             }});
     }
@@ -431,7 +431,7 @@ public class DatabaseCounterStorage implements CounterStorage
         
     }
     
-    public static class RolledUpCounterMapper implements ResultSetMapper<RolledUpCounter>
+    public class RolledUpCounterMapper implements ResultSetMapper<RolledUpCounter>
     {
         private final ObjectMapper mapper;
         private final Optional<Set<String>> fetchCounterNames;
@@ -449,10 +449,16 @@ public class DatabaseCounterStorage implements CounterStorage
             try {
                 GZIPInputStream zipStream = new GZIPInputStream(r.getBinaryStream("metrics"));
                 RolledUpCounter rolledUpCounter = mapper.readValue(zipStream, RolledUpCounter.class);
+                
                 if(!Objects.equal(null, rolledUpCounter) && !Objects.equal(null, fetchCounterNames) && fetchCounterNames.isPresent())
                 {
                     rolledUpCounter.aggregateCounterDataFor(fetchCounterNames.get(), excludeDistribution);
                 }
+                else if(!Objects.equal(null, rolledUpCounter) && excludeDistribution)
+                {
+                    rolledUpCounter.aggregateCounterDataFor(null, excludeDistribution);
+                }
+                
                 return rolledUpCounter; 
             }
             catch (IOException e) {

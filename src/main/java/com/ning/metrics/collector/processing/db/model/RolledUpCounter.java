@@ -169,15 +169,7 @@ public class RolledUpCounter
             
             if(!Objects.equal(null, identifierDistribution) && identifierDistribution.contains(counterName))
             {
-                Integer distributionCount = rolledUpCounterData.getDistribution().get(counterEventData.getUniqueIdentifier());
-                if(Objects.equal(null, distributionCount))
-                {
-                    distributionCount = new Integer(0);
-                }
-                
-                distributionCount += counter;
-                    
-                rolledUpCounterData.getDistribution().put(counterEventData.getUniqueIdentifier(), distributionCount);
+                rolledUpCounterData.incrementDistributionCounter(counterEventData.getUniqueIdentifier(), counter);
             }
         }
     }
@@ -286,10 +278,10 @@ public class RolledUpCounter
             jgen.writeObject(rolledUpCounter.getAppId());
             
             jgen.writeFieldName(FROM_DATE_KEY);
-            jgen.writeObject(rolledUpCounter.getFromDate());
+            jgen.writeObject(ROLLUP_COUNTER_DATE_FORMATTER.print(rolledUpCounter.getFromDate()));
             
             jgen.writeFieldName(TO_DATE_KEY);
-            jgen.writeObject(rolledUpCounter.getToDate());
+            jgen.writeObject(ROLLUP_COUNTER_DATE_FORMATTER.print(rolledUpCounter.getToDate()));
             
             for(String key : rolledUpCounter.getCounterSummary().rowKeySet()){
                 jgen.writeFieldName(key);
@@ -318,8 +310,8 @@ public class RolledUpCounter
             JsonNode node = codec.readTree(jp);
             
             String appId = node.get(APP_ID_KEY).asText();
-            DateTime fromDate = new DateTime(node.get(FROM_DATE_KEY).asLong());
-            DateTime toDate = new DateTime(node.get(TO_DATE_KEY).asLong());
+            DateTime fromDate = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(node.get(FROM_DATE_KEY).asText()),DateTimeZone.UTC);
+            DateTime toDate = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(node.get(TO_DATE_KEY).asText()),DateTimeZone.UTC);
             
             Iterator<String> fields = node.fieldNames();
             

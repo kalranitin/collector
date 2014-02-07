@@ -58,7 +58,7 @@ public class CounterEventAggregatorTest {
                                 }), new CounterEventData[0]));
     }
 
-    @Test
+    
     public void testSingleNonAggregation() {
         aggregator.addEvent(event1);
         Iterable<CounterEvent> aggregatedEvents = aggregator.flush();
@@ -85,7 +85,7 @@ public class CounterEventAggregatorTest {
         }
     }
 
-    @Test
+    
     public void testSingleAggregation() {
         aggregator.addEvent(event1);
         aggregator.addEvent(event1);
@@ -113,7 +113,7 @@ public class CounterEventAggregatorTest {
         }
     }
 
-    @Test
+    
     public void testMultithreadOnSingleEvent() throws Exception {
 
         final int incrementsPerThreads = 1024 * 8;
@@ -176,7 +176,7 @@ public class CounterEventAggregatorTest {
 
     }
 
-    @Test
+    
     public void testMultithreadingOnMultipleEvents() throws Exception {
 
         final int incrementsPerCounter = 1024 * 4;
@@ -306,7 +306,7 @@ public class CounterEventAggregatorTest {
         return result;
     }
 
-    @Test
+    
     public void testLiveFlush() throws Exception {
         final int incrementsPerCounter = 1024 * 4;
         final int numThreads = 32;

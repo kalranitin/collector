@@ -98,7 +98,7 @@ public class TestCounterMetricsSerialization
     
     @Test
     public void testRolledUpCounterDeserialization() throws Exception{
-        String rollUpJson = "{\"appId\":\"app123\",\"fromDate\":1389829178063,\"toDate\":1389829178070,\"counterSummary_1\":{\"pageView\":{\"counterName\":\"pageView\",\"totalCount\":6,\"distribution\":{\"member2\":3,\"member3\":1,\"member1\":2}}}}";
+        String rollUpJson = "{\"appId\":\"app123\",\"fromDate\":\"2014-02-01\",\"toDate\":\"2014-02-01\",\"counterSummary_1\":{\"pageView\":{\"counterName\":\"pageView\",\"totalCount\":6,\"distribution\":{\"member2\":3,\"member3\":1,\"member1\":2}}}}";
         
         RolledUpCounter rolledUpCounter = mapper.readValue(rollUpJson, RolledUpCounter.class);
         

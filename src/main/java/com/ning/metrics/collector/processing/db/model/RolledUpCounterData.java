@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -30,6 +31,7 @@ public class RolledUpCounterData
 {
     private final String counterName;
     private Integer totalCount;
+    private Integer uniqueCount = 0;
     private final Map<String, Integer> distribution;
     
     @JsonCreator
@@ -38,7 +40,16 @@ public class RolledUpCounterData
         @JsonProperty("distribution") final Map<String,Integer> distribution){
         this.counterName = counterName;
         this.totalCount = totalCount;
-        this.distribution = distribution;
+        if(distribution == null)
+        {
+            this.distribution = new ConcurrentHashMap<String, Integer>();
+        }
+        else
+        {
+            this.distribution = distribution;
+        }
+        
+        this.uniqueCount = this.distribution.keySet().size();
     }
 
     public String getCounterName()
@@ -58,13 +69,28 @@ public class RolledUpCounterData
     
     public Integer getUniqueCount()
     {
-        return this.distribution == null?0:distribution.size();
+        return this.uniqueCount;
     }
     
     @JsonIgnore
     public void incrementCounter(Integer incrementValue)
     {
         totalCount += incrementValue;
+    }
+    
+    @JsonIgnore
+    public void incrementDistributionCounter(final String uniqueIdentifier, final Integer incrementValue)
+    {
+        Integer distributionCount = distribution.get(uniqueIdentifier);
+        if(Objects.equal(null, distributionCount))
+        {
+            distributionCount = new Integer(0);
+        }
+        
+        distributionCount += incrementValue;
+            
+        distribution.put(uniqueIdentifier, distributionCount);
+        this.uniqueCount = distribution.keySet().size();
     }
     
     @JsonIgnore

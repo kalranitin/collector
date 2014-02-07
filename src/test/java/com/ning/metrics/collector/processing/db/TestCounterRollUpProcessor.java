@@ -89,7 +89,7 @@ public class TestCounterRollUpProcessor
         return new CounterEventData(id, category, createdDateTime, counterMap);
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testCounterRollUpProcessor() throws Exception
     {
         String jsonData = "{\"appId\":\"network_111\","
@@ -127,10 +127,10 @@ public class TestCounterRollUpProcessor
         
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testLoadAggregatedRolledUpCounters() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_111\","
+        String jsonData = "{\"appId\":\"network_112\","
                 + "\"identifierDistribution\":"
                 + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
                 + "}";
@@ -153,13 +153,13 @@ public class TestCounterRollUpProcessor
         multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
         
         counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_111"));
+        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_112"));
         
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
         
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_111", fromDateOpt,toDateOpt,counterNames, false, true);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_112", fromDateOpt,toDateOpt,counterNames, false, false);
         
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
