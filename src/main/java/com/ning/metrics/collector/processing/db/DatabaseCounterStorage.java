@@ -341,7 +341,7 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public RolledUpCounter loadRolledUpCounterById(final String id)
+    public RolledUpCounter loadRolledUpCounterById(final String id, final boolean exceludeDistribution)
     {
         return dbi.withHandle(new HandleCallback<RolledUpCounter>()
             {
@@ -352,14 +352,14 @@ public class DatabaseCounterStorage implements CounterStorage
                     
                     return handle.createQuery("select metrics from metrics_daily_roll_up where id = :id")
                                  .bind("id", id)
-                                 .map(new RolledUpCounterMapper(mapper,optional))
+                                 .map(new RolledUpCounterMapper(mapper,optional,exceludeDistribution))
                                  .first();
                 }
             });
     }
 
     @Override
-    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames)
+    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean exceludeDistribution)
     {
         return dbi.withHandle(new HandleCallback<List<RolledUpCounter>>() {
 
@@ -383,7 +383,7 @@ public class DatabaseCounterStorage implements CounterStorage
                     query.bind("toDate", RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(toDate));
                 }
                 
-                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames)).list());
+                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames,exceludeDistribution)).list());
                 
             }});
     }
@@ -435,10 +435,12 @@ public class DatabaseCounterStorage implements CounterStorage
     {
         private final ObjectMapper mapper;
         private final Optional<Set<String>> fetchCounterNames;
+        private final boolean excludeDistribution;
         
-        public RolledUpCounterMapper(final ObjectMapper mapper, final Optional<Set<String>> fetchCounterNames){
+        public RolledUpCounterMapper(final ObjectMapper mapper, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution){
             this.mapper = mapper;
             this.fetchCounterNames = fetchCounterNames;
+            this.excludeDistribution = excludeDistribution;
         }
         
         @Override
@@ -449,7 +451,7 @@ public class DatabaseCounterStorage implements CounterStorage
                 RolledUpCounter rolledUpCounter = mapper.readValue(zipStream, RolledUpCounter.class);
                 if(!Objects.equal(null, rolledUpCounter) && !Objects.equal(null, fetchCounterNames) && fetchCounterNames.isPresent())
                 {
-                    rolledUpCounter.aggregateCounterDataFor(fetchCounterNames.get());
+                    rolledUpCounter.aggregateCounterDataFor(fetchCounterNames.get(), excludeDistribution);
                 }
                 return rolledUpCounter; 
             }

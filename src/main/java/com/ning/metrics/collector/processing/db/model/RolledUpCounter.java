@@ -204,7 +204,7 @@ public class RolledUpCounter
         
     }
     
-    public void aggregateCounterDataFor(Set<String> counterNames)
+    public void aggregateCounterDataFor(Set<String> counterNames, boolean excludeDistribution)
     {
         if(!Objects.equal(null, counterNames) && !counterNames.isEmpty())
         {
@@ -219,7 +219,14 @@ public class RolledUpCounter
                 {
                     counterSummary.remove(rowName, columnNames);
                 }
-                
+            }
+        }
+        
+        if(excludeDistribution)
+        {
+            for(RolledUpCounterData counterData : counterSummary.values())
+            {
+                counterData.truncateDistribution();
             }
         }
     }

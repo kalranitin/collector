@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Objects;
 
 import java.util.Map;
 
@@ -64,6 +65,15 @@ public class RolledUpCounterData
     public void incrementCounter(Integer incrementValue)
     {
         totalCount += incrementValue;
+    }
+    
+    @JsonIgnore
+    public void truncateDistribution()
+    {
+        if(!Objects.equal(null, distribution))
+        {
+            distribution.clear();
+        }
     }
 
     @Override

@@ -99,7 +99,7 @@ public class RollUpCounterProcessor
                     
                     if(Objects.equal(null, rolledUpCounter))
                     {
-                        rolledUpCounter = counterStorage.loadRolledUpCounterById(rolledUpCounterKey);
+                        rolledUpCounter = counterStorage.loadRolledUpCounterById(rolledUpCounterKey, false);
                         if(Objects.equal(null, rolledUpCounter))
                         {
                             rolledUpCounter = new RolledUpCounter(counterSubscription.getAppId(), counterEventData.getCreatedDate(), counterEventData.getCreatedDate());
@@ -143,7 +143,7 @@ public class RollUpCounterProcessor
         
     }
     
-    public List<RolledUpCounter> loadAggregatedRolledUpCounters(final String appId, final Optional<String> fromDateOpt, final Optional<String> toDateOpt, final Optional<Set<String>> counterTypesOpt, final boolean aggregateByMonth)
+    public List<RolledUpCounter> loadAggregatedRolledUpCounters(final String appId, final Optional<String> fromDateOpt, final Optional<String> toDateOpt, final Optional<Set<String>> counterTypesOpt, final boolean aggregateByMonth, final boolean excludeDistribution)
     {
         CounterSubscription counterSubscription = counterStorage.loadCounterSubscription(appId);
         if(counterSubscription == null)
@@ -153,7 +153,7 @@ public class RollUpCounterProcessor
         DateTime fromDate = fromDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(fromDateOpt.get()),DateTimeZone.UTC):null;
         DateTime toDate = toDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(toDateOpt.get()),DateTimeZone.UTC):null;
         
-        List<RolledUpCounter> rolledUpCounterResult = counterStorage.loadRolledUpCounters(counterSubscription.getId(), fromDate, toDate, counterTypesOpt);
+        List<RolledUpCounter> rolledUpCounterResult = counterStorage.loadRolledUpCounters(counterSubscription.getId(), fromDate, toDate, counterTypesOpt, excludeDistribution);
         
         if(Objects.equal(null, rolledUpCounterResult) || rolledUpCounterResult.size() == 0)
         {

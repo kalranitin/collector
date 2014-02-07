@@ -89,6 +89,7 @@ public class MetricsResource
         @QueryParam("fromDate") final String fromDate, 
         @QueryParam("toDate") final String toDate,
         @QueryParam("aggregateByMonth") final String aggregateByMonth,
+        @QueryParam("includeDistribution") final String includeDistribution,
         @QueryParam("counterType") final List<String> counterTypes)
     {
         if(Strings.isNullOrEmpty(appId))
@@ -101,7 +102,8 @@ public class MetricsResource
             Optional.fromNullable(fromDate), 
             Optional.fromNullable(toDate), 
             Optional.fromNullable(counterTypesSet), 
-            (!Strings.isNullOrEmpty(aggregateByMonth) && Objects.equal("y", aggregateByMonth.toLowerCase())));
+            (!Strings.isNullOrEmpty(aggregateByMonth) && Objects.equal("y", aggregateByMonth.toLowerCase())),
+            (!Strings.isNullOrEmpty(includeDistribution) && !Objects.equal("y", includeDistribution.toLowerCase())));
     }
     
     

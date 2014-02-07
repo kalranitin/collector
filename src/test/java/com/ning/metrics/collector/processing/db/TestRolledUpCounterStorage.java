@@ -133,7 +133,7 @@ public class TestRolledUpCounterStorage
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
-        rolledUpCounter = counterStorage.loadRolledUpCounterById(id);
+        rolledUpCounter = counterStorage.loadRolledUpCounterById(id, false);
         
         Assert.assertNotNull(rolledUpCounter);
         Assert.assertEquals(rolledUpCounter.getAppId(), "network_111");
@@ -167,7 +167,7 @@ public class TestRolledUpCounterStorage
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_23);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_24);
         
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null);
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null, false);
         
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertTrue(rolledUpCounters.size() == 3);  
@@ -180,7 +180,7 @@ public class TestRolledUpCounterStorage
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, dateTime, null, null);
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, dateTime, null, null, false);
         
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertFalse(rolledUpCounters.size() == 0);
@@ -195,7 +195,7 @@ public class TestRolledUpCounterStorage
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, dateTime, null);
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, dateTime, null, false);
         
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertFalse(rolledUpCounters.size() == 0);
@@ -212,7 +212,7 @@ public class TestRolledUpCounterStorage
         counterNameSet.add("pageView");
         Optional<Set<String>> optional = Optional.of(counterNameSet);
         
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, null, optional);
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, null, optional, true);
         
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertFalse(rolledUpCounters.size() == 0);

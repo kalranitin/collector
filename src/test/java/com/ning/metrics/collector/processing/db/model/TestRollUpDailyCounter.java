@@ -71,11 +71,12 @@ public class TestRollUpDailyCounter
         
         Set<String> aggregatedCounterNames = new HashSet<String>(Arrays.asList("pageView"));
         
-        rolledUpCounter.aggregateCounterDataFor(aggregatedCounterNames);
+        rolledUpCounter.aggregateCounterDataFor(aggregatedCounterNames, true);
         
         Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
         Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1",RolledUpCounter.UNIQUES_KEY));
         Assert.assertNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile"));
+        
         
     }
     
