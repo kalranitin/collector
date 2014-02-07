@@ -115,7 +115,7 @@ public class TestRolledUpCounterStorage
         }
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testInsertRolledUpCounter() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
@@ -126,7 +126,7 @@ public class TestRolledUpCounterStorage
         Assert.assertEquals(id, "network_1112014-01-24");
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testLoadAndUpdateRolledUpCounter() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
@@ -153,7 +153,7 @@ public class TestRolledUpCounterStorage
         Assert.assertEquals(id, "network_1112014-01-24");
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersByDateRange() throws Exception{
         DateTime date_22 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-22"),DateTimeZone.UTC);
         DateTime date_23 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-23"),DateTimeZone.UTC);
@@ -173,7 +173,7 @@ public class TestRolledUpCounterStorage
         Assert.assertTrue(rolledUpCounters.size() == 3);  
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersByStartDate() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
@@ -188,7 +188,7 @@ public class TestRolledUpCounterStorage
         
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersByEndDate() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
         
@@ -202,7 +202,7 @@ public class TestRolledUpCounterStorage
         Assert.assertEquals(rolledUpCounters.get(0).getAppId(),"network_111");
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounterForCounterNames() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
         

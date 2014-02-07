@@ -74,7 +74,7 @@ public class TestCounterStorage
         helper.stopMysql();
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testCreateCounterSubscription() throws Exception
     {
         String jsonData = "{\"appId\":\"network_111\","
@@ -102,7 +102,7 @@ public class TestCounterStorage
         
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testInsertAndLoadDailyMetrics() throws Exception
     {
         
@@ -120,7 +120,7 @@ public class TestCounterStorage
         Assert.assertTrue(Objects.equal("member123", dailyList.get(0).getUniqueIdentifier()) || Objects.equal("member321", dailyList.get(0).getUniqueIdentifier()));
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testInsertAndLoadGroupedDailyMetrics() throws Exception
     {
         Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
@@ -151,7 +151,7 @@ public class TestCounterStorage
         return new CounterEventData(id, category, createdDateTime, counterMap);
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testDeleteDailyMetrics() throws Exception{
         Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         
@@ -183,7 +183,7 @@ public class TestCounterStorage
         
     }
     
-    @Test(threadPoolSize=3, invocationCount = 10, timeOut = 1000)
+    @Test(groups = {"slow", "database"}, threadPoolSize=3, invocationCount = 10, timeOut = 1000)
     public void testMultiThreadedDeleteDailyMetrics() throws Exception{
         Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         
@@ -206,7 +206,7 @@ public class TestCounterStorage
         
     }
     
-    @Test
+    @Test(groups = {"slow", "database"})
     public void testGetSubscritionIdsFromDailyMetrics()
     {
         Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
