@@ -80,8 +80,8 @@ public class TestRolledUpCounterStorage
     {
         String json = "{"
                         + "\"appId\":\"network_111\","
-                        + "\"fromDate\":"+fromDate.getMillis()+","
-                        + "\"toDate\":"+toDate.getMillis()+","
+                        + "\"fromDate\":\""+RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(fromDate)+"\","
+                        + "\"toDate\":\""+RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(toDate)+"\","
                         + "\"counterSummary_1\":"
                         + "{"
                             + "\"contribution\":{\"counterName\":\"contribution\",\"totalCount\":2,\"distribution\":{\"member123\":2}},"
