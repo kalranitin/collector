@@ -18,6 +18,7 @@ package com.ning.metrics.collector.jaxrs;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.CounterStorage;
@@ -26,7 +27,6 @@ import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.collections.Lists;
 
 import java.util.HashMap;
 import java.util.HashSet;
