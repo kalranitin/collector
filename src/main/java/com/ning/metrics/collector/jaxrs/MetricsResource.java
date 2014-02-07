@@ -103,7 +103,7 @@ public class MetricsResource
             Optional.fromNullable(toDate), 
             Optional.fromNullable(counterTypesSet), 
             (!Strings.isNullOrEmpty(aggregateByMonth) && Objects.equal("y", aggregateByMonth.toLowerCase())),
-            (!Strings.isNullOrEmpty(includeDistribution) && !Objects.equal("y", includeDistribution.toLowerCase())));
+            (Strings.isNullOrEmpty(includeDistribution) || !Objects.equal("y", includeDistribution.toLowerCase())));
     }
     
     
