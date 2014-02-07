@@ -16,6 +16,7 @@
 package com.ning.metrics.collector.processing.db;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Optional;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.inject.Guice;
@@ -38,6 +39,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Test(groups = {"slow", "database"})
 public class TestCounterRollUpProcessor
@@ -120,6 +122,46 @@ public class TestCounterRollUpProcessor
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertTrue(rolledUpCounterList.size() == 1);
         Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "uniques").getTotalCount() == 10);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
+        
+    }
+    
+    @Test
+    public void testLoadAggregatedRolledUpCounters() throws Exception
+    {
+        String jsonData = "{\"appId\":\"network_111\","
+                + "\"identifierDistribution\":"
+                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
+                + "}";
+        
+        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        
+        Long id = counterStorage.createCounterSubscription(counterSubscription);
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
+        
+        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        
+        counterStorage.insertDailyMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_111"));
+        
+        Optional<String> fromDateOpt = Optional.of("2014-02-02");
+        Optional<String> toDateOpt = Optional.absent();
+        Optional<Set<String>> counterNames = Optional.absent();
+        
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_111", fromDateOpt,toDateOpt,counterNames, false);
+        
+        Assert.assertNotNull(rolledUpCounterList);
+        Assert.assertEquals(rolledUpCounterList.size(),4);
         Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
         
     }

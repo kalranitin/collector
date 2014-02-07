@@ -17,6 +17,7 @@ package com.ning.metrics.collector.processing.counter;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.DatabaseCounterStorage;
@@ -30,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.collections.Lists;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +45,14 @@ public class RollUpCounterProcessor
     private final CollectorConfig config;
     private final DatabaseCounterStorage counterStorage;
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);
-    
+    private final static Ordering<RolledUpCounter> orderingRolledUpCounterByDate = new Ordering<RolledUpCounter>() {
+
+        @Override
+        public int compare(RolledUpCounter left, RolledUpCounter right)
+        {
+            return left.getFromDate().compareTo(right.getFromDate());
+        }};
+        
     @Inject
     public RollUpCounterProcessor(final DatabaseCounterStorage counterStorage, final CollectorConfig config)
     {
@@ -142,16 +151,21 @@ public class RollUpCounterProcessor
             return Lists.newArrayList();
         }
         DateTime fromDate = fromDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(fromDateOpt.get()),DateTimeZone.UTC):null;
-        DateTime toDate = fromDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(toDateOpt.get()),DateTimeZone.UTC):null;
+        DateTime toDate = toDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(toDateOpt.get()),DateTimeZone.UTC):null;
         
         List<RolledUpCounter> rolledUpCounterResult = counterStorage.loadRolledUpCounters(counterSubscription.getId(), fromDate, toDate, counterTypesOpt);
+        
+        if(Objects.equal(null, rolledUpCounterResult) || rolledUpCounterResult.size() == 0)
+        {
+            return Lists.newArrayList();
+        }
         
         if(aggregateByMonth)
         {
             // TODO - Write the routine to aggregate the data by month
         }
-        
-        return rolledUpCounterResult;
+            
+        return orderingRolledUpCounterByDate.immutableSortedCopy(rolledUpCounterResult);
     }
 
 }

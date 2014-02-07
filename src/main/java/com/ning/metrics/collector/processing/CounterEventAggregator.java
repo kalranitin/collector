@@ -45,8 +45,8 @@ public class CounterEventAggregator {
         aggregateMapRefCounters = new AtomicInteger[2];
         workingMap = 0;
 
-        aggregateMaps[0] = new ConcurrentHashMap<>();
-        aggregateMaps[1] = new ConcurrentHashMap<>();
+        aggregateMaps[0] = new ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter>();
+        aggregateMaps[1] = new ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter>();
         aggregateMapRefCounters[0] = new AtomicInteger(0);
         aggregateMapRefCounters[1] = new AtomicInteger(0);
     }
@@ -193,7 +193,7 @@ public class CounterEventAggregator {
     private CounterEvent convert(AggregatedCounterKey key,
             AggregatedCounter counter) {
 
-        Map<String, Integer> simpleMap = new HashMap<>();
+        Map<String, Integer> simpleMap = new HashMap<String, Integer>();
 
         for (Map.Entry<String, AtomicInteger> e
                 : counter.getCounts().entrySet()) {
@@ -340,7 +340,7 @@ public class CounterEventAggregator {
             if (!initialized) {
                 synchronized (this) {
                     if (!initialized) {
-                        counts = new ConcurrentHashMap<>();
+                        counts = new ConcurrentHashMap<String, AtomicInteger>();
                         initialized = true;
                     }
                 }
