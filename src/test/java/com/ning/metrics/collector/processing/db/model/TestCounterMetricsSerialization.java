@@ -74,7 +74,7 @@ public class TestCounterMetricsSerialization
         Assert.assertEquals("member:123", counterEvent.getCounterEvents().get(0).getUniqueIdentifier());
         Assert.assertTrue(counterEvent.getCounterEvents().get(0).getCounters().containsKey("pageView"));
         
-        System.out.println(mapper.writeValueAsString(counterEvent));
+//        System.out.println(mapper.writeValueAsString(counterEvent));
     }
     
     @Test
