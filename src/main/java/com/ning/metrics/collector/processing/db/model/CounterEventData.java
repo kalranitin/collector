@@ -28,6 +28,7 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -47,9 +48,30 @@ public class CounterEventData
         @JsonProperty("createdDate") DateTime createdDate,
         @JsonProperty("counters") Map<String, Integer> counters)
     {
-        this.uniqueIdentifier = uniqueIdentifier;
-        this.identifierCategory = identifierCategory;
-        this.counters.putAll(counters);
+        if(uniqueIdentifier == null)
+        {
+            this.uniqueIdentifier = UUID.randomUUID().toString();
+        }
+        else
+        {
+            this.uniqueIdentifier = uniqueIdentifier;
+        }
+        
+        if(identifierCategory == null)
+        {
+            this.identifierCategory = 0;
+        }
+        else
+        {
+            this.identifierCategory = identifierCategory;
+        }
+        
+        
+        if(counters != null)
+        {
+            this.counters.putAll(counters);
+        }
+        
         if(createdDate != null)
         {
             this.createdDate = createdDate;
