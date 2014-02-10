@@ -128,6 +128,44 @@ public class TestCounterRollUpProcessor
     }
     
     @Test(groups = {"slow", "database"})
+    public void testStreamingCounterRollUpProcessor() throws Exception
+    {
+        String jsonData = "{\"appId\":\"network_111\","
+                + "\"identifierDistribution\":"
+                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
+                + "}";
+        
+        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        
+        Long id = counterStorage.createCounterSubscription(counterSubscription);
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        
+        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(id, prepareCounterEventData("member121", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        
+        counterStorage.insertDailyMetrics(multimap);
+        
+        counterProcessor.rollUpStreamingDailyCounters(counterStorage.loadCounterSubscription("network_111"));
+        
+        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false);
+        
+        Assert.assertNotNull(rolledUpCounterList);
+        Assert.assertTrue(rolledUpCounterList.size() == 1);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "uniques").getTotalCount() == 10);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
+        
+        
+    }
+    
+    @Test(groups = {"slow", "database"})
     public void testLoadAggregatedRolledUpCounters() throws Exception
     {
         String jsonData = "{\"appId\":\"network_112\","

@@ -82,7 +82,7 @@ public class CounterProcessorRollUpJob implements Job
             
             if(!Objects.equal(null, counterSubscription))
             {
-                rollUpCounterProcessor.rollUpDailyCounters(counterSubscription);
+                rollUpCounterProcessor.rollUpStreamingDailyCounters(counterSubscription);
             }
             
         }

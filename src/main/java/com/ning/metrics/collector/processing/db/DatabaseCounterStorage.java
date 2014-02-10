@@ -17,7 +17,6 @@ package com.ning.metrics.collector.processing.db;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
@@ -43,7 +42,6 @@ import org.skife.jdbi.v2.Query;
 import org.skife.jdbi.v2.ResultIterator;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.Update;
-import org.skife.jdbi.v2.exceptions.CallbackFailedException;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 import org.skife.jdbi.v2.util.LongMapper;
@@ -70,7 +68,7 @@ public class DatabaseCounterStorage implements CounterStorage
     private final CollectorConfig config;
     private final Lock dbLock;
     private final ObjectMapper mapper;
-    private static final DateTimeFormatter DAILY_METRICS_STORAGE_DATE_FORMATER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
+    public static final DateTimeFormatter DAILY_METRICS_STORAGE_DATE_FORMATER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
     final Cache<String, Optional<CounterSubscription>> counterSubscriptionByAppId;
     // while serialization and deserialization of multimap the keys are converted to String while we need Integer
     final static TypeReference<ArrayListMultimap<Integer,String>> multimapIntegerKeyTypeRef = new TypeReference<ArrayListMultimap<Integer,String>>() {};
