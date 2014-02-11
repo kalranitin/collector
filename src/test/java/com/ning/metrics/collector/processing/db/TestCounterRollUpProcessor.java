@@ -159,8 +159,6 @@ public class TestCounterRollUpProcessor
         
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertTrue(rolledUpCounterList.size() == 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "uniques").getTotalCount() == 10);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
         
         
     }
