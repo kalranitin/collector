@@ -158,7 +158,6 @@ public class TestCounterRollUpProcessor
         List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false);
         
         Assert.assertNotNull(rolledUpCounterList);
-        Assert.assertTrue(rolledUpCounterList.size() == 1);
         
         
     }
