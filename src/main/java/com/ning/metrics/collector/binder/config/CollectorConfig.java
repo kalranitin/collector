@@ -520,4 +520,14 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.counterEvent.rollup.process.cron")
     @Default("0 0/30 * * * ?")
     String getCounterRollUpProcessorCronExpression();
+    
+    @Description("Cron Trigger for expired roll up events clean up")
+    @Config("collector.spoolWriter.rollupCounterEvent.cleanup.cron")
+    @Default("0 0 0 * * ?")
+    String getRolledUpCounterCleanupCronExpression();
+    
+    @Description("How long should the rolled up counters be in the storage")
+    @Config("collector.spoolWriter.rollupCounterEvent.cleanup.timeout")
+    @Default("30d")
+    TimeSpan getRolledUpCounterStorageTimeout();
 }

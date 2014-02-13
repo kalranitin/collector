@@ -222,5 +222,27 @@ public class TestRolledUpCounterStorage
         Assert.assertNotNull(rolledUpCounters.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1",RolledUpCounter.UNIQUES_KEY));
         Assert.assertNull(rolledUpCounters.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile"));
     }
+    
+    @Test(groups = {"slow", "database"})
+    public void testCleanUpRolledUpCounters() throws Exception{
+        DateTime date_22 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-22"),DateTimeZone.UTC);
+        DateTime date_23 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-23"),DateTimeZone.UTC);
+        DateTime date_24 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
+        
+        
+        RolledUpCounter rolledUpCounter_22 = prepareRolledUpCounterData(date_22, date_22);
+        RolledUpCounter rolledUpCounter_23 = prepareRolledUpCounterData(date_23, date_23);
+        RolledUpCounter rolledUpCounter_24 = prepareRolledUpCounterData(date_24, date_24);
+        
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_22);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_23);
+        counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_24);
+        
+        counterStorage.cleanExpiredRolledUpCounterEvents(date_24);
+        
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null, false);
+        
+        Assert.assertTrue(rolledUpCounters == null || rolledUpCounters.isEmpty());  
+    }
 
 }

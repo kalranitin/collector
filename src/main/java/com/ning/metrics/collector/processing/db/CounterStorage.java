@@ -41,6 +41,7 @@ public interface CounterStorage
     public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter);
     public RolledUpCounter loadRolledUpCounterById(final String id, final boolean exceludeDistribution);
     public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean exceludeDistribution);
+    public int cleanExpiredRolledUpCounterEvents(final DateTime toDateTime);
     
     public void cleanUp();
     

@@ -275,7 +275,7 @@ public class DatabaseCounterStorage implements CounterStorage
             }});
     }
 
-    
+    @Override
     public boolean deleteDailyMetrics(final Long subscriptionId, final DateTime toDateTime){
         int deleted = dbi.withHandle(new HandleCallback<Integer>() {
             
@@ -297,6 +297,7 @@ public class DatabaseCounterStorage implements CounterStorage
         
         return deleted > 0;
     }
+    
     
     @Override
     public List<Long> getSubscritionIdsFromDailyMetrics(){
@@ -384,6 +385,24 @@ public class DatabaseCounterStorage implements CounterStorage
                 return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames,excludeDistribution)).list());
                 
             }});
+    }
+    
+    public int cleanExpiredRolledUpCounterEvents(final DateTime toDateTime)
+    {
+        int deleted = dbi.withHandle(new HandleCallback<Integer>() {
+            
+            @Override
+            public Integer withHandle(Handle handle) throws Exception
+            {
+                String queryStr = "delete from metrics_daily_roll_up where created_date <= :toDateTime";
+                
+                Update query =  handle.createStatement(queryStr)
+                        .bind("toDateTime", RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(toDateTime));
+                
+                return query.execute();
+            }});
+        
+        return deleted;
     }
     
     public static class CounterSubscriptionMapper implements ResultSetMapper<CounterSubscription>

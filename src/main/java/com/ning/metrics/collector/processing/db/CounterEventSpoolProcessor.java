@@ -28,6 +28,7 @@ import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.CounterEvent;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
+import com.ning.metrics.collector.processing.quartz.CounterEventCleanUpJob;
 import com.ning.metrics.collector.processing.quartz.CounterEventScannerJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
@@ -55,6 +56,7 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
     private final CounterEventCacheProcessor counterEventCacheProcessor;
     private final Scheduler quartzScheduler;
     private final AtomicBoolean isCronJobScheduled = new AtomicBoolean(false);
+    private final AtomicBoolean isCleanupCronJobScheduled = new AtomicBoolean(false);
 
     @Inject
     public CounterEventSpoolProcessor(final CollectorConfig config, final CounterStorage counterStorage, final Scheduler quartzScheduler, final CounterEventCacheProcessor counterEventCacheProcessor, final ObjectMapper mapper) throws SchedulerException
@@ -69,6 +71,7 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
         {
             quartzScheduler.start();
             scheduleCounterEventRollUpCronJob();
+            scheduleRollupEventCleanupCronJob();
         }
     } 
 
@@ -160,7 +163,7 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
             {
                 final CronTrigger cronTrigger = newTrigger()
                         .withIdentity("counterProcessorCronTrigger", "counterProcessorCronTriggerGroup")
-                        .withSchedule(CronScheduleBuilder.cronSchedule(config.getCounterRollUpProcessorCronExpression()).withMisfireHandlingInstructionIgnoreMisfires())
+                        .withSchedule(CronScheduleBuilder.cronSchedule(config.getCounterRollUpProcessorCronExpression()).withMisfireHandlingInstructionDoNothing())
                         .build();
                 
                 quartzScheduler.scheduleJob(newJob(CounterEventScannerJob.class).withIdentity(jobKey).build()
@@ -168,6 +171,28 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
             }
             
             isCronJobScheduled.set(true);
+            
+        }
+    }
+    
+    private void scheduleRollupEventCleanupCronJob() throws SchedulerException
+    {
+        if(this.quartzScheduler.isStarted() && !isCleanupCronJobScheduled.get())
+        {
+            final JobKey jobKey = new JobKey("rolledCountersCleanupCronJob", "rolledCountersCleanupCronJobGroup");
+            
+            if(!this.quartzScheduler.checkExists(jobKey))
+            {
+                final CronTrigger cronTrigger = newTrigger()
+                        .withIdentity("rolledCountersCleanupCronTrigger", "rolledCountersCleanupCronTriggerGroup")
+                        .withSchedule(CronScheduleBuilder.cronSchedule(config.getRolledUpCounterCleanupCronExpression()).withMisfireHandlingInstructionDoNothing())
+                        .build();
+                
+                quartzScheduler.scheduleJob(newJob(CounterEventCleanUpJob.class).withIdentity(jobKey).build()
+                    ,cronTrigger);
+            }
+            
+            isCleanupCronJobScheduled.set(true);
             
         }
     }
