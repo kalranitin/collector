@@ -25,6 +25,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.inject.Inject;
+
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
@@ -32,6 +33,7 @@ import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
 import com.ning.metrics.collector.processing.db.util.MySqlLock;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.skife.config.TimeSpan;
@@ -68,7 +70,7 @@ public class DatabaseCounterStorage implements CounterStorage
     private final CollectorConfig config;
     private final Lock dbLock;
     private final ObjectMapper mapper;
-    public static final DateTimeFormatter DAILY_METRICS_STORAGE_DATE_FORMATER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
+    public static final DateTimeFormatter DAILY_METRICS_STORAGE_DATE_FORMATER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss").withZone(DateTimeZone.UTC);
     final Cache<String, Optional<CounterSubscription>> counterSubscriptionByAppId;
     // while serialization and deserialization of multimap the keys are converted to String while we need Integer
     final static TypeReference<ArrayListMultimap<Integer,String>> multimapIntegerKeyTypeRef = new TypeReference<ArrayListMultimap<Integer,String>>() {};

@@ -70,7 +70,7 @@ public class RolledUpCounter
     public final static String FROM_DATE_KEY = "fromDate";
     public final static String TO_DATE_KEY = "toDate";
     public final static String UNIQUES_KEY = "uniques";
-    public static final DateTimeFormatter ROLLUP_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
+    public static final DateTimeFormatter ROLLUP_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(DateTimeZone.UTC);
     
     
     public RolledUpCounter(final String appId, 

@@ -40,7 +40,7 @@ public class CounterEventData
     private final Integer identifierCategory;
     private DateTime createdDate;
     private final Map<String, Integer> counters = new ConcurrentHashMap<String, Integer>();
-    public static final DateTimeFormatter DAILY_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
+    public static final DateTimeFormatter DAILY_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(DateTimeZone.UTC);
     
     @JsonCreator
     public CounterEventData(@JsonProperty("uniqueIdentifier") String uniqueIdentifier, 
