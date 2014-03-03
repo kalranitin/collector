@@ -280,7 +280,7 @@ public interface CollectorConfig
     String getFiltersPath();
 
     @Config("collector.filters.event-type")
-    @Default("CounterEvent")
+    @Default("CounterEvent,FeedEvent")
     String getFiltersEventType();
     
     /**

@@ -22,7 +22,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 
 import org.joda.time.DateTime;
@@ -199,12 +198,15 @@ public class FeedEventData
             jgen.writeObject(event.getRemovalTargets());
             jgen.writeFieldName(ROLLUP_KEY);
             jgen.writeObject(event.getRollupKey());
+            jgen.writeFieldName(CREATED_DATE_KEY);
+            jgen.writeObject(event.getCreatedDate());
             
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
                 if (!TOPICS_KEY.equals(entry.getKey()) 
                         && !FEED_EVENT_ID_KEY.equals(entry.getKey()) 
                         && !EVENT_TYPE_KEY.equals(entry.getKey())
                         && !ROLLUP_KEY.equals(entry.getKey())
+                        && !CREATED_DATE_KEY.equals(entry.getKey())
                         && !REMOVAL_TARGETS.equals(entry.getKey())) {
                     jgen.writeFieldName(entry.getKey());
                     jgen.writeObject(entry.getValue());

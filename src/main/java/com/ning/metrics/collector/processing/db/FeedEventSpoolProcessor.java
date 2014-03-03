@@ -31,9 +31,9 @@ import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.collector.processing.quartz.FeedUpdateQuartzJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Objects;
+import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import com.mogwee.executors.FailsafeScheduledExecutor;
@@ -84,15 +84,26 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
         this.feedEventStorage = feedEventStorage;
         this.eventStorageBuffer = new ArrayBlockingQueue<FeedEvent>(1000, false);
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
-        this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("FeedEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
-        this.executorService.submit(new FeedEventInserter(this.executorService, this));
-        this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "FeedEvents-Cleaner-Threads");
-        this.scheduledExecutorService.scheduleWithFixedDelay(new FeedEventScheduledCleaner(), 1, 15, TimeUnit.MINUTES);
         this.quartzScheduler = quartzScheduler;
-        if(!quartzScheduler.isStarted())
+        
+        final List<String> eventTypesList = Splitter.on(config.getFilters()).omitEmptyStrings().splitToList(config.getFiltersEventType());
+        if(eventTypesList.contains(DBStorageTypes.FEED_EVENT.getDbStorageType()))
         {
-            quartzScheduler.start();
+        	this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("FeedEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
+            this.executorService.submit(new FeedEventInserter(this.executorService, this));
+            this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "FeedEvents-Cleaner-Threads");
+            this.scheduledExecutorService.scheduleWithFixedDelay(new FeedEventScheduledCleaner(), 1, 15, TimeUnit.MINUTES);
+            if(!quartzScheduler.isStarted())
+            {
+                quartzScheduler.start();
+            }
         }
+        else
+        {
+        	this.executorService = null;
+            this.scheduledExecutorService = null;
+        }
+        
     } 
 
     @Override
@@ -210,15 +221,19 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
         }
         finally{
             log.info("Shutting Down Executor Service for Feed Event Storage");
-            executorService.shutdown();
+            if(executorService != null)
+            {
+            	executorService.shutdown();
+                
+                try {
+                    executorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
+                }
+                catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                executorService.shutdownNow();
+            }
             
-            try {
-                executorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
-            }
-            catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-            executorService.shutdownNow();
             
             log.info("Executor Service for Feed Event Storage Shut Down success!");
             
@@ -228,15 +243,18 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
             }
             
             log.info("Shutting Down Feed Event Cleaner Executor Service");
-            scheduledExecutorService.shutdown();
-            
-            try {
-                scheduledExecutorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
+            if(scheduledExecutorService != null)
+            {
+            	scheduledExecutorService.shutdown();
+                
+                try {
+                    scheduledExecutorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
+                }
+                catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                scheduledExecutorService.shutdownNow();
             }
-            catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-            scheduledExecutorService.shutdownNow();
             
             log.info("Feed Event Cleaner Executor Service shutdown success!");
             

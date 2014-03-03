@@ -18,10 +18,6 @@ package com.ning.metrics.collector.processing.db;
 import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Objects;
-import com.google.common.base.Strings;
-import com.google.inject.Inject;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.EventSpoolProcessor;
 import com.ning.metrics.collector.processing.SerializationType;
@@ -32,6 +28,12 @@ import com.ning.metrics.collector.processing.quartz.CounterEventCleanUpJob;
 import com.ning.metrics.collector.processing.quartz.CounterEventScannerJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Objects;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import com.google.inject.Inject;
 
 import org.quartz.CronScheduleBuilder;
 import org.quartz.CronTrigger;
@@ -44,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CounterEventSpoolProcessor implements EventSpoolProcessor
@@ -67,12 +70,18 @@ public class CounterEventSpoolProcessor implements EventSpoolProcessor
         this.mapper = mapper;
         
         this.quartzScheduler = quartzScheduler;
-        if(!quartzScheduler.isStarted())
+        
+        final List<String> eventTypesList = Splitter.on(config.getFilters()).omitEmptyStrings().splitToList(config.getFiltersEventType());
+        if(eventTypesList.contains(DBStorageTypes.COUNTER_EVENT.getDbStorageType()))
         {
-            quartzScheduler.start();
-            scheduleCounterEventRollUpCronJob();
-            scheduleRollupEventCleanupCronJob();
+        	if(!quartzScheduler.isStarted())
+            {
+                quartzScheduler.start();
+                scheduleCounterEventRollUpCronJob();
+                scheduleRollupEventCleanupCronJob();
+            }
         }
+        
     } 
 
     @Override
