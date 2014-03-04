@@ -24,10 +24,11 @@ public interface FeedEventStorage
 {
     public List<String> insert(final Collection<FeedEvent> feedEvents);
     
-    public List<FeedEvent> load(final String channel, final List<String> idList, final int count);
-    
+    public List<FeedEvent> loadFeedEventsByBatchId(final List<String> channelList, final List<String> batchIdList, final int count);
+
+    public List<FeedEvent> loadFeedEventsByOffset(final String channel, final long eventOffsetId, final int count);
+
     public void cleanOldFeedEvents();
     
     public void cleanUp();
-
 }

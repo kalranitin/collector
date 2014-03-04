@@ -36,7 +36,7 @@ public class FeedEvent
     private final FeedEventMetaData metadata;
     private final FeedEventData event;
     private final Long subscriptionId;
-    private final String id;
+    private final Long id;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @JsonCreator
@@ -49,10 +49,11 @@ public class FeedEvent
         this.event = event;
         this.subscriptionId = subscriptionId;
         this.metadata = metadata;
-        this.id = "";
+        this.id = 0L;
     }
     
-    public FeedEvent(String id, String channel, String metadata, String event, long subscriptionId) throws IOException{
+    public FeedEvent(long id, String channel, String metadata, String event, long subscriptionId) throws IOException
+    {
         this.subscriptionId = subscriptionId;
         this.event = mapper.readValue(event, FeedEventData.class);
         this.metadata = mapper.readValue(metadata, FeedEventMetaData.class);
@@ -80,7 +81,7 @@ public class FeedEvent
     }
     
     @JsonIgnore
-    public String getId()
+    public Long getId()
     {
         return id;
     }

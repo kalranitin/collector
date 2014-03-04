@@ -530,4 +530,14 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.rollupCounterEvent.cleanup.timeout")
     @Default("30d")
     TimeSpan getRolledUpCounterStorageTimeout();
+
+    @Description(" Comma (,) seperated channel names allowed for feed event rollup.")
+    @Config("collector.spoolWriter.feedEvent.rollup.channels")
+    @Default("activity")
+    String getFeedRollupChannelNames();
+
+    @Description("The maximum allowed number of feed events to be fetched")
+    @Config("collector.spoolWriter.feedEvent.db.fetch.limit")
+    @Default("1000")
+    int getMaxFeedEventFetchCount();
 }

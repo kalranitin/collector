@@ -19,9 +19,11 @@ import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
+
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
@@ -71,6 +73,8 @@ public class TestFeedEventStorage
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
         System.setProperty("collector.spoolWriter.feedEvent.retention.period", "1s");
+        System.setProperty("collector.spoolWriter.feedEvent.rollup.channels", "channel");
+        System.setProperty("collector.spoolWriter.feedEvent.db.fetch.limit", "8");
         
         Guice.createInjector(new DBConfigModule()).injectMembers(this);
                 
@@ -109,7 +113,7 @@ public class TestFeedEventStorage
         feedEvents.clear();
         Assert.assertTrue(feedEvents.size() == 0);
         
-        feedEvents = feedEventStorage.load(channel, idList, 10);
+        feedEvents = feedEventStorage.loadFeedEventsByBatchId(ImmutableList.of(channel), idList, 10);
         
         Assert.assertTrue(feedEvents.size() == 10);
         Assert.assertEquals(feedEvents.get(0).getChannel(), channel);    
@@ -124,7 +128,7 @@ public class TestFeedEventStorage
         List<String> idList = feedEventStorage.insert(Arrays.asList(getFeedEvent(subscription, eventData)));
         Thread.sleep(2000);
         feedEventStorage.cleanOldFeedEvents();
-        List<FeedEvent> feedEvents = feedEventStorage.load(channel, idList, 10);
+        List<FeedEvent> feedEvents = feedEventStorage.loadFeedEventsByBatchId(ImmutableList.of(channel), idList, 10);
         
         Assert.assertEquals(feedEvents.size(), 0);
     }
@@ -142,4 +146,51 @@ public class TestFeedEventStorage
             subscription.getMetadata());
     }
 
+    @Test
+    public void testLoadFeedEventsByChannel() throws Exception
+    {
+
+        List<FeedEvent> feedEvents = Lists.newArrayList();
+
+        for (int i = 0; i < 10; i++) {
+            feedEvents.add(getFeedEvent(subscription, eventData));
+        }
+
+        feedEventStorage.insert(feedEvents);
+
+        feedEvents.clear();
+        Assert.assertTrue(feedEvents.size() == 0);
+
+        feedEvents = feedEventStorage.loadFeedEventsByOffset(channel, 0, 10);
+
+        Assert.assertTrue(feedEvents.size() == 10);
+        Assert.assertEquals(feedEvents.get(0).getChannel(), channel);
+        Assert.assertEquals(feedEvents.get(0).getMetadata().getFeed(), feed);
+        Assert.assertEquals(feedEvents.get(0).getSubscriptionId(), subscription.getId());
+
+    }
+
+    @Test
+    public void testLoadFeedEventsByChannelWithDefaultCount() throws Exception
+    {
+
+        List<FeedEvent> feedEvents = Lists.newArrayList();
+
+        for (int i = 0; i < 10; i++) {
+            feedEvents.add(getFeedEvent(subscription, eventData));
+        }
+
+        feedEventStorage.insert(feedEvents);
+
+        feedEvents.clear();
+        Assert.assertTrue(feedEvents.size() == 0);
+
+        feedEvents = feedEventStorage.loadFeedEventsByOffset(channel, 0, 0);
+
+        Assert.assertTrue(feedEvents.size() == 8);
+        Assert.assertEquals(feedEvents.get(0).getChannel(), channel);
+        Assert.assertEquals(feedEvents.get(0).getMetadata().getFeed(), feed);
+        Assert.assertEquals(feedEvents.get(0).getSubscriptionId(), subscription.getId());
+
+    }
 }

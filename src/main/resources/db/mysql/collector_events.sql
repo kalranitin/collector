@@ -23,6 +23,13 @@ CREATE TABLE feeds (
   PRIMARY KEY (feed_key)
 );
 
+alter table feed_events 
+    DROP primary key,
+    CHANGE id batch_id varchar(36) NOT NULL,
+    ADD id bigint PRIMARY KEY AUTO_INCREMENT;
+
+
 create index subscriptions_topic_idx on subscriptions (topic);
 create index feed_events_channel_idx on feed_events (channel);
 create index subscriptions_metadata_idx on subscriptions (metadata(128));
+create index feed_events_batchid_idx on feed_events (batch_id);

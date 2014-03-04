@@ -18,6 +18,7 @@ package com.ning.metrics.collector.processing.db.util;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.Argument;
 import org.skife.jdbi.v2.tweak.NamedArgumentFinder;
@@ -37,11 +38,16 @@ public class InClauseExpander implements NamedArgumentFinder
 
     public InClauseExpander(Iterable<String> elements)
     {
+        this("__InClauseExpander_", elements);
+    }
+
+    public InClauseExpander(String customPrefix, Iterable<String> elements)
+    {
         List<String> prefixed = Lists.newArrayList();
         Map<String, String> args = Maps.newLinkedHashMap();
         int i = 0;
         for (String element : elements) {
-            String name = "__InClauseExpander_" + i++;
+            String name = customPrefix + i++;
             args.put(name, element);
             prefixed.add(":" + name);
         }
@@ -57,13 +63,18 @@ public class InClauseExpander implements NamedArgumentFinder
     @Override
     public Argument find(final String name)
     {
-        return new Argument()
-        {
-            @Override
-            public void apply(final int position, final PreparedStatement statement, final StatementContext ctx) throws SQLException
+        if (args.containsKey(name)) {
+            return new Argument()
             {
-                statement.setString(position, args.get(name));
-            }
-        };
+                @Override
+                public void apply(final int position, final PreparedStatement statement, final StatementContext ctx) throws SQLException
+                {
+                    statement.setString(position, args.get(name));
+                }
+            };
+        }
+        else {
+            return null;
+        }
     }
 }

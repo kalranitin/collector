@@ -45,7 +45,6 @@ import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleTrigger;
 import org.skife.config.TimeSpan;
-import org.skife.jdbi.v2.IDBI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -167,12 +166,12 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
                 count = eventStorageBuffer.drainTo(feedEventList,1000);
                 if(count > 0){
                     inserted = true;
-                    List<String> feedEventIdList = feedEventStorage.insert(feedEventList);
+                    List<String> feedEventBatchIdList = feedEventStorage.insert(feedEventList);
                     log.info(String.format("Inserted %d events successfully!", count));
                     feedEventList.clear();
                     
                     // Schedule Quartz job for feed preparation of the inserted events
-                    scheduleFeedCollectionJob(feedEventIdList);
+                    scheduleFeedCollectionJob(feedEventBatchIdList);
                 }
             }
             while (count > 0);
@@ -191,7 +190,7 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
         }
     }
     
-    private void scheduleFeedCollectionJob(List<String> feedEventIdList){
+    private void scheduleFeedCollectionJob(List<String> feedEventBatchIdList){
         try {
             if(this.quartzScheduler.isStarted()){
                 SimpleTrigger trigger = (SimpleTrigger)newTrigger()
@@ -200,7 +199,7 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
                         .build();
                 
                 JobDataMap jobMap = new JobDataMap();
-                jobMap.put("feedEventIdList",feedEventIdList);
+                jobMap.put(FeedUpdateQuartzJob.FEED_EVENT_ID_LIST, feedEventBatchIdList);
                 
                 quartzScheduler.scheduleJob(
                     newJob(FeedUpdateQuartzJob.class).withIdentity("feedUpdateJob", "feedUpdateJobGroup").usingJobData(jobMap).build()

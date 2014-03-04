@@ -52,7 +52,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
     private final CollectorConfig config;
     private final Lock dbLock;
     private static final ObjectMapper mapper = new ObjectMapper();
-    
+
     @Inject
     public DatabaseFeedEventStorage(final IDBI dbi, final CollectorConfig config)
     {
@@ -69,92 +69,111 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
             @Override
             public List<String> withHandle(Handle handle) throws Exception
             {
-                final List<String> idList = Lists.newArrayListWithCapacity(feedEvents.size());
-                PreparedBatch batch = handle.prepareBatch("insert into feed_events (id, channel, created_at, metadata, event, subscription_id) values (:id, :channel, :now, :metadata, :event, :subscription_id)");
-                
-                for(FeedEvent feedEvent : feedEvents){
-                    String id = UUID.randomUUID().toString();
-                    idList.add(id);
-                    batch.bind("id", id)
-                    .bind("channel", feedEvent.getChannel())
-                    .bind("metadata", mapper.writeValueAsString(feedEvent.getMetadata()))
-                    .bind("event", mapper.writeValueAsString(feedEvent.getEvent()))
-                    .bind("now", DateTimeUtils.getInstantMillis(new DateTime(DateTimeZone.UTC)))
-                    .bind("subscription_id", feedEvent.getSubscriptionId())
-                    .add();
+                final List<String> batchIdList = Lists.newArrayListWithCapacity(1);
+                PreparedBatch batch = handle.prepareBatch("insert into feed_events (batch_id, channel, created_at, metadata, event, subscription_id) values (:batch_id, :channel, :now, :metadata, :event, :subscription_id)");
+                String batchId = UUID.randomUUID().toString();
+                batchIdList.add(batchId);
+                for (FeedEvent feedEvent : feedEvents) {
+                    batch.bind("batch_id", batchId)
+                        .bind("channel", feedEvent.getChannel())
+                        .bind("metadata", mapper.writeValueAsString(feedEvent.getMetadata()))
+                        .bind("event", mapper.writeValueAsString(feedEvent.getEvent()))
+                        .bind("now", DateTimeUtils.getInstantMillis(new DateTime(DateTimeZone.UTC)))
+                        .bind("subscription_id", feedEvent.getSubscriptionId())
+                        .add();
                 }
-                
+
                 batch.execute();
-                
-                return idList;
-            }});
+
+                return batchIdList;
+            }
+        });
     }
 
     @Override
-    public List<FeedEvent> load(final String channel, final List<String> idList, final int count)
+    public List<FeedEvent> loadFeedEventsByBatchId(final List<String> channelList, final List<String> batchIdList, final int count)
     {
         return dbi.withHandle(new HandleCallback<List<FeedEvent>>() {
 
             @Override
             public List<FeedEvent> withHandle(Handle handle) throws Exception
             {
-                InClauseExpander in = new InClauseExpander(idList);
-                
-                return ImmutableList.copyOf(
-                    handle.createQuery("select id, channel, metadata, event, subscription_id from feed_events where channel = :channel and id in (" + in.getExpansion() + ") limit :count")
-                    .bind("channel", channel)
-                    .bindNamedArgumentFinder(in)
+                InClauseExpander idExpander = new InClauseExpander("_idPrefix_", batchIdList);
+                InClauseExpander channelExpander = new InClauseExpander("_channelPrefix_", channelList);
+
+                return ImmutableList.copyOf(handle.createQuery(
+                    "select id, channel, metadata, event, subscription_id from feed_events where channel in (" + channelExpander.getExpansion() + ") and batch_id in (" + idExpander.getExpansion() + ") limit :count")
+                    .bindNamedArgumentFinder(channelExpander)
+                    .bindNamedArgumentFinder(idExpander)
                     .bind("count", count)
                     .setFetchSize(count)
                     .setMaxRows(count)
                     .map(new FeedEventRowMapper())
                     .list());
             }
-            
+
         });
     }
-    
-    public void cleanOldFeedEvents(){
-        if(dbLock.tryLock()){
+
+    @Override
+    public List<FeedEvent> loadFeedEventsByOffset(final String channel, final long eventOffsetId, final int count)
+    {
+
+        final int maxRowsToFetch = (count <= 0) ? config.getMaxFeedEventFetchCount() : count;
+
+        return dbi.withHandle(new HandleCallback<List<FeedEvent>>() {
+
+            @Override
+            public List<FeedEvent> withHandle(Handle handle) throws Exception
+            {
+                return ImmutableList.copyOf(handle.createQuery("select id, channel, metadata, event, subscription_id from" + " feed_events where channel = :channel and id >= :eventOffsetId limit :count")
+                    .bind("channel", channel)
+                    .bind("eventOffsetId", eventOffsetId)
+                    .bind("count", maxRowsToFetch)
+                    .setFetchSize(maxRowsToFetch)
+                    .setMaxRows(maxRowsToFetch)
+                    .map(new FeedEventRowMapper())
+                    .list());
+            }
+        });
+    }
+
+    public void cleanOldFeedEvents()
+    {
+        if (dbLock.tryLock()) {
             int deleted = dbi.withHandle(new HandleCallback<Integer>() {
 
                 @Override
                 public Integer withHandle(Handle handle) throws Exception
                 {
-                    return handle.createStatement("delete from feed_events where created_at < :tillTimePeriod")
-                            .bind("tillTimePeriod",DateTimeUtils.currentTimeMillis() - config.getFeedEventRetentionPeriod().getMillis())
-                            .execute();
-                }});
-            
+                    return handle.createStatement("delete from feed_events where created_at < :tillTimePeriod").bind("tillTimePeriod", DateTimeUtils.currentTimeMillis() - config.getFeedEventRetentionPeriod().getMillis()).execute();
+                }
+            });
+
             log.info(String.format("%d Feed events deleted successfully", deleted));
         }
     }
-    
-    public static class FeedEventRowMapper implements ResultSetMapper<FeedEvent>{
+
+    public static class FeedEventRowMapper implements ResultSetMapper<FeedEvent>
+    {
 
         @Override
         public FeedEvent map(int index, ResultSet r, StatementContext ctx) throws SQLException
         {
             try {
-                return new FeedEvent(r.getString("id"),
-                    r.getString("channel"),
-                    r.getString("metadata"),
-                    r.getString("event"),
-                    r.getLong("subscription_id"));
+                return new FeedEvent(r.getLong("id"), r.getString("channel"), r.getString("metadata"), r.getString("event"), r.getLong("subscription_id"));
             }
             catch (IOException e) {
                 throw new UnsupportedOperationException("Not Yet Implemented!", e);
             }
         }
-        
+
     }
 
     @Override
     public void cleanUp()
     {
-        dbLock.unlock();       
+        dbLock.unlock();
     }
-    
-    
 
 }
