@@ -63,9 +63,11 @@ public class MetricsResource
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/subscription")
-    public Response createCounterSubscription(final CounterSubscription counterSubscription, @Context UriInfo ui)
+    public Response createOrUpdateCounterSubscription(final CounterSubscription counterSubscription, @Context UriInfo ui)
     {
-        final Long id = counterStorage.createCounterSubscription(counterSubscription);
+    	CounterSubscription dbCounterSubscription = counterStorage.loadCounterSubscription(counterSubscription.getAppId());
+    	
+    	final Long id = dbCounterSubscription == null?counterStorage.createCounterSubscription(counterSubscription):counterStorage.updateCounterSubscription(counterSubscription,dbCounterSubscription.getId());
         return Response.created(
             ui.getBaseUriBuilder()
             .path(MetricsResource.class)

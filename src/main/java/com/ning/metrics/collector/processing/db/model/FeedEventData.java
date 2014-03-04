@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Strings;
 
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeUtils;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -199,7 +200,7 @@ public class FeedEventData
             jgen.writeFieldName(ROLLUP_KEY);
             jgen.writeObject(event.getRollupKey());
             jgen.writeFieldName(CREATED_DATE_KEY);
-            jgen.writeObject(event.getCreatedDate());
+            jgen.writeObject(DateTimeUtils.getInstantMillis(event.getCreatedDate()));
             
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
                 if (!TOPICS_KEY.equals(entry.getKey()) 

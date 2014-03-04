@@ -17,6 +17,7 @@ package com.ning.metrics.collector.processing.db;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Multimap;
+
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
@@ -29,6 +30,7 @@ import java.util.Set;
 public interface CounterStorage
 {
     public Long createCounterSubscription(final CounterSubscription counterSubscription);
+    public Long updateCounterSubscription(final CounterSubscription counterSubscription, final Long id);
     public CounterSubscription loadCounterSubscription(final String appId);
     public CounterSubscription loadCounterSubscriptionById(final Long subscriptionId);
     

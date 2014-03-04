@@ -118,6 +118,26 @@ public class DatabaseCounterStorage implements CounterStorage
                 }
             });
     }
+    
+    @Override
+    public Long updateCounterSubscription(final CounterSubscription counterSubscription, final Long id)
+    {
+    	return dbi.withHandle(new HandleCallback<Long>()
+        {
+            @Override
+            public Long withHandle(Handle handle) throws Exception
+            {
+                handle.createStatement("update metrics_subscription set  distribution_for = :distributionFor where id = :id")
+                             .bind("distributionFor", mapper.writerWithType(multimapIntegerKeyTypeRef).writeValueAsString(counterSubscription.getIdentifierDistribution()))
+                             .bind("id", id)
+                             .execute();
+                
+                addCounterSubscription(counterSubscription.getAppId(), Optional.fromNullable(counterSubscription));
+                
+                return id;
+            }
+        });
+    }
 
     @Override
     public CounterSubscription loadCounterSubscription(final String appId)
