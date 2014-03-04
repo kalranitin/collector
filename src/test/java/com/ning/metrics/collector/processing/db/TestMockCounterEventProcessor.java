@@ -20,6 +20,8 @@ import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.inject.Inject;
 import com.mchange.v2.io.FileUtils;
+
+import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
@@ -50,6 +52,7 @@ public class TestMockCounterEventProcessor
     private CounterEventCacheProcessor counterEventCacheProcessor;
     private CounterEventSpoolProcessor counterEventSpoolProcessor;
     private Scheduler quartzScheduler;
+    private CollectorConfig config;
     
     @Inject
     private ObjectMapper mapper;
@@ -64,14 +67,17 @@ public class TestMockCounterEventProcessor
         counterStorage = Mockito.mock(CounterStorage.class);
         counterEventCacheProcessor = Mockito.mock(CounterEventCacheProcessor.class);
         quartzScheduler = Mockito.mock(Scheduler.class);
+        config = Mockito.mock(CollectorConfig.class);
         
         file = new File(System.getProperty("java.io.tmpdir")+"/counterEventTest.json");
         FileUtils.touch(file);
         
         Mockito.when(quartzScheduler.isStarted()).thenReturn(true);
         Mockito.when(quartzScheduler.checkExists(Mockito.any(JobKey.class))).thenReturn(true);
+        Mockito.when(config.getFilters()).thenReturn(",");
+        Mockito.when(config.getFiltersEventType()).thenReturn(DBStorageTypes.COUNTER_EVENT.getDbStorageType());
         
-        counterEventSpoolProcessor = new CounterEventSpoolProcessor(null, counterStorage, quartzScheduler, counterEventCacheProcessor, mapper);
+        counterEventSpoolProcessor = new CounterEventSpoolProcessor(config, counterStorage, quartzScheduler, counterEventCacheProcessor, mapper);
         
         Mockito.when(serializationType.getDeSerializer(Mockito.<InputStream>any())).thenReturn(eventDeserializer);
         Mockito.when(eventDeserializer.hasNextEvent()).thenReturn(true,false);

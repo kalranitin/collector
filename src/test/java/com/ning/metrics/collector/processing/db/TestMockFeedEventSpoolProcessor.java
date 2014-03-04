@@ -66,6 +66,8 @@ public class TestMockFeedEventSpoolProcessor
         //Mockito.when(file.getPath()).thenReturn(System.getProperty("java.io.tmpdir"));
         
         Mockito.when(config.getSpoolWriterExecutorShutdownTime()).thenReturn(new TimeSpan("1s"));
+        Mockito.when(config.getFilters()).thenReturn(",");
+        Mockito.when(config.getFiltersEventType()).thenReturn(DBStorageTypes.FEED_EVENT.getDbStorageType());
         Mockito.when(quartzScheduler.isStarted()).thenReturn(true);
         
         feedEventSpoolProcessor = new FeedEventSpoolProcessor(config, subscriptionStorage, feedEventStorage,quartzScheduler);
