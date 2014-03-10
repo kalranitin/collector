@@ -101,6 +101,11 @@ public class DatabaseCounterStorage implements CounterStorage
     {
         this.counterSubscriptionByAppId.put(appId, counterSubscription);
     }
+    
+    private void removeCounterSubscription(final String appId)
+    {
+        this.counterSubscriptionByAppId.invalidate(appId);
+    }
 
     @Override
     public Long createCounterSubscription(final CounterSubscription counterSubscription)
@@ -132,7 +137,7 @@ public class DatabaseCounterStorage implements CounterStorage
                              .bind("id", id)
                              .execute();
                 
-                addCounterSubscription(counterSubscription.getAppId(), Optional.fromNullable(counterSubscription));
+                removeCounterSubscription(counterSubscription.getAppId());
                 
                 return id;
             }
