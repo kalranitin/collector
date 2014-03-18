@@ -31,6 +31,7 @@ import com.ning.metrics.collector.processing.db.model.Subscription;
 import com.ning.metrics.collector.processing.quartz.FeedUpdateQuartzJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
@@ -55,6 +56,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -195,7 +197,7 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
         try {
             if(this.quartzScheduler.isStarted()){
                 SimpleTrigger trigger = (SimpleTrigger)newTrigger()
-                        .withIdentity("feedUpdateTrigger", "feedUpdateGroup")
+                        .withIdentity(UUID.randomUUID().toString()+"_feedUpdateTrigger", "feedUpdateGroup")
                         .withSchedule(simpleSchedule().withMisfireHandlingInstructionFireNow())                 
                         .build();
                 
@@ -203,7 +205,7 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
                 jobMap.put("feedEventIdList",feedEventIdList);
                 
                 quartzScheduler.scheduleJob(
-                    newJob(FeedUpdateQuartzJob.class).withIdentity("feedUpdateJob", "feedUpdateJobGroup").usingJobData(jobMap).build()
+                    newJob(FeedUpdateQuartzJob.class).withIdentity(UUID.randomUUID().toString()+"_feedUpdateJob", "feedUpdateJobGroup").usingJobData(jobMap).build()
                     ,trigger);
             }
         }

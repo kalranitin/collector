@@ -77,7 +77,7 @@ public class CounterEventScannerJob implements Job
                     final JobKey jobKey = new JobKey("counterProcessorJob_"+subscriptionId, "counterProcessorJobGroup");
                     
                     final SimpleTrigger trigger = (SimpleTrigger)newTrigger()
-                            .withIdentity("counterProcessorJobTrigger", "counterProcessorTriggerGroup")
+                            .withIdentity("counterProcessorJobTrigger_"+subscriptionId, "counterProcessorTriggerGroup")
                             .withSchedule(simpleSchedule().withMisfireHandlingInstructionFireNow())                 
                             .build();
                     
