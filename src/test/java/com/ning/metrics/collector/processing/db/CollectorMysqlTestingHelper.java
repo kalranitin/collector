@@ -39,7 +39,7 @@ public class CollectorMysqlTestingHelper {
     private static final Logger log = LoggerFactory.getLogger(CollectorMysqlTestingHelper.class);
 
     public final static String USERNAME = "root";
-    public final static String PASSWORD = "";
+    public final static String PASSWORD = "root";
 
     private File dbDir;
     private MysqldResource mysqldResource;

@@ -223,7 +223,7 @@ public class RollUpCounterProcessor
         
         if(Objects.equal(null, rolledUpCounter))
         {
-            rolledUpCounter = counterStorage.loadRolledUpCounterById(rolledUpCounterKey, false);
+            rolledUpCounter = counterStorage.loadRolledUpCounterById(rolledUpCounterKey, false, Optional.of(0));
             if(Objects.equal(null, rolledUpCounter))
             {
                 rolledUpCounter = new RolledUpCounter(counterSubscription.getAppId(), counterEventData.getCreatedDate(), counterEventData.getCreatedDate());
@@ -234,7 +234,7 @@ public class RollUpCounterProcessor
         rolledUpCounterMap.put(rolledUpCounterKey, rolledUpCounter);
     }
     
-    public List<RolledUpCounter> loadAggregatedRolledUpCounters(final String appId, final Optional<String> fromDateOpt, final Optional<String> toDateOpt, final Optional<Set<String>> counterTypesOpt, final boolean aggregateByMonth, final boolean excludeDistribution)
+    public List<RolledUpCounter> loadAggregatedRolledUpCounters(final String appId, final Optional<String> fromDateOpt, final Optional<String> toDateOpt, final Optional<Set<String>> counterTypesOpt, final boolean aggregateByMonth, final boolean excludeDistribution, final Optional<Integer> distributionLimit)
     {
         CounterSubscription counterSubscription = counterStorage.loadCounterSubscription(appId);
         if(counterSubscription == null)
@@ -244,7 +244,7 @@ public class RollUpCounterProcessor
         DateTime fromDate = fromDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(fromDateOpt.get()),DateTimeZone.UTC):null;
         DateTime toDate = toDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(toDateOpt.get()),DateTimeZone.UTC):null;
         
-        List<RolledUpCounter> rolledUpCounterResult = counterStorage.loadRolledUpCounters(counterSubscription.getId(), fromDate, toDate, counterTypesOpt, excludeDistribution);
+        List<RolledUpCounter> rolledUpCounterResult = counterStorage.loadRolledUpCounters(counterSubscription.getId(), fromDate, toDate, counterTypesOpt, excludeDistribution, distributionLimit);
         
         if(Objects.equal(null, rolledUpCounterResult) || rolledUpCounterResult.size() == 0)
         {

@@ -367,7 +367,7 @@ public class DatabaseCounterStorage implements CounterStorage
     }
 
     @Override
-    public RolledUpCounter loadRolledUpCounterById(final String id, final boolean exceludeDistribution)
+    public RolledUpCounter loadRolledUpCounterById(final String id, final boolean exceludeDistribution, final Optional<Integer> distributionLimit)
     {
         return dbi.withHandle(new HandleCallback<RolledUpCounter>()
             {
@@ -378,14 +378,14 @@ public class DatabaseCounterStorage implements CounterStorage
                     
                     return handle.createQuery("select metrics from metrics_daily_roll_up where id = :id")
                                  .bind("id", id)
-                                 .map(new RolledUpCounterMapper(mapper,optional,exceludeDistribution))
+                                 .map(new RolledUpCounterMapper(mapper,optional,exceludeDistribution,distributionLimit))
                                  .first();
                 }
             });
     }
 
     @Override
-    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution)
+    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution, final Optional<Integer> distributionLimit)
     {
         return dbi.withHandle(new HandleCallback<List<RolledUpCounter>>() {
 
@@ -409,7 +409,7 @@ public class DatabaseCounterStorage implements CounterStorage
                     query.bind("toDate", RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.print(toDate));
                 }
                 
-                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames,excludeDistribution)).list());
+                return ImmutableList.copyOf(query.map(new RolledUpCounterMapper(mapper, fetchCounterNames,excludeDistribution, distributionLimit)).list());
                 
             }});
     }
@@ -480,11 +480,13 @@ public class DatabaseCounterStorage implements CounterStorage
         private final ObjectMapper mapper;
         private final Optional<Set<String>> fetchCounterNames;
         private final boolean excludeDistribution;
+        private final Optional<Integer> distributionLimit;
         
-        public RolledUpCounterMapper(final ObjectMapper mapper, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution){
+        public RolledUpCounterMapper(final ObjectMapper mapper, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution, final Optional<Integer> distributionLimit){
             this.mapper = mapper;
             this.fetchCounterNames = fetchCounterNames;
             this.excludeDistribution = excludeDistribution;
+            this.distributionLimit = distributionLimit;
         }
         
         @Override
@@ -496,11 +498,11 @@ public class DatabaseCounterStorage implements CounterStorage
                 
                 if(!Objects.equal(null, rolledUpCounter) && !Objects.equal(null, fetchCounterNames) && fetchCounterNames.isPresent())
                 {
-                    rolledUpCounter.aggregateCounterDataFor(fetchCounterNames.get(), excludeDistribution);
+                    rolledUpCounter.aggregateCounterDataFor(fetchCounterNames.get(), excludeDistribution, distributionLimit);
                 }
                 else if(!Objects.equal(null, rolledUpCounter) && excludeDistribution)
                 {
-                    rolledUpCounter.aggregateCounterDataFor(null, excludeDistribution);
+                    rolledUpCounter.aggregateCounterDataFor(null, excludeDistribution, distributionLimit);
                 }
                 
                 return rolledUpCounter; 

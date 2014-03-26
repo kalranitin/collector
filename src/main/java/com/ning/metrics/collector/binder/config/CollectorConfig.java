@@ -458,7 +458,7 @@ public interface CollectorConfig
 
     @Description("The jdbc password for the database")
     @Config("collector.spoolWriter.jdbc.password")
-    @Default("")
+    @Default("root")
     String getPassword();
 
     @Description("The minimum allowed number of idle connections to the database")

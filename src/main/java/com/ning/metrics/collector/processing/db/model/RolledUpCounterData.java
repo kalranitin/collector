@@ -20,9 +20,15 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Ordering;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -33,6 +39,8 @@ public class RolledUpCounterData
     private Integer totalCount;
     private Integer uniqueCount = 0;
     private final Map<String, Integer> distribution;
+    private boolean applySortOnDistribution = false;
+    private int distributionLimit = 0;
     
     @JsonCreator
     public RolledUpCounterData(@JsonProperty("counterName") final String counterName, 
@@ -64,12 +72,49 @@ public class RolledUpCounterData
 
     public Map<String, Integer> getDistribution()
     {
+        if(applySortOnDistribution && !distribution.isEmpty())
+        {
+            final Ordering<Map.Entry<String, Integer>> entryOrdering = Ordering.natural().reverse().nullsLast()
+                    .onResultOf(new Function<Entry<String, Integer>, Integer>() {
+                        public Integer apply(Entry<String, Integer> entry) {
+                          return entry.getValue();
+                        }
+                      });
+            
+         // Desired entries in desired order.  Put them in an ImmutableMap in this order.
+            final ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+            int entryCounter = 0;
+            for (Entry<String, Integer> entry : entryOrdering.sortedCopy(distribution.entrySet())) 
+            {
+              builder.put(entry.getKey(), entry.getValue());
+              entryCounter++;
+              
+              if(distributionLimit != 0 && entryCounter >= distributionLimit)
+              {
+                  break;
+              }
+              
+            }
+            
+            return builder.build(); 
+        }
+        
         return distribution;
     }
     
     public Integer getUniqueCount()
     {
         return this.uniqueCount;
+    }
+    
+    @JsonIgnore
+    public void applyDistributionLimit(final Integer distributionLimit)
+    {
+        if(distributionLimit > 0)
+        {
+            this.applySortOnDistribution = true;
+            this.distributionLimit = distributionLimit;
+        }
     }
     
     @JsonIgnore

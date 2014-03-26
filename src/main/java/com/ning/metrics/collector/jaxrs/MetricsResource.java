@@ -20,6 +20,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+
 import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.CounterStorage;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -92,7 +94,8 @@ public class MetricsResource
         @QueryParam("toDate") final String toDate,
         @QueryParam("aggregateByMonth") final String aggregateByMonth,
         @QueryParam("includeDistribution") final String includeDistribution,
-        @QueryParam("counterType") final List<String> counterTypes)
+        @QueryParam("counterType") final List<String> counterTypes,
+        @DefaultValue("0") @QueryParam("distributionLimit") final Integer distributionLimit)
     {
         if(Strings.isNullOrEmpty(appId))
         {
@@ -105,7 +108,8 @@ public class MetricsResource
             Optional.fromNullable(toDate), 
             Optional.fromNullable(counterTypesSet), 
             (!Strings.isNullOrEmpty(aggregateByMonth) && Objects.equal("y", aggregateByMonth.toLowerCase())),
-            (Strings.isNullOrEmpty(includeDistribution) || !Objects.equal("y", includeDistribution.toLowerCase())));
+            (Strings.isNullOrEmpty(includeDistribution) || !Objects.equal("y", includeDistribution.toLowerCase())),
+            Optional.fromNullable(distributionLimit));
     }
     
     

@@ -16,8 +16,13 @@
 package com.ning.metrics.collector.processing.db.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Functions;
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
+
 import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 
 import org.joda.time.DateTime;
@@ -71,7 +76,7 @@ public class TestRollUpDailyCounter
         
         Set<String> aggregatedCounterNames = new HashSet<String>(Arrays.asList("pageView"));
         
-        rolledUpCounter.aggregateCounterDataFor(aggregatedCounterNames, true);
+        rolledUpCounter.aggregateCounterDataFor(aggregatedCounterNames, true, null);
         
         Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
         Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1",RolledUpCounter.UNIQUES_KEY));
@@ -106,6 +111,59 @@ public class TestRollUpDailyCounter
         
         Assert.assertEquals(groupMap.values().size(), 2);
         Assert.assertEquals(groupMap.values().iterator().next().getCounters().get("pageView"), new Integer(2));
+        
+    }
+    
+    @Test
+    public void testRollUpWithSortedDistribution() throws Exception{
+        List<CounterEventData> dailyCounterList = new ArrayList<CounterEventData>();
+        dailyCounterList.add(prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        
+        dailyCounterList.add(prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        
+        dailyCounterList.add(prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        dailyCounterList.add(prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile","contribution")));
+        
+        RolledUpCounter rolledUpCounter = new RolledUpCounter("app123", new DateTime(), new DateTime());
+        
+        Assert.assertTrue(rolledUpCounter.getCounterSummary().isEmpty());
+        
+        for(CounterEventData counterEventData : dailyCounterList)
+        {
+            List<String> identifierDistribution = getIdentifierDistribution(counterEventData.getIdentifierCategory());
+            
+            rolledUpCounter.updateRolledUpCounterData(counterEventData, identifierDistribution);
+        }
+        
+        rolledUpCounter.evaluateUniques();
+        
+        Assert.assertTrue(rolledUpCounter.getCounterSummary().containsRow(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1"));
+        Assert.assertFalse(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().isEmpty());
+        Assert.assertEquals(new Integer(3), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", RolledUpCounter.UNIQUES_KEY).getTotalCount());
+        
+        
+        /*final Ordering<String> naturalReverseValueOrdering =
+                Ordering.natural().reverse().nullsLast().onResultOf(Functions.forMap(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution(), null));
+        
+        System.out.println(ImmutableSortedMap.copyOf(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution(),naturalReverseValueOrdering));*/
+        
+       
+        Set<String> aggregatedCounterNames = new HashSet<String>(Arrays.asList("pageView"));
+        
+        rolledUpCounter.aggregateCounterDataFor(aggregatedCounterNames, false, Optional.of(1));
+        
+        Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
+        Assert.assertNotNull(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1",RolledUpCounter.UNIQUES_KEY));
+        Assert.assertFalse(rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member112"));
+//        System.out.println(mapper.writeValueAsString(rolledUpCounter));
+        
         
     }
     

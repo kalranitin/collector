@@ -41,8 +41,8 @@ public interface CounterStorage
     public List<Long> getSubscritionIdsFromDailyMetrics();
     
     public String insertOrUpdateRolledUpCounter(final Long subscriptionId, final RolledUpCounter rolledUpCounter);
-    public RolledUpCounter loadRolledUpCounterById(final String id, final boolean exceludeDistribution);
-    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean exceludeDistribution);
+    public RolledUpCounter loadRolledUpCounterById(final String id, final boolean excludeDistribution, final Optional<Integer> distributionLimit);
+    public List<RolledUpCounter> loadRolledUpCounters(final Long subscriptionId, final DateTime fromDate, final DateTime toDate, final Optional<Set<String>> fetchCounterNames, final boolean excludeDistribution, final Optional<Integer> distributionLimit);
     public int cleanExpiredRolledUpCounterEvents(final DateTime toDateTime);
     
     public void cleanUp();

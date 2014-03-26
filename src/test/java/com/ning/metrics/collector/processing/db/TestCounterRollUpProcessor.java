@@ -117,7 +117,7 @@ public class TestCounterRollUpProcessor
         
         counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_111"));
         
-        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false);
+        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false, null);
         
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertTrue(rolledUpCounterList.size() == 1);
@@ -155,7 +155,7 @@ public class TestCounterRollUpProcessor
         
         counterProcessor.rollUpStreamingDailyCounters(counterStorage.loadCounterSubscription("network_111"));
         
-        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false);
+        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false, null);
         
         Assert.assertNotNull(rolledUpCounterList);
         
@@ -194,7 +194,7 @@ public class TestCounterRollUpProcessor
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
         
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_112", fromDateOpt,toDateOpt,counterNames, false, false);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_112", fromDateOpt,toDateOpt,counterNames, false, false, Optional.of(0));
         
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
