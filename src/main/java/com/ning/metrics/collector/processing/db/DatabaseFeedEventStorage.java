@@ -115,7 +115,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
     }
     
     public void cleanOldFeedEvents(){
-        if(dbLock.tryLock()){
+        //if(dbLock.tryLock()){
             int deleted = dbi.withHandle(new HandleCallback<Integer>() {
 
                 @Override
@@ -127,7 +127,7 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
                 }});
             
             log.info(String.format("%d Feed events deleted successfully", deleted));
-        }
+        //}
     }
     
     public static class FeedEventRowMapper implements ResultSetMapper<FeedEvent>{

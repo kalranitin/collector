@@ -97,7 +97,7 @@ public class DatabaseFeedStorage implements FeedStorage
     @Override
     public void deleteFeed(final String key)
     {
-        if(dbLock.tryLock()){
+        //if(dbLock.tryLock()){
             dbi.withHandle(new HandleCallback<Void>() {
 
                 @Override
@@ -109,7 +109,7 @@ public class DatabaseFeedStorage implements FeedStorage
                     
                     return null;
                 }});
-        }
+        //}
     }
     
     public static class FeedRowMapper implements ResultSetMapper<Feed>{

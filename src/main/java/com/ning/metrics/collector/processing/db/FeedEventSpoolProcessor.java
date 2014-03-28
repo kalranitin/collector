@@ -94,7 +94,7 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
         	this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("FeedEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
             this.executorService.submit(new FeedEventInserter(this.executorService, this));
             this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "FeedEvents-Cleaner-Threads");
-            this.scheduledExecutorService.scheduleWithFixedDelay(new FeedEventScheduledCleaner(), 1, 15, TimeUnit.MINUTES);
+            this.scheduledExecutorService.scheduleWithFixedDelay(new FeedEventScheduledCleaner(), 1, 1, TimeUnit.HOURS);
             if(!quartzScheduler.isStarted())
             {
                 quartzScheduler.start();
