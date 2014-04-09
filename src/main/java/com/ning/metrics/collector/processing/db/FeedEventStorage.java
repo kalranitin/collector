@@ -26,7 +26,7 @@ public interface FeedEventStorage
     
     public List<FeedEvent> load(final String channel, final List<String> idList, final int count);
     
-    public void cleanOldFeedEvents();
+    public int cleanOldFeedEvents();
     
     public void cleanUp();
 

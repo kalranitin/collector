@@ -28,6 +28,7 @@ import com.ning.metrics.collector.processing.SerializationType;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.Subscription;
+import com.ning.metrics.collector.processing.quartz.FeedEventCleanUpJob;
 import com.ning.metrics.collector.processing.quartz.FeedUpdateQuartzJob;
 import com.ning.metrics.serialization.event.Event;
 import com.ning.metrics.serialization.event.EventDeserializer;
@@ -37,16 +38,17 @@ import com.google.common.base.Objects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
-import com.mogwee.executors.FailsafeScheduledExecutor;
 import com.mogwee.executors.LoggingExecutor;
 import com.mogwee.executors.NamedThreadFactory;
 
+import org.quartz.CronScheduleBuilder;
+import org.quartz.CronTrigger;
 import org.quartz.JobDataMap;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleTrigger;
 import org.skife.config.TimeSpan;
-import org.skife.jdbi.v2.IDBI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,9 +62,9 @@ import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FeedEventSpoolProcessor implements EventSpoolProcessor
 {
@@ -74,9 +76,9 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
     private static final String PROCESSOR_NAME = "DBWriter";
     private final BlockingQueue<FeedEvent> eventStorageBuffer;
     private final ExecutorService executorService;
-    private final ScheduledExecutorService scheduledExecutorService;
     private final TimeSpan executorShutdownTimeOut;
     private final Scheduler quartzScheduler;
+    private final AtomicBoolean isCleanupCronJobScheduled = new AtomicBoolean(false);
     
     @Inject
     public FeedEventSpoolProcessor(final CollectorConfig config, final SubscriptionStorage subscriptionStorage, final FeedEventStorage feedEventStorage, final Scheduler quartzScheduler) throws SchedulerException
@@ -93,17 +95,16 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
         {
         	this.executorService = new LoggingExecutor(1, 1 , Long.MAX_VALUE, TimeUnit.DAYS, new ArrayBlockingQueue<Runnable>(2), new NamedThreadFactory("FeedEvents-Storage-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
             this.executorService.submit(new FeedEventInserter(this.executorService, this));
-            this.scheduledExecutorService = new FailsafeScheduledExecutor(1, "FeedEvents-Cleaner-Threads");
-            this.scheduledExecutorService.scheduleWithFixedDelay(new FeedEventScheduledCleaner(), 1, 1, TimeUnit.HOURS);
+            
             if(!quartzScheduler.isStarted())
             {
                 quartzScheduler.start();
+                scheduleFeedEventCleanupCronJob();
             }
         }
         else
         {
         	this.executorService = null;
-            this.scheduledExecutorService = null;
         }
         
     } 
@@ -244,26 +245,15 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
                 flushFeedEventsToDB();
             }
             
-            log.info("Shutting Down Feed Event Cleaner Executor Service");
-            if(scheduledExecutorService != null)
-            {
-            	scheduledExecutorService.shutdown();
-                
-                try {
-                    scheduledExecutorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
-                }
-                catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                }
-                scheduledExecutorService.shutdownNow();
-            }
-            
-            log.info("Feed Event Cleaner Executor Service shutdown success!");
-            
             log.info("Shutting Down Quartz Scheduler");
             try {
                 if(!quartzScheduler.isShutdown())
                 {
+                    final JobKey jobKey = new JobKey("feedEventCleanupCronJob", "feedEventCleanupCronJobGroup");
+                    if(this.quartzScheduler.checkExists(jobKey))
+                    {
+                       this.quartzScheduler.deleteJob(jobKey);
+                    }
                     quartzScheduler.shutdown(true);
                 }
                 
@@ -273,6 +263,28 @@ public class FeedEventSpoolProcessor implements EventSpoolProcessor
             }
             log.info("Quartz Scheduler shutdown success");
         }              
+    }
+    
+    private void scheduleFeedEventCleanupCronJob() throws SchedulerException
+    {
+        if(this.quartzScheduler.isStarted() && !isCleanupCronJobScheduled.get())
+        {
+            final JobKey jobKey = new JobKey("feedEventCleanupCronJob", "feedEventCleanupCronJobGroup");
+            
+            if(!this.quartzScheduler.checkExists(jobKey))
+            {
+                final CronTrigger cronTrigger = newTrigger()
+                        .withIdentity("feedEventCleanupCronTrigger", "feedEventCleanupCronTriggerGroup")
+                        .withSchedule(CronScheduleBuilder.cronSchedule(config.getFeedEventsCleanupCronExpression()).withMisfireHandlingInstructionDoNothing())
+                        .build();
+                
+                quartzScheduler.scheduleJob(newJob(FeedEventCleanUpJob.class).withIdentity(jobKey).build()
+                    ,cronTrigger);
+            }
+            
+            isCleanupCronJobScheduled.set(true);
+            
+        }
     }
 
     @Override
