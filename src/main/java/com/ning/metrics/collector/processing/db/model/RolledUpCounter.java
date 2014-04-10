@@ -38,12 +38,6 @@ import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
-
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
@@ -51,6 +45,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -62,24 +60,24 @@ public class RolledUpCounter
     private final DateTime fromDate;
     private final DateTime toDate;
     private final Table<String, String, RolledUpCounterData> counterSummary;
-    
+
     public final static String COUNTER_SUMMARY_PREFIX = "counterSummary_";
     public final static String APP_ID_KEY = "appId";
     public final static String FROM_DATE_KEY = "fromDate";
     public final static String TO_DATE_KEY = "toDate";
     public final static String UNIQUES_KEY = "uniques";
     public static final DateTimeFormatter ROLLUP_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(DateTimeZone.UTC);
-    
-    
-    public RolledUpCounter(final String appId, 
-        final DateTime fromDate, 
-        final DateTime toDate, 
+
+
+    public RolledUpCounter(final String appId,
+        final DateTime fromDate,
+        final DateTime toDate,
         final Table<String, String, RolledUpCounterData> counterSummary)
     {
         this.appId = appId;
         this.fromDate = fromDate;
         this.toDate = toDate;
-        
+
         if(counterSummary == null)
         {
             this.counterSummary = HashBasedTable.create();
@@ -89,9 +87,9 @@ public class RolledUpCounter
             this.counterSummary = HashBasedTable.create(counterSummary);
         }
     }
-    
-    public RolledUpCounter(final String appId, 
-        final DateTime fromDate, 
+
+    public RolledUpCounter(final String appId,
+        final DateTime fromDate,
         final DateTime toDate)
     {
         this.appId = appId;
@@ -99,7 +97,7 @@ public class RolledUpCounter
         this.toDate = toDate;
         counterSummary = HashBasedTable.create();
     }
-    
+
     public String getAppId()
     {
         return appId;
@@ -115,7 +113,7 @@ public class RolledUpCounter
                 return new DateTime(DateTimeZone.UTC);
             }
         }
-        
+
         return new DateTime(DateTimeZone.UTC);
     }
     public DateTime getToDate()
@@ -129,53 +127,53 @@ public class RolledUpCounter
                 return new DateTime(DateTimeZone.UTC);
             }
         }
-        
+
         return new DateTime(DateTimeZone.UTC);
     }
-    
+
     @JsonIgnore
     public String getFormattedDate()
     {
         return ROLLUP_COUNTER_DATE_FORMATTER.print(getFromDate());
     }
-    
+
     public Table<String, String, RolledUpCounterData> getCounterSummary()
     {
         return counterSummary;
     }
-    
+
     public void updateRolledUpCounterData(final CounterEventData counterEventData, final List<String> identifierDistribution)
     {
      // This creates a string with e.g. counterRowName_1
         final String counterRowName = COUNTER_SUMMARY_PREFIX + counterEventData.getIdentifierCategory();
-        
+
         final Map<String,RolledUpCounterData> counterSummaryRow = counterSummary.row(counterRowName);
-        
+
         for(final Entry<String, Integer> counterEntry : counterEventData.getCounters().entrySet())
         {
             final String counterName = counterEntry.getKey();
             final Integer counter = counterEntry.getValue();
-            
+
             RolledUpCounterData rolledUpCounterData = counterSummaryRow.get(counterName);
             if(Objects.equal(null, rolledUpCounterData))
             {
                 rolledUpCounterData = new RolledUpCounterData(counterName, 0, new ConcurrentHashMap<String, Integer>());
                 counterSummaryRow.put(counterName, rolledUpCounterData);
             }
-            
+
             rolledUpCounterData.incrementCounter(counter);
-            
+
             if(!Objects.equal(null, identifierDistribution) && identifierDistribution.contains(counterName))
             {
                 rolledUpCounterData.incrementDistributionCounter(counterEventData.getUniqueIdentifier(), counter);
             }
         }
     }
-    
+
     public void evaluateUniques()
     {
         Set<String> uniqueKeySet = Sets.newConcurrentHashSet();
-        
+
         if(!Objects.equal(null, counterSummary) && !counterSummary.isEmpty())
         {
             for(String rowName : counterSummary.rowKeySet())
@@ -187,31 +185,33 @@ public class RolledUpCounter
                         uniqueKeySet = Sets.union(uniqueKeySet, rolledUpCounterData.getDistribution().keySet());
                     }
                 }
-                
+
                 counterSummary.put(rowName, UNIQUES_KEY, new RolledUpCounterData(UNIQUES_KEY, uniqueKeySet.size(), null));
             }
         }
-        
+
     }
-    
-    public void aggregateCounterDataFor(Set<String> counterNames, boolean excludeDistribution, Optional<Integer> distributionLimit)
+
+    public void aggregateCounterDataFor(Set<String> counterNames,
+            boolean excludeDistribution, Optional<Integer> distributionLimit,
+            Optional<Set<String>> uniqueIds)
     {
         if(!Objects.equal(null, counterNames) && !counterNames.isEmpty())
         {
             if(!Objects.equal(null, counterSummary) && !counterSummary.isEmpty())
             {
                 counterNames.add(UNIQUES_KEY);
-                
+
                 Set<String> columnNames = counterSummary.columnKeySet();
                 Iterables.retainAll(columnNames, counterNames);
-                
+
                 for(String rowName : counterSummary.rowKeySet())
                 {
                     counterSummary.remove(rowName, columnNames);
                 }
             }
         }
-        
+
         for(RolledUpCounterData counterData : counterSummary.values())
         {
             if(!Objects.equal(null, counterData.getDistribution()) && !counterData.getDistribution().isEmpty())
@@ -220,13 +220,16 @@ public class RolledUpCounter
                 {
                     counterData.truncateDistribution();
                 }
+                else if (uniqueIds != null && uniqueIds.isPresent()) {
+                    counterData.applyDistributionFilterById(uniqueIds.get());
+                }
                 else if(distributionLimit != null && distributionLimit.isPresent()){
                     counterData.applyDistributionLimit(distributionLimit.get());
                 }
             }
         }
     }
-    
+
     @Override
     public int hashCode()
     {
@@ -277,28 +280,28 @@ public class RolledUpCounter
         public void serialize(RolledUpCounter rolledUpCounter, JsonGenerator jgen, SerializerProvider provider) throws IOException, JsonProcessingException
         {
             jgen.writeStartObject();
-            
+
             jgen.writeFieldName(APP_ID_KEY);
             jgen.writeObject(rolledUpCounter.getAppId());
-            
+
             jgen.writeFieldName(FROM_DATE_KEY);
             jgen.writeObject(ROLLUP_COUNTER_DATE_FORMATTER.print(rolledUpCounter.getFromDate()));
-            
+
             jgen.writeFieldName(TO_DATE_KEY);
             jgen.writeObject(ROLLUP_COUNTER_DATE_FORMATTER.print(rolledUpCounter.getToDate()));
-            
+
             for(String key : rolledUpCounter.getCounterSummary().rowKeySet()){
                 jgen.writeFieldName(key);
                 jgen.writeObject(rolledUpCounter.getCounterSummary().row(key));
             }
-            
-            
+
+
             jgen.writeEndObject();
-            
+
         }
-        
+
     }
-    
+
     public static class RolledUpCounterDeserializer extends JsonDeserializer<RolledUpCounter>{
 
         @Override
@@ -307,25 +310,25 @@ public class RolledUpCounter
             ObjectMapper mapper = new ObjectMapper();
             mapper.registerModule(new JodaModule());
             mapper.registerModule(new GuavaModule());
-            
+
             Table<String, String, RolledUpCounterData> counterSummary = HashBasedTable.create();
-            
+
             ObjectCodec codec = jp.getCodec();
             JsonNode node = codec.readTree(jp);
-            
+
             String appId = node.get(APP_ID_KEY).asText();
             DateTime fromDate = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(node.get(FROM_DATE_KEY).asText()),DateTimeZone.UTC);
             DateTime toDate = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(node.get(TO_DATE_KEY).asText()),DateTimeZone.UTC);
-            
+
             Iterator<String> fields = node.fieldNames();
-            
+
             while(fields.hasNext())
             {
                 String fieldName = fields.next();
                 if(fieldName.startsWith(COUNTER_SUMMARY_PREFIX))
                 {
                     Iterator<Entry<String, JsonNode>> nodeIterator = node.get(fieldName).fields();
-                    
+
                     while(nodeIterator.hasNext())
                     {
                         JsonNode childNode = nodeIterator.next().getValue();
@@ -335,12 +338,12 @@ public class RolledUpCounter
 
                 }
             }
-            
-            
+
+
             return new RolledUpCounter(appId,fromDate,toDate,counterSummary);
         }
-        
+
     }
-    
-    
+
+
 }

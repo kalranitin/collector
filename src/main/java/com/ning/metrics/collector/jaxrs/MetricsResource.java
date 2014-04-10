@@ -19,21 +19,15 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.inject.Inject;
-
 import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.CounterStorage;
 import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
@@ -46,6 +40,8 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Path("/rest/1.0/metrics")
 public class MetricsResource
@@ -53,14 +49,14 @@ public class MetricsResource
     private static final Logger log = LoggerFactory.getLogger(MetricsResource.class);
     private final CounterStorage counterStorage;
     private final RollUpCounterProcessor rollUpCounterProcessor;
-    
+
     @Inject
     public MetricsResource(final CounterStorage counterStorage, final RollUpCounterProcessor rollUpCounterProcessor)
     {
         this.counterStorage = counterStorage;
         this.rollUpCounterProcessor = rollUpCounterProcessor;
     }
-    
+
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
@@ -68,7 +64,7 @@ public class MetricsResource
     public Response createOrUpdateCounterSubscription(final CounterSubscription counterSubscription, @Context UriInfo ui)
     {
     	CounterSubscription dbCounterSubscription = counterStorage.loadCounterSubscription(counterSubscription.getAppId());
-    	
+
     	final Long id = dbCounterSubscription == null?counterStorage.createCounterSubscription(counterSubscription):counterStorage.updateCounterSubscription(counterSubscription,dbCounterSubscription.getId());
         return Response.created(
             ui.getBaseUriBuilder()
@@ -76,42 +72,54 @@ public class MetricsResource
             .path("{id}")
             .build(id))
             .entity(new HashMap<String, Long>(){{put("id",id);}})
-            .build();  
+            .build();
     }
-    
+
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/subscription/{subscriptionId}")
     public CounterSubscription getSubscription(@PathParam("subscriptionId") Long subscriptionId){
         return counterStorage.loadCounterSubscriptionById(subscriptionId);
     }
-    
+
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/{appId}")
-    public List<RolledUpCounter> getRolledUpCounter(@PathParam("appId") final String appId, 
-        @QueryParam("fromDate") final String fromDate, 
+    public List<RolledUpCounter> getRolledUpCounter(@PathParam("appId") final String appId,
+        @QueryParam("fromDate") final String fromDate,
         @QueryParam("toDate") final String toDate,
         @QueryParam("aggregateByMonth") final String aggregateByMonth,
+        @QueryParam("aggregateEntrireRange") final String aggregateEntrireRange,
         @QueryParam("includeDistribution") final String includeDistribution,
         @QueryParam("counterType") final List<String> counterTypes,
+        @DefaultValue("") @QueryParam("uniqueIds") final String uniqueIds,
         @DefaultValue("0") @QueryParam("distributionLimit") final Integer distributionLimit)
     {
         if(Strings.isNullOrEmpty(appId))
         {
             return Lists.newArrayList();
         }
-        Set<String> counterTypesSet = counterTypes == null?null:new HashSet<String>(counterTypes);
-        
-        return rollUpCounterProcessor.loadAggregatedRolledUpCounters(appId, 
-            Optional.fromNullable(fromDate), 
-            Optional.fromNullable(toDate), 
-            Optional.fromNullable(counterTypesSet), 
+
+        Set<String> counterTypesSet =
+                counterTypes == null?null:Sets.newHashSet(counterTypes);
+
+        // split the uniqueId list on some basic url-safe charachaters and make
+        // a hash set of the result
+        Set<String> uniqueIdSet =
+                uniqueIds == null || uniqueIds.trim().length() == 0 ? null
+                        : Sets.newHashSet(uniqueIds.split("[,:;.]"));
+
+        return rollUpCounterProcessor.loadAggregatedRolledUpCounters(appId,
+            Optional.fromNullable(fromDate),
+            Optional.fromNullable(toDate),
+            Optional.fromNullable(counterTypesSet),
             (!Strings.isNullOrEmpty(aggregateByMonth) && Objects.equal("y", aggregateByMonth.toLowerCase())),
+            (!Strings.isNullOrEmpty(aggregateEntrireRange) && Objects.equal("y", aggregateEntrireRange.toLowerCase())),
             (Strings.isNullOrEmpty(includeDistribution) || !Objects.equal("y", includeDistribution.toLowerCase())),
+            Optional.fromNullable(uniqueIdSet),
             Optional.fromNullable(distributionLimit));
     }
-    
-    
+
+
 
 }

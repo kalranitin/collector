@@ -22,17 +22,6 @@ import com.google.inject.Inject;
 import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
-
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -40,42 +29,49 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.testng.Assert;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 @Test(groups = {"slow", "database"})
 public class TestRolledUpCounterStorage
 {
     private CollectorMysqlTestingHelper helper;
-    
+
     @Inject
     ObjectMapper mapper;
-    
+
     @Inject
     CounterStorage counterStorage;
-    
+
     @BeforeClass(groups = {"slow", "database"})
     public void startDB() throws Exception{
         helper = new CollectorMysqlTestingHelper();
         helper.startMysql();
         helper.initDb();
-        
+
         System.setProperty("collector.spoolWriter.jdbc.url", helper.getJdbcUrl());
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
-        
+
         Guice.createInjector(new CollectorObjectMapperModule(), new DBConfigModule()).injectMembers(this);
-                
+
     }
-    
+
     @BeforeMethod(alwaysRun = true, groups = {"slow", "database"})
     public void clearDB(){
         helper.clear();
     }
-    
+
     @AfterClass(alwaysRun = true,groups = {"slow", "database"})
     public void stopDB() throws Exception{
         helper.stopMysql();
     }
-    
+
     private RolledUpCounter prepareRolledUpCounterData(DateTime fromDate, DateTime toDate) throws Exception
     {
         String json = "{"
@@ -91,20 +87,20 @@ public class TestRolledUpCounterStorage
                             + "\"uniques\":{\"counterName\":\"uniques\",\"totalCount\":2}"
                         + "}"
                     + "}";
-        
+
         return mapper.readValue(json, RolledUpCounter.class);
     }
-    
+
     private static CounterEventData prepareCounterEventData(String id, int category, List<String> counters){
         Map<String,Integer> counterMap = new HashMap<String, Integer>();
         for(String s : counters)
         {
             counterMap.put(s, 1);
         }
-        
+
         return new CounterEventData(id, category, new DateTime(DateTimeZone.UTC), counterMap);
     }
-    
+
     private static List<String> getIdentifierDistribution(int identifierCategory)
     {
         switch (identifierCategory) {
@@ -114,135 +110,135 @@ public class TestRolledUpCounterStorage
             default: return new ArrayList<String>();
         }
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testInsertRolledUpCounter() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
+
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
-        
+
         Assert.assertNotNull(id);
         Assert.assertEquals(id, "network_1112014-01-24");
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testLoadAndUpdateRolledUpCounter() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
+
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         String id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
-        
+
         rolledUpCounter = counterStorage.loadRolledUpCounterById(id, false, null);
-        
+
         Assert.assertNotNull(rolledUpCounter);
         Assert.assertEquals(rolledUpCounter.getAppId(), "network_111");
-        
+
         List<String> identifierDistribution = getIdentifierDistribution(1);
-        
+
         rolledUpCounter.updateRolledUpCounterData(prepareCounterEventData("member321", 1, Arrays.asList("pageView","trafficMobile")),identifierDistribution);
         rolledUpCounter.updateRolledUpCounterData(prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficMobile")),identifierDistribution);
         rolledUpCounter.evaluateUniques();
-        
+
         Assert.assertEquals(new Integer(5), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getTotalCount());
         Assert.assertEquals(new Integer(3), rolledUpCounter.getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", RolledUpCounter.UNIQUES_KEY).getTotalCount());
-        
+
         id = counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
-        
+
         Assert.assertNotNull(id);
         Assert.assertEquals(id, "network_1112014-01-24");
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersByDateRange() throws Exception{
         DateTime date_22 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-22"),DateTimeZone.UTC);
         DateTime date_23 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-23"),DateTimeZone.UTC);
         DateTime date_24 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
+
         RolledUpCounter rolledUpCounter_22 = prepareRolledUpCounterData(date_22, date_22);
         RolledUpCounter rolledUpCounter_23 = prepareRolledUpCounterData(date_23, date_23);
         RolledUpCounter rolledUpCounter_24 = prepareRolledUpCounterData(date_24, date_24);
-        
+
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_22);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_23);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_24);
-        
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null, false, null);
-        
+
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null, false, null, null);
+
         Assert.assertNotNull(rolledUpCounters);
-        Assert.assertTrue(rolledUpCounters.size() == 3);  
+        Assert.assertTrue(rolledUpCounters.size() == 3);
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersByStartDate() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
+
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
-        
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, dateTime, null, null, false, null);
-        
+
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, dateTime, null, null, false, null, null);
+
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertFalse(rolledUpCounters.size() == 0);
         Assert.assertEquals(rolledUpCounters.get(0).getAppId(),"network_111");
-        
+
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersByEndDate() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
+
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
-        
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, dateTime, null, false, null);
-        
+
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, dateTime, null, false, null, null);
+
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertFalse(rolledUpCounters.size() == 0);
         Assert.assertEquals(rolledUpCounters.get(0).getAppId(),"network_111");
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounterForCounterNames() throws Exception{
         DateTime dateTime = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
+
         RolledUpCounter rolledUpCounter = prepareRolledUpCounterData(dateTime, dateTime);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter);
         Set<String> counterNameSet = new HashSet<String>();
         counterNameSet.add("pageView");
         Optional<Set<String>> optional = Optional.of(counterNameSet);
-        
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, null, optional, true, null);
-        
+
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, null, null, optional, true, null, null);
+
         Assert.assertNotNull(rolledUpCounters);
         Assert.assertFalse(rolledUpCounters.size() == 0);
         Assert.assertEquals(rolledUpCounters.get(0).getAppId(),"network_111");
-        
+
         Assert.assertNotNull(rolledUpCounters.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
         Assert.assertNotNull(rolledUpCounters.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1",RolledUpCounter.UNIQUES_KEY));
         Assert.assertNull(rolledUpCounters.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "trafficMobile"));
     }
-    
+
     @Test(groups = {"slow", "database"})
     public void testCleanUpRolledUpCounters() throws Exception{
         DateTime date_22 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-22"),DateTimeZone.UTC);
         DateTime date_23 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-23"),DateTimeZone.UTC);
         DateTime date_24 = new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis("2014-01-24"),DateTimeZone.UTC);
-        
-        
+
+
         RolledUpCounter rolledUpCounter_22 = prepareRolledUpCounterData(date_22, date_22);
         RolledUpCounter rolledUpCounter_23 = prepareRolledUpCounterData(date_23, date_23);
         RolledUpCounter rolledUpCounter_24 = prepareRolledUpCounterData(date_24, date_24);
-        
+
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_22);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_23);
         counterStorage.insertOrUpdateRolledUpCounter(1L, rolledUpCounter_24);
-        
+
         counterStorage.cleanExpiredRolledUpCounterEvents(date_24);
-        
-        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null, false, null);
-        
-        Assert.assertTrue(rolledUpCounters == null || rolledUpCounters.isEmpty());  
+
+        List<RolledUpCounter> rolledUpCounters = counterStorage.loadRolledUpCounters(1L, date_22, date_24, null, false, null, null);
+
+        Assert.assertTrue(rolledUpCounters == null || rolledUpCounters.isEmpty());
     }
 
 }

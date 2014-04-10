@@ -21,14 +21,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
-
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -41,10 +39,13 @@ public class RolledUpCounterData
     private final Map<String, Integer> distribution;
     private boolean applySortOnDistribution = false;
     private int distributionLimit = 0;
-    
+
+    private boolean applyDistrubtionFilterOnId = false;
+    private Set<String> uniqueIdsForFilter;
+
     @JsonCreator
-    public RolledUpCounterData(@JsonProperty("counterName") final String counterName, 
-        @JsonProperty("totalCount") final Integer totalCount, 
+    public RolledUpCounterData(@JsonProperty("counterName") final String counterName,
+        @JsonProperty("totalCount") final Integer totalCount,
         @JsonProperty("distribution") final Map<String,Integer> distribution){
         this.counterName = counterName;
         this.totalCount = totalCount;
@@ -56,7 +57,7 @@ public class RolledUpCounterData
         {
             this.distribution = distribution;
         }
-        
+
         this.uniqueCount = this.distribution.keySet().size();
     }
 
@@ -70,9 +71,45 @@ public class RolledUpCounterData
         return totalCount;
     }
 
+    /**
+     * Get the distribution as an immutable map of uniqueId to count.  This
+     * method will perform some basic computations on the distribution based on
+     * local configurations for sorting, limiting, and filtering.  The rules for
+     * these alterations is if a filter is configured it takes priority and the
+     * count filter and sorting are not performed.
+     *
+     * @return
+     */
     public Map<String, Integer> getDistribution()
     {
-        if(applySortOnDistribution && !distribution.isEmpty())
+        // initialize the result to the normal distribution.  If there are no
+        // modifications to be made later, this will be the result anyway
+        Map<String, Integer> result = distribution;
+
+        // If the distribution is empty, there's nothing to do
+        if (result.isEmpty()) {
+            return result;
+        }
+
+        // Build a result that filters out all those uniqueIds that do not
+        // appear in the filter set
+        if (applyDistrubtionFilterOnId) {
+
+            final ImmutableMap.Builder<String, Integer> builder
+                    = ImmutableMap.builder();
+
+            for (Entry<String, Integer> entry : distribution.entrySet()) {
+
+                if (uniqueIdsForFilter.contains(entry.getKey())) {
+                    builder.put(entry.getKey(), entry.getValue());
+                }
+            }
+
+            result = builder.build();
+        }
+        // sort and only return the top distributionLimit of the distribution,
+        // but only if there is no explicit set of uniqueIds to filter on
+        else if(applySortOnDistribution)
         {
             final Ordering<Map.Entry<String, Integer>> entryOrdering = Ordering.natural().reverse().nullsLast()
                     .onResultOf(new Function<Entry<String, Integer>, Integer>() {
@@ -80,33 +117,33 @@ public class RolledUpCounterData
                           return entry.getValue();
                         }
                       });
-            
+
          // Desired entries in desired order.  Put them in an ImmutableMap in this order.
             final ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
             int entryCounter = 0;
-            for (Entry<String, Integer> entry : entryOrdering.sortedCopy(distribution.entrySet())) 
+            for (Entry<String, Integer> entry : entryOrdering.sortedCopy(distribution.entrySet()))
             {
               builder.put(entry.getKey(), entry.getValue());
               entryCounter++;
-              
+
               if(distributionLimit != 0 && entryCounter >= distributionLimit)
               {
                   break;
               }
-              
+
             }
-            
-            return builder.build(); 
+
+            result = builder.build();
         }
-        
-        return distribution;
+
+        return result;
     }
-    
+
     public Integer getUniqueCount()
     {
         return this.uniqueCount;
     }
-    
+
     @JsonIgnore
     public void applyDistributionLimit(final Integer distributionLimit)
     {
@@ -116,13 +153,31 @@ public class RolledUpCounterData
             this.distributionLimit = distributionLimit;
         }
     }
-    
+
+    /**
+     * Indicate that the distribution should only include the uniqueIds in the
+     * given set.  This method will only do anything if the uniqieIds set is
+     * not null and not empty.  If you wish to include no uniqueIds ever, the
+     * exclude distribution is the appropriate option
+     * @param uniqueIds
+     */
+    @JsonIgnore
+    public void applyDistributionFilterById(final Set<String> uniqueIds)
+    {
+        if(uniqueIds != null && !uniqueIds.isEmpty())
+        {
+            this.applyDistrubtionFilterOnId = true;
+            this.uniqueIdsForFilter = uniqueIds;
+        }
+    }
+
+
     @JsonIgnore
     public void incrementCounter(Integer incrementValue)
     {
         totalCount += incrementValue;
     }
-    
+
     @JsonIgnore
     public void incrementDistributionCounter(final String uniqueIdentifier, final Integer incrementValue)
     {
@@ -130,14 +185,16 @@ public class RolledUpCounterData
         if(Objects.equal(null, distributionCount))
         {
             distributionCount = new Integer(0);
+
+            //If this is a new counter, we know the unique count has increased
+            this.uniqueCount++;
         }
-        
+
         distributionCount += incrementValue;
-            
+
         distribution.put(uniqueIdentifier, distributionCount);
-        this.uniqueCount = distribution.keySet().size();
     }
-    
+
     @JsonIgnore
     public void truncateDistribution()
     {
@@ -174,5 +231,5 @@ public class RolledUpCounterData
             return false;
         return true;
     }
-    
+
 }
