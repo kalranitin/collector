@@ -114,19 +114,22 @@ public class DatabaseFeedEventStorage implements FeedEventStorage
         });
     }
     
-    public void cleanOldFeedEvents(){
+    public int cleanOldFeedEvents(){
         //if(dbLock.tryLock()){
             int deleted = dbi.withHandle(new HandleCallback<Integer>() {
 
                 @Override
                 public Integer withHandle(Handle handle) throws Exception
                 {
-                    return handle.createStatement("delete from feed_events where created_at < :tillTimePeriod")
+                    return handle.createStatement("delete from feed_events where created_at < :tillTimePeriod LIMIT :deleteFeedEventLimit")
                             .bind("tillTimePeriod",DateTimeUtils.currentTimeMillis() - config.getFeedEventRetentionPeriod().getMillis())
+                            .bind("deleteFeedEventLimit", config.getFeedEventCleanUpLimit())
                             .execute();
                 }});
             
             log.info(String.format("%d Feed events deleted successfully", deleted));
+            
+            return deleted;
         //}
     }
     

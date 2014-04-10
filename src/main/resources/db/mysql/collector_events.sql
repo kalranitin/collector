@@ -26,3 +26,4 @@ CREATE TABLE feeds (
 create index subscriptions_topic_idx on subscriptions (topic);
 create index feed_events_channel_idx on feed_events (channel);
 create index subscriptions_metadata_idx on subscriptions (metadata(128));
+create index feed_events_created_idx on feed_events (created_at);

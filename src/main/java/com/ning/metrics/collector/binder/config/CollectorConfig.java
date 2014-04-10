@@ -493,7 +493,7 @@ public interface CollectorConfig
     
     @Description("Time period for Feed events to reside in the database before they are cleaned up")
     @Config("collector.spoolWriter.feedEvent.retention.period")
-    @Default("30d")
+    @Default("1d")
     TimeSpan getFeedEventRetentionPeriod();
     
     @Description("How long the Counter Events should reside in cache")
@@ -530,4 +530,14 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.rollupCounterEvent.cleanup.timeout")
     @Default("30d")
     TimeSpan getRolledUpCounterStorageTimeout();
+    
+    @Description("Cron Trigger for feed events clean up")
+    @Config("collector.spoolWriter.feedEvent.cleanup.cron")
+    @Default("0 0 0 * * ?")
+    String getFeedEventsCleanupCronExpression();
+    
+    @Description("The limit for deleting old feed events in one shot")
+    @Config("collector.spoolWriter.feedEvent.cleanup.limit")
+    @Default("10000")
+    long getFeedEventCleanUpLimit();
 }
