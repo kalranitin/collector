@@ -1,10 +1,10 @@
-<!-- ~ Copyright 2010-2011 Ning, Inc. ~ ~ Ning licenses this file to you 
-	under the Apache License, version 2.0 ~ (the "License"); you may not use 
-	this file except in compliance with the ~ License. You may obtain a copy 
-	of the License at: ~ ~ http://www.apache.org/licenses/LICENSE-2.0 ~ ~ Unless 
-	required by applicable law or agreed to in writing, software ~ distributed 
-	under the License is distributed on an "AS IS" BASIS, WITHOUT ~ WARRANTIES 
-	OR CONDITIONS OF ANY KIND, either express or implied. See the ~ License for 
+<!-- ~ Copyright 2010-2011 Ning, Inc. ~ ~ Ning licenses this file to you
+	under the Apache License, version 2.0 ~ (the "License"); you may not use
+	this file except in compliance with the ~ License. You may obtain a copy
+	of the License at: ~ ~ http://www.apache.org/licenses/LICENSE-2.0 ~ ~ Unless
+	required by applicable law or agreed to in writing, software ~ distributed
+	under the License is distributed on an "AS IS" BASIS, WITHOUT ~ WARRANTIES
+	OR CONDITIONS OF ANY KIND, either express or implied. See the ~ License for
 	the specific language governing permissions and limitations ~ under the License. -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -17,7 +17,7 @@
 	<groupId>com.ning</groupId>
 	<artifactId>metrics.collector</artifactId>
 	<packaging>jar</packaging>
-	<version>2.0.8-SNAPSHOT</version>
+	<version>2.0.11-SNAPSHOT</version>
 	<name>collector</name>
 	<description>Event Collector core</description>
 	<url>http://github.com/ning/collector</url>
@@ -135,7 +135,7 @@
 			<groupId>com.ning</groupId>
 			<artifactId>metrics.serialization-hadoop</artifactId>
 			<exclusions>
-				<!-- Hadoop ships with jackson 1.4.2 for its servlets - we don't need 
+				<!-- Hadoop ships with jackson 1.4.2 for its servlets - we don't need
 					it -->
 				<exclusion>
 					<groupId>org.codehaus.jackson</groupId>
@@ -232,13 +232,13 @@
 			<artifactId>hadoop-core</artifactId>
 			<exclusions>
 				<exclusion>
-					<!-- Ignore transitive dependency on the older artifact, commons-beanutils:commons-beanutils-core 
+					<!-- Ignore transitive dependency on the older artifact, commons-beanutils:commons-beanutils-core
 						is pulled in -->
 					<groupId>commons-beanutils</groupId>
 					<artifactId>commons-beanutils</artifactId>
 				</exclusion>
 				<exclusion>
-					<!-- commons-beanutils:commons-beanutils-core bundles commons-collections 
+					<!-- commons-beanutils:commons-beanutils-core bundles commons-collections
 						:( -->
 					<groupId>commons-collections</groupId>
 					<artifactId>commons-collections</artifactId>
@@ -250,7 +250,7 @@
 			<artifactId>shiro-web</artifactId>
 			<exclusions>
 				<exclusion>
-					<!-- Ignore transitive dependency on the older artifact, commons-beanutils:commons-beanutils-core 
+					<!-- Ignore transitive dependency on the older artifact, commons-beanutils:commons-beanutils-core
 						is pulled in -->
 					<groupId>commons-beanutils</groupId>
 					<artifactId>commons-beanutils</artifactId>
@@ -340,7 +340,7 @@
 			<scope>test</scope>
 		</dependency>
 		<!-- f5 dependencies are in a file repository -->
-		<!-- Make sure you have <mirrorOf>external:*</mirrorOf> in your ~/.m2/settings.xml, 
+		<!-- Make sure you have <mirrorOf>external:*</mirrorOf> in your ~/.m2/settings.xml,
 			not <mirrorOf>*</mirrorOf> -->
 		<dependency>
 			<groupId>f5</groupId>
@@ -514,6 +514,8 @@
                                 <exclude>.travis.yml</exclude>
                                 <exclude>**/*.sql</exclude>
                                 <exclude>**/*.properties</exclude>
+                                <!-- Ignore Netbeans IDE files -->
+                                <exclude>**/.netbeans_automatic_build</exclude>
                             </excludes>
                         </configuration>
                     </execution>
