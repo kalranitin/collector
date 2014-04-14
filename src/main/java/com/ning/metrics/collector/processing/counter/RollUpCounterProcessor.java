@@ -241,6 +241,7 @@ public class RollUpCounterProcessor
             final String appId, final Optional<String> fromDateOpt,
             final Optional<String> toDateOpt,
             final Optional<Set<String>> counterTypesOpt,
+            final Optional<Set<CompositeCounter>> compositeCountersOpt,
             final boolean aggregateByMonth,
             final boolean aggregateEntireRange,
             final boolean excludeDistribution,
@@ -260,12 +261,28 @@ public class RollUpCounterProcessor
         // We want to get everything from each time slice and sort and limit on
         // the aggregated result.
         //
-        // Similarly, we don't need to limit the distribution if a set of unique
+        // Similarly if we are asking for any composite counters, we don't
+        // want to limit the distribution before we can accurately compute the
+        // the composites for each time slice
+        //
+        // We don't need to limit the distribution if a set of unique
         // ids is given
-        boolean sendDistributionLimit = (aggregateEntireRange ||
-                (uniqueIdsOpt != null
-                        && uniqueIdsOpt.isPresent()
-                        && !uniqueIdsOpt.get().isEmpty()));
+        boolean overrideDistributionLimit =
+                (aggregateEntireRange
+                        || (uniqueIdsOpt != null
+                                && uniqueIdsOpt.isPresent()
+                                && !uniqueIdsOpt.get().isEmpty())
+                        || (compositeCountersOpt != null
+                                && compositeCountersOpt.isPresent()
+                                && !compositeCountersOpt.get().isEmpty()));
+
+        // For the method that aggregates over all time, the distribution needs
+        // to not be sent if we are adding any composite counters afterward.
+        boolean overrideDistributionLimitInAggregator =
+                (compositeCountersOpt != null
+                        && compositeCountersOpt.isPresent()
+                        && !compositeCountersOpt.get().isEmpty());
+
 
         // If we want to aggregate the entire range correctly we need to reteive
         // the distribution for each time slice regardless of whether the caller
@@ -274,14 +291,13 @@ public class RollUpCounterProcessor
         // bearing on this.
         boolean overrideExcludeDistribution = aggregateEntireRange;
 
-
         List<RolledUpCounter> rolledUpCounterResult =
                 counterStorage.loadRolledUpCounters(
                         counterSubscription.getId(), fromDate, toDate,
                         counterTypesOpt,
                         (overrideExcludeDistribution
                                 ? false : excludeDistribution),
-                        (sendDistributionLimit ? distributionLimit : null),
+                        (overrideDistributionLimit ? null : distributionLimit),
                         uniqueIdsOpt);
 
         if(Objects.equal(null, rolledUpCounterResult)
@@ -298,9 +314,21 @@ public class RollUpCounterProcessor
         if (aggregateEntireRange) {
             RolledUpCounter aggregate =
                     aggregateEntireRange(rolledUpCounterResult,
-                            excludeDistribution, distributionLimit);
+                            excludeDistribution,
+                            overrideDistributionLimitInAggregator
+                                    ? null : distributionLimit);
 
             rolledUpCounterResult = ImmutableList.of(aggregate);
+        }
+
+        // Generate composite counters for each timeslice.  Performing this
+        // opertion here allows us to operate on the normal list if we are not
+        // aggregating or the aggregated list if we are.
+        if (compositeCountersOpt != null
+                && compositeCountersOpt.isPresent()
+                && !compositeCountersOpt.get().isEmpty()) {
+            addCompositeCounters(compositeCountersOpt.get(),
+                    rolledUpCounterResult, distributionLimit);
         }
 
         return orderingRolledUpCounterByDate.immutableSortedCopy(rolledUpCounterResult);
@@ -418,5 +446,106 @@ public class RollUpCounterProcessor
 
             aggregateData.incrementDistributionCounter(uniqueId, increment);
         }
+    }
+
+    /**
+     * iterate through all the time-sliced, rolled-up counters in the list and
+     * generate new counter names within each of the
+     * @param composites
+     * @param timeSlicedCounters
+     * @param distributionLimit
+     */
+    protected void addCompositeCounters(Set<CompositeCounter> composites,
+            List<RolledUpCounter> timeSlicedCounters,
+            Optional<Integer> distributionLimit) {
+
+        if (timeSlicedCounters == null || timeSlicedCounters.isEmpty()) {
+            return;
+        }
+
+        // Walk all the time slices
+        for (RolledUpCounter currCounter : timeSlicedCounters) {
+            Table<String, String, RolledUpCounterData> currSummary =
+                    currCounter.getCounterSummary();
+
+            Map<String, Map<String, RolledUpCounterData>> currRowMap =
+                    currSummary.rowMap();
+
+            // Walk all the rows and columns and aggregate the data in each
+            // cell.  This corresponds to walking all the categoryIds and
+            // counterNames
+            for (Map.Entry<String, Map<String, RolledUpCounterData>> rowEntry :
+                    currRowMap.entrySet()) {
+                String categoryId = rowEntry.getKey();
+
+                Map<String, RolledUpCounterData> countersInCategory
+                        = rowEntry.getValue();
+                Iterable<RolledUpCounterData> rolledUpComposites
+                        = addCompositeCountersToCategory(composites,
+                                countersInCategory, distributionLimit);
+
+                for (RolledUpCounterData rolledUpComposite
+                        : rolledUpComposites) {
+                    currSummary.put(categoryId,
+                            rolledUpComposite.getCounterName(),
+                            rolledUpComposite);
+                }
+            }
+        }
+    }
+
+    /**
+     * Generate a composite counter for each given descriptor within the given
+     * category, and return the group of generated composite counters as an
+     * iterable
+     * @param composites
+     * @param countersInCategory
+     * @param distributionLimit
+     * @return
+     */
+    protected Iterable<RolledUpCounterData> addCompositeCountersToCategory(
+            Set<CompositeCounter> composites,
+            Map<String, RolledUpCounterData> countersInCategory,
+            Optional<Integer> distributionLimit) {
+
+        List<RolledUpCounterData> result
+                = Lists.newArrayListWithExpectedSize(composites.size());
+
+        for (CompositeCounter composite : composites) {
+
+            RolledUpCounterData currResult =
+                    new RolledUpCounterData(composite.getName(), 0,
+                            (Map)Maps.newHashMap());
+
+            result.add(currResult);
+
+            for (int i = 0; i < composite.getCompositeWeights().length; i++) {
+                int weight = composite.getCompositeWeights()[i];
+                String componentName = composite.getCompositeEvents()[i];
+
+                RolledUpCounterData component
+                        = countersInCategory.get(componentName);
+
+                if (component == null) {
+                    continue;
+                }
+
+                currResult.incrementCounter(weight * component.getTotalCount());
+
+                for (Map.Entry<String, Integer> uniqueCounter :
+                        component.getDistribution().entrySet()) {
+                    currResult.incrementDistributionCounter(
+                            uniqueCounter.getKey(),
+                            weight * uniqueCounter.getValue());
+                }
+            }
+
+            if (distributionLimit != null
+                    && distributionLimit.isPresent()) {
+                currResult.applyDistributionLimit(distributionLimit.get());
+            }
+        }
+
+        return result;
     }
 }
