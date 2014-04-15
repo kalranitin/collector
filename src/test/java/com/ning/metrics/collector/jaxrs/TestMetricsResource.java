@@ -62,7 +62,7 @@ public class TestMetricsResource {
         Assert.assertEquals(1, result.get().size());
         Assert.assertTrue(result.get().contains("member1"));
 
-        result = resource.parseUniqueIdSet("member1,member2;member3:member4");
+        result = resource.parseUniqueIdSet("member1,member2,member3,member4");
 
         Assert.assertNotNull(result);
         Assert.assertTrue(result.isPresent());

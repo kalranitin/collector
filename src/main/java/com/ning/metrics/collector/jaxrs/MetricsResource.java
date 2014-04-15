@@ -76,13 +76,14 @@ public class MetricsResource
         // Oh, my eyes!!!
         this.compositeCounterPattern = Pattern.compile(
                 "^([a-z\\_][\\w\\-]*)\\:((?:(?:\\d+\\*)?[a-z\\_][\\w\\-]*"
-                        + "(?:\\*\\d+)?)(?:\\+(?:\\d+\\*)?[a-z_][\\w\\-]*"
+                        + "(?:\\*\\d+)?)(?:[\\+ ](?:\\d+\\*)?[a-z_][\\w\\-]*"
                         + "(?:\\*\\d+)?)*)$", Pattern.CASE_INSENSITIVE);
 
         // This is the pattern that allows us to iterate over the formula for
         // a copmosite key and capture its coeficients and counter name
         this.compositeCounterComponentPattern = Pattern.compile(
-                "(?:(?:(\\d+)\\*)?([a-z\\_][\\w\\-]*)(?:\\*(\\d+))?)(?:$|\\+)");
+                "(?:(?:(\\d+)\\*)?([a-z\\_][\\w\\-]*)(?:\\*(\\d+))?)"
+                        + "(?:$|[ \\+])");
     }
 
     @POST
@@ -263,7 +264,7 @@ public class MetricsResource
         Set<String> result = null;
 
         if (uniqueIdParam != null && !uniqueIdParam.trim().isEmpty()) {
-            result = Sets.newHashSet(uniqueIdParam.split("[,:;.]"));
+            result = Sets.newHashSet(uniqueIdParam.split(","));
         }
 
         return Optional.fromNullable(result);
