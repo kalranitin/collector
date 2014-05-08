@@ -79,14 +79,40 @@ public class TestCounterRollUpProcessor
         helper.stopMysql();
     }
 
-    private static CounterEventData prepareCounterEventData(String id, Integer category, List<String> counters, DateTime createdDateTime){
+    /**
+     * Explicitely create a counter event data object
+     * @param id
+     * @param category
+     * @param counters
+     * @param createdDateTime
+     * @param count
+     * @return
+     */
+    private static CounterEventData prepareCounterEventData(
+            String id, Integer category, List<String> counters,
+            DateTime createdDateTime, int count) {
         Map<String,Integer> counterMap = new HashMap<String, Integer>();
         for(String s : counters)
         {
-            counterMap.put(s, 1);
+            counterMap.put(s, count);
         }
 
         return new CounterEventData(id, category, createdDateTime, counterMap);
+    }
+
+    /**
+     * Explicitely create a counter event data object with a count of 1 for all
+     * counters
+     *
+     * @param id
+     * @param category
+     * @param counters
+     * @param createdDateTime
+     * @return
+     */
+    private static CounterEventData prepareCounterEventData(String id, Integer category, List<String> counters, DateTime createdDateTime){
+        return prepareCounterEventData(
+                id, category, counters, createdDateTime, 1);
     }
 
     @Test(groups = {"slow", "database"})
@@ -981,5 +1007,46 @@ public class TestCounterRollUpProcessor
         Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member113"));
         Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member113").intValue(), 10 + 6);
     }
+
+    @Test(groups = {"slow", "database"})
+    public void testNegativeCounts() throws Exception
+    {
+        String jsonData = "{\"appId\":\"network_126\","
+                + "\"identifierDistribution\":"
+                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
+                + "}";
+
+        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+
+        Long id = counterStorage.createCounterSubscription(counterSubscription);
+        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
+
+        multimap.put(id, prepareCounterEventData(
+                "member111", 1, Arrays.asList("pageView","memberJoined"),
+                dateTime, -1));
+
+        counterStorage.insertDailyMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_126"));
+
+        Optional<String> fromDateOpt = Optional.of("2014-02-02");
+        Optional<String> toDateOpt = Optional.absent();
+        Optional<Set<String>> counterNames
+                = Optional.of((Set<String>)Sets.newHashSet(
+                        "pageView", "memberJoined", "contentViewed",
+                        "contentLike"));
+
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_126", fromDateOpt,toDateOpt,counterNames, null, false, true, false, Optional.of((Set<String>)Sets.newHashSet("member111")), null);
+
+        Assert.assertNotNull(rolledUpCounterList);
+        Assert.assertEquals(rolledUpCounterList.size(),1);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary()
+                .get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().size(), 1);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member111").intValue(), -1);
+
+    }
+
 
 }
