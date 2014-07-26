@@ -26,8 +26,8 @@ import com.ning.metrics.collector.guice.module.CollectorObjectMapperModule;
 import com.ning.metrics.collector.processing.counter.CompositeCounter;
 import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
-import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
+import com.ning.metrics.collector.processing.db.model.RolledUpCounterData;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +44,10 @@ import org.testng.annotations.Test;
 @Test(groups = {"slow", "database"})
 public class TestCounterRollUpProcessor
 {
+    // Each of these tests needs its own namespace so they don't interfere with
+    // each other.  This number will be incremented and used for each test
+    private static int lastNamespaceNumber = 0;
+
     private CollectorMysqlTestingHelper helper;
 
     @Inject
@@ -81,7 +85,7 @@ public class TestCounterRollUpProcessor
 
     /**
      * Explicitely create a counter event data object
-     * @param id
+     * @param namespace
      * @param category
      * @param counters
      * @param createdDateTime
@@ -89,15 +93,16 @@ public class TestCounterRollUpProcessor
      * @return
      */
     private static CounterEventData prepareCounterEventData(
-            String id, Integer category, List<String> counters,
+            String namespace, List<String> counters,
             DateTime createdDateTime, int count) {
+
         Map<String,Integer> counterMap = new HashMap<String, Integer>();
         for(String s : counters)
         {
             counterMap.put(s, count);
         }
 
-        return new CounterEventData(id, category, createdDateTime, counterMap);
+        return new CounterEventData(namespace, createdDateTime, counterMap);
     }
 
     /**
@@ -110,45 +115,54 @@ public class TestCounterRollUpProcessor
      * @param createdDateTime
      * @return
      */
-    private static CounterEventData prepareCounterEventData(String id, Integer category, List<String> counters, DateTime createdDateTime){
-        return prepareCounterEventData(
-                id, category, counters, createdDateTime, 1);
+    private static CounterEventData prepareCounterEventData(String id,
+            List<String> counters, DateTime createdDateTime){
+        return prepareCounterEventData(id, counters, createdDateTime, 1);
     }
 
     @Test(groups = {"slow", "database"})
     public void testCounterRollUpProcessor() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_111\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap
+                = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        multimap.put(namespace, prepareCounterEventData("member111",
+                Arrays.asList("pageView","trafficTablet","contribution"),
+                new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member112",
+                Arrays.asList("pageView","trafficMobile"),
+                new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member121", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member121", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        counterStorage.bufferMetrics(multimap);
 
-        counterStorage.insertDailyMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_111"));
-
-        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false, null, null);
+        List<RolledUpCounter> rolledUpCounterList
+                = counterStorage.queryDailyRolledUpCounters(
+                        namespace,
+                        new DateTime(DateTimeZone.UTC),
+                        new DateTime(DateTimeZone.UTC),
+                        null,
+                        false,
+                        null,
+                        null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertTrue(rolledUpCounterList.size() == 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "uniques").getTotalCount() == 10);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary()
+                .get("pageView").getUniqueCount(), 10);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary()
+                .get("pageView").getDistribution().containsKey("member111"));
 
 
     }
@@ -156,32 +170,34 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testStreamingCounterRollUpProcessor() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_111\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        multimap.put(namespace, prepareCounterEventData("member121", Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet","contribution"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
-        multimap.put(id, prepareCounterEventData("member121", 1, Arrays.asList("pageView","trafficMobile"),new DateTime(DateTimeZone.UTC)));
+        counterStorage.bufferMetrics(multimap);
 
-        counterStorage.insertDailyMetrics(multimap);
+        counterProcessor.rollUpStreamingDailyCounters(namespace);
 
-        counterProcessor.rollUpStreamingDailyCounters(counterStorage.loadCounterSubscription("network_111"));
-
-        List<RolledUpCounter> rolledUpCounterList = counterStorage.loadRolledUpCounters(id, new DateTime(DateTimeZone.UTC), new DateTime(DateTimeZone.UTC), null, false, null, null);
+        List<RolledUpCounter> rolledUpCounterList
+                = counterStorage.queryDailyRolledUpCounters(
+                        namespace,
+                        new DateTime(DateTimeZone.UTC),
+                        new DateTime(DateTimeZone.UTC),
+                        null,
+                        false,
+                        null,
+                        null);
 
         Assert.assertNotNull(rolledUpCounterList);
 
@@ -191,40 +207,35 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testLoadAggregatedRolledUpCounters() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_112\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_112"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_112", fromDateOpt,toDateOpt,counterNames, null, false, false, false, (Optional)Optional.absent(), Optional.of(0));
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, null, false, false, false, (Optional)Optional.absent(), Optional.of(0));
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member111"));
 
     }
 
@@ -232,47 +243,42 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersAggregatedOverAll_simple() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_113\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_113"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_113", fromDateOpt,toDateOpt,counterNames, null, false, true, false, (Optional)Optional.absent(), null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, null, false, true, false, (Optional)Optional.absent(), null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member115"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member117"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member120"));
-        Assert.assertEquals(10, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().size());
-        Assert.assertEquals(10, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getUniqueCount().intValue());
-        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member112").intValue());
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member111"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member115"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member117"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member120"));
+        Assert.assertEquals(10, rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().size());
+        Assert.assertEquals(10, rolledUpCounterList.get(0).getCounterSummary().get("pageView").getUniqueCount());
+        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().get("member112").intValue());
 
     }
 
@@ -280,42 +286,37 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersAggregatedOverAll_excludeDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_114\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_114"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_114", fromDateOpt,toDateOpt,counterNames, null, false, true, true, (Optional)Optional.absent(), null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, null, false, true, true, (Optional)Optional.absent(), null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().isEmpty());
-        Assert.assertEquals(10, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getUniqueCount().intValue());
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().isEmpty());
+        Assert.assertEquals(10, rolledUpCounterList.get(0).getCounterSummary().get("pageView").getUniqueCount());
 
     }
 
@@ -323,50 +324,58 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersAggregatedOverAll_limitDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_115\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_115"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_115", fromDateOpt,toDateOpt,counterNames, null, false, true, false, (Optional)Optional.absent(), Optional.of(3));
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, null, false, true, false, (Optional)Optional.absent(), Optional.of(3));
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member120"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member112"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member113"));
-        Assert.assertEquals(3, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().size());
-        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member112").intValue());
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member120"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member112"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member113"));
+
+        RolledUpCounterData pageViewCounter =
+                rolledUpCounterList.get(0).getCounterSummary().get("pageView");
+
+        Assert.assertNotNull(pageViewCounter);
+
+        // Deserialize this RolledUpCounterData to apply the serialization
+        // limit
+        pageViewCounter = mapper.readValue(
+                mapper.writeValueAsString(pageViewCounter),
+                RolledUpCounterData.class);
+
+        Assert.assertEquals(3, pageViewCounter.getDistribution().size());
+        Assert.assertEquals(2,
+                pageViewCounter.getDistribution().get("member112").intValue());
 
     }
 
@@ -374,49 +383,54 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCountersAggregatedOverAll_filterDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_116\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_116"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
         Optional<Set<String>> counterNames = Optional.absent();
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_116", fromDateOpt,toDateOpt,counterNames, null, false, true, false, Optional.of((Set<String>)Sets.newHashSet("member112", "member119")), null);
+        List<RolledUpCounter> rolledUpCounterList
+                = counterProcessor.loadAggregatedRolledUpCounters(
+                        namespace,
+                        fromDateOpt,toDateOpt,counterNames,
+                        null,
+                        false,
+                        true,
+                        false,
+                        Optional.of((Set<String>)Sets.newHashSet(
+                                "member112", "member119")),
+                        null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member119"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member112"));
-        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().size());
-        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member112").intValue());
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member119"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member112"));
+        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().size());
+        Assert.assertEquals(2, rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().get("member112").intValue());
 
     }
 
@@ -424,36 +438,31 @@ public class TestCounterRollUpProcessor
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_simpleComposite() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_117\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_117"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -465,61 +474,56 @@ public class TestCounterRollUpProcessor
                         "doublePageView", new String[] {"pageView"},
                         new int[] {2})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_117", fromDateOpt,toDateOpt,counterNames, composites, false, false, false, null, null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, false, false, null, null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
-        Assert.assertFalse(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member119"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member112"));
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member111").intValue(), 1);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "doublePageView"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "doublePageView").getDistribution().containsKey("member111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "doublePageView").getDistribution().get("member111").intValue(), 2);
-        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
-        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member120"));
-        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member120").intValue(), 2);
-        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "doublePageView"));
-        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "doublePageView").getDistribution().containsKey("member120"));
-        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "doublePageView").getDistribution().get("member120").intValue(), 4);
+        Assert.assertFalse(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member119"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member112"));
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("pageView"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().get("member111").intValue(), 1);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("doublePageView"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("doublePageView").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("doublePageView").getDistribution().get("member111").intValue(), 2);
+        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get("pageView"));
+        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get("pageView").getDistribution().containsKey("member120"));
+        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get("pageView").getDistribution().get("member120").intValue(), 2);
+        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get("doublePageView"));
+        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get("doublePageView").getDistribution().containsKey("member120"));
+        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get("doublePageView").getDistribution().get("member120").intValue(), 4);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_complexComposite() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_118\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_118"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -537,63 +541,58 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_118", fromDateOpt,toDateOpt,counterNames, composites, false, false, false, null, null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, false, false, null, null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member111").intValue(), 10 + 2);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member120"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member120").intValue(), 10 + 4);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().containsKey("content111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().get("content111").intValue(), 5 + 1);
-        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member120"));
-        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member120").intValue(), 4);
-        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore"));
-        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().containsKey("content111"));
-        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().get("content111").intValue(), 1);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().get("member111").intValue(), 10 + 2);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().containsKey("member120"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().get("member120").intValue(), 10 + 4);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("contentScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getDistribution().containsKey("content111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getDistribution().get("content111").intValue(), 5 + 1);
+        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get("memberScore").getDistribution().containsKey("member120"));
+        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get("memberScore").getDistribution().get("member120").intValue(), 4);
+        Assert.assertNotNull(rolledUpCounterList.get(3).getCounterSummary().get("contentScore"));
+        Assert.assertTrue(rolledUpCounterList.get(3).getCounterSummary().get("contentScore").getDistribution().containsKey("content111"));
+        Assert.assertEquals(rolledUpCounterList.get(3).getCounterSummary().get("contentScore").getDistribution().get("content111").intValue(), 1);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_aggregateWithComposites() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_119\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content112", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content112", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_119"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -611,57 +610,52 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_119", fromDateOpt,toDateOpt,counterNames, composites, false, true, false, null, null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, true, false, null, null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member111").intValue(), 10 + 2);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member120"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member120").intValue(), 10 + 8);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().containsKey("content111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().get("content111").intValue(), 5 + 2);
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getTotalCount().intValue(), 5 + 3);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().get("member111").intValue(), 10 + 2);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().containsKey("member120"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().get("member120").intValue(), 10 + 8);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("contentScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getDistribution().containsKey("content111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getDistribution().get("content111").intValue(), 5 + 2);
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getTotalCount(), 5 + 3);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_compositeExcludeDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_120\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_120"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -679,56 +673,51 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_120", fromDateOpt,toDateOpt,counterNames, composites, false, false, true, null, null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, false, true, null, null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().isEmpty());
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().isEmpty());
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getTotalCount().intValue(), 5 + 1);
-        Assert.assertNotNull(rolledUpCounterList.get(2).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(2).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().isEmpty());
-        Assert.assertEquals(rolledUpCounterList.get(2).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getTotalCount().intValue(), 20 + 4);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().isEmpty());
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("contentScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getDistribution().isEmpty());
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getTotalCount(), 5 + 1);
+        Assert.assertNotNull(rolledUpCounterList.get(2).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(2).getCounterSummary().get("memberScore").getDistribution().isEmpty());
+        Assert.assertEquals(rolledUpCounterList.get(2).getCounterSummary().get("memberScore").getTotalCount(), 20 + 4);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_aggregateWithCompositesAndExcludeDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_121\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content112", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content112", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_121"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -746,55 +735,50 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_121", fromDateOpt,toDateOpt,counterNames, composites, false, true, true, null, null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, true, true, null, null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().isEmpty());
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().isEmpty());
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore"));
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getDistribution().isEmpty());
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentViewed").getUniqueCount().intValue(), 2);
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"2", "contentScore").getTotalCount().intValue(), 5 + 3);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().isEmpty());
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().isEmpty());
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("contentScore"));
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getDistribution().isEmpty());
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("contentViewed").getUniqueCount(), 2);
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("contentScore").getTotalCount(), 5 + 3);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_compositeLimitDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_122\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_122"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -812,51 +796,56 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_122", fromDateOpt,toDateOpt,counterNames, composites, false, false, false, null, Optional.of(1));
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, false, false, null, Optional.of(1));
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().size(), 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member113"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member113").intValue(), 10 + 6);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+
+        RolledUpCounterData memberScoreCounter =
+                rolledUpCounterList.get(0).getCounterSummary().get("memberScore");
+
+        // Deserialize this RolledUpCounterData to apply the serialization
+        // limit
+        memberScoreCounter = mapper.readValue(
+                mapper.writeValueAsString(memberScoreCounter),
+                RolledUpCounterData.class);
+
+        Assert.assertEquals(memberScoreCounter.getDistribution().size(), 1);
+        Assert.assertTrue(memberScoreCounter.getDistribution().containsKey("member113"));
+        Assert.assertEquals(memberScoreCounter.getDistribution().get("member113").intValue(), 10 + 6);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_aggregageCompositeAndLimitDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_123\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_123"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -874,51 +863,59 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_123", fromDateOpt,toDateOpt,counterNames, composites, false, true, false, null, Optional.of(1));
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, true, false, null, Optional.of(1));
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().size(), 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member120"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member120").intValue(), 10 + 8);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+
+        RolledUpCounterData memberScoreCounter =
+                rolledUpCounterList.get(0).getCounterSummary().get("memberScore");
+
+        Assert.assertNotNull(memberScoreCounter);
+
+        // Deserialize this RolledUpCounterData to apply the serialization
+        // limit
+        memberScoreCounter = mapper.readValue(
+                mapper.writeValueAsString(memberScoreCounter),
+                RolledUpCounterData.class);
+
+
+        Assert.assertEquals(memberScoreCounter.getDistribution().size(), 1);
+        Assert.assertTrue(memberScoreCounter.getDistribution().containsKey("member120"));
+        Assert.assertEquals(memberScoreCounter.getDistribution().get("member120").intValue(), 10 + 8);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_compositeAndFilterDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_124\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_124"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -936,51 +933,46 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_124", fromDateOpt,toDateOpt,counterNames, composites, false, false, false, Optional.of((Set<String>)Sets.newHashSet("member113")), null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, false, false, Optional.of((Set<String>)Sets.newHashSet("member113")), null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),4);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().size(), 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member113"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member113").intValue(), 10 + 6);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().size(), 1);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().containsKey("member113"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().get("member113").intValue(), 10 + 6);
     }
 
     @Test(groups = {"slow", "database"})
     public void testLoadRolledUpCounters_aggregageCompositeAndFilterDistribution() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_125\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData("member111", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","memberJoined"),dateTime));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed","contentLike"),dateTime));
-        multimap.put(id, prepareCounterEventData("member112", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member113", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member114", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
-        multimap.put(id, prepareCounterEventData("member115", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member116", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
-        multimap.put(id, prepareCounterEventData("member117", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member118", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
-        multimap.put(id, prepareCounterEventData("member119", 1, Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("content111", 2, Arrays.asList("contentViewed"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
-        multimap.put(id, prepareCounterEventData("member120", 1, Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member111", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","memberJoined"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed","contentLike"),dateTime));
+        multimap.put(namespace, prepareCounterEventData("member112", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member113", Arrays.asList("pageView","trafficTablet"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member114", Arrays.asList("pageView","memberJoined"),dateTime.plusHours(1)));
+        multimap.put(namespace, prepareCounterEventData("member115", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member116", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(1)));
+        multimap.put(namespace, prepareCounterEventData("member117", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member118", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(2)));
+        multimap.put(namespace, prepareCounterEventData("member119", Arrays.asList("pageView","memberJoined"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("content111", Arrays.asList("contentViewed"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
+        multimap.put(namespace, prepareCounterEventData("member120", Arrays.asList("pageView","trafficTablet"),dateTime.plusDays(3)));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_125"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -998,36 +990,31 @@ public class TestCounterRollUpProcessor
                                 new String[] {"contentViewed", "contentLike"},
                                 new int[] {1, 5})));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_125", fromDateOpt,toDateOpt,counterNames, composites, false, true, false, Optional.of((Set<String>)Sets.newHashSet("member113")), null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, composites, false, true, false, Optional.of((Set<String>)Sets.newHashSet("member113")), null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
-        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().size(), 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().containsKey("member113"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "memberScore").getDistribution().get("member113").intValue(), 10 + 6);
+        Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary().get("memberScore"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().size(), 1);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().containsKey("member113"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("memberScore").getDistribution().get("member113").intValue(), 10 + 6);
     }
 
     @Test(groups = {"slow", "database"})
     public void testNegativeCounts() throws Exception
     {
-        String jsonData = "{\"appId\":\"network_126\","
-                + "\"identifierDistribution\":"
-                + "{\"1\":[\"pageView\",\"memberJoined\"],\"2\":[\"contentViewed\",\"contentLike\"]}"
-                + "}";
+        String namespace = "namespace_" + (++lastNamespaceNumber);
 
-        CounterSubscription counterSubscription = mapper.readValue(jsonData, CounterSubscription.class);
+        Multimap<String, CounterEventData> multimap = ArrayListMultimap.create();
 
-        Long id = counterStorage.createCounterSubscription(counterSubscription);
-        Multimap<Long, CounterEventData> multimap = ArrayListMultimap.create();
         DateTime dateTime = new DateTime(2014,2,2,1,0,DateTimeZone.UTC);
 
-        multimap.put(id, prepareCounterEventData(
-                "member111", 1, Arrays.asList("pageView","memberJoined"),
+        multimap.put(namespace, prepareCounterEventData(
+                "member111", Arrays.asList("pageView","memberJoined"),
                 dateTime, -1));
 
-        counterStorage.insertDailyMetrics(multimap);
-        counterProcessor.rollUpDailyCounters(counterStorage.loadCounterSubscription("network_126"));
+        counterStorage.bufferMetrics(multimap);
+        counterProcessor.rollUpDailyCounters(namespace);
 
         Optional<String> fromDateOpt = Optional.of("2014-02-02");
         Optional<String> toDateOpt = Optional.absent();
@@ -1036,15 +1023,15 @@ public class TestCounterRollUpProcessor
                         "pageView", "memberJoined", "contentViewed",
                         "contentLike"));
 
-        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters("network_126", fromDateOpt,toDateOpt,counterNames, null, false, true, false, Optional.of((Set<String>)Sets.newHashSet("member111")), null);
+        List<RolledUpCounter> rolledUpCounterList = counterProcessor.loadAggregatedRolledUpCounters(namespace, fromDateOpt,toDateOpt,counterNames, null, false, true, false, Optional.of((Set<String>)Sets.newHashSet("member111")), null);
 
         Assert.assertNotNull(rolledUpCounterList);
         Assert.assertEquals(rolledUpCounterList.size(),1);
         Assert.assertNotNull(rolledUpCounterList.get(0).getCounterSummary()
-                .get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().size(), 1);
-        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().containsKey("member111"));
-        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get(RolledUpCounter.COUNTER_SUMMARY_PREFIX+"1", "pageView").getDistribution().get("member111").intValue(), -1);
+                .get("pageView"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().size(), 1);
+        Assert.assertTrue(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().containsKey("member111"));
+        Assert.assertEquals(rolledUpCounterList.get(0).getCounterSummary().get("pageView").getDistribution().get("member111").intValue(), -1);
 
     }
 

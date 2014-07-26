@@ -18,20 +18,18 @@ package com.ning.metrics.collector.processing.counter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
-import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Table;
 import com.google.inject.Inject;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.processing.db.DatabaseCounterStorage;
 import com.ning.metrics.collector.processing.db.DatabaseCounterStorage.CounterEventDataMapper;
 import com.ning.metrics.collector.processing.db.model.CounterEventData;
-import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounterData;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +71,7 @@ public class RollUpCounterProcessor
         this.mapper = mapper;
     }
 
-    public void rollUpStreamingDailyCounters(final CounterSubscription counterSubscription)
+    public void rollUpStreamingDailyCounters(String namespace)
     {
         try {
             if (!isProcessing.compareAndSet(false, true)) {
@@ -81,17 +79,18 @@ public class RollUpCounterProcessor
                 return;
             }
 
-            log.info(String.format("Running roll up process for Counter Subscription [%s]", counterSubscription.getAppId()));
+            log.info(String.format("Running roll up process for Counter Subscription [%s]", namespace));
 
             final DateTime toDateTime = new DateTime(DateTimeZone.UTC);
-            Map<String, RolledUpCounter> rolledUpCounterMap = streamAndProcessDailyCounterData(counterSubscription,toDateTime);
+            Map<String, RolledUpCounter> rolledUpCounterMap =
+                    streamAndProcessDailyCounterData(namespace, toDateTime);
 
-            postRollUpProcess(counterSubscription, toDateTime, rolledUpCounterMap);
+            postRollUpProcess(namespace, toDateTime, rolledUpCounterMap);
 
-            log.info(String.format("Roll up process for Counter Subscription [%s] completed successfully!", counterSubscription.getAppId()));
+            log.info(String.format("Roll up process for Counter Subscription [%s] completed successfully!", namespace));
         }
         catch (Exception e) {
-            log.error(String.format("Exception occurred while performing counter roll up for [%s]", counterSubscription.getAppId()),e);
+            log.error(String.format("Exception occurred while performing counter roll up for [%s]", namespace),e);
         }
         finally{
             isProcessing.set(false);
@@ -99,21 +98,22 @@ public class RollUpCounterProcessor
 
     }
 
-    private Map<String, RolledUpCounter> streamAndProcessDailyCounterData(final CounterSubscription counterSubscription,final DateTime toDateTime)
+    private Map<String, RolledUpCounter> streamAndProcessDailyCounterData(
+            final String namespace, final DateTime toDateTime)
     {
         return dbi.withHandle(new HandleCallback<Map<String,RolledUpCounter>>() {
 
             @Override
             public Map<String, RolledUpCounter> withHandle(Handle handle) throws Exception
             {
-                final String queryStr = "select metrics from metrics_daily where subscription_id = :subscriptionId"
-                        +" and created_date <= :toDateTime";
+                final String queryStr = "select metrics from metrics_buffer where `namespace` = :namespace"
+                        +" and `timestamp` <= :toDateTime";
 
                 Query<Map<String, Object>> query = handle.createQuery(queryStr)
-                        .bind("subscriptionId", counterSubscription.getId())
+                        .bind("namespace", namespace)
                         .setFetchSize(Integer.MIN_VALUE);
 
-                query.bind("toDateTime", DatabaseCounterStorage.DAILY_METRICS_STORAGE_DATE_FORMATER.print(toDateTime));
+                query.bind("toDateTime", DatabaseCounterStorage.DAILY_METRICS_DATE_FORMAT.print(toDateTime));
 
                 Map<String,RolledUpCounter> rolledUpCounterMap = new ConcurrentHashMap<String, RolledUpCounter>();
 
@@ -129,11 +129,12 @@ public class RollUpCounterProcessor
 
                     while(streamingIterator.hasNext())
                     {
-                        processCounterEventData(counterSubscription, rolledUpCounterMap, streamingIterator.next());
+                        processCounterEventData(namespace, rolledUpCounterMap,
+                                streamingIterator.next());
                     }
                 }
                 catch (Exception e) {
-                    log.error(String.format("Exception occurred while streaming and rolling up daily counter for app id: %s", counterSubscription.getAppId()), e);
+                    log.error(String.format("Exception occurred while streaming and rolling up daily counter for app id: %s", namespace), e);
                 }
                 finally {
                     if (streamingIterator != null) {
@@ -145,7 +146,7 @@ public class RollUpCounterProcessor
             }});
     }
 
-    public void rollUpDailyCounters(final CounterSubscription counterSubscription){
+    public void rollUpDailyCounters(String namespace){
         try {
             if (!isProcessing.compareAndSet(false, true)) {
                 log.info("Asked to do counter roll up, but we're already processing!");
@@ -158,38 +159,39 @@ public class RollUpCounterProcessor
 
             Map<String, RolledUpCounter> rolledUpCounterMap = new ConcurrentHashMap<String, RolledUpCounter>();
 
-            log.info(String.format("Running roll up process for Counter Subscription [%s]", counterSubscription.getAppId()));
+            log.info(String.format("Running roll up process for namespace [%s]", namespace));
 
             while(fetchMoreRecords)
             {
              // Load daily counters stored for the respective subscription limiting to now() and getMaxCounterEventFetchCount
-                Iterator<CounterEventData> dailyCounterList = counterStorage.loadDailyMetrics(counterSubscription.getId(), toDateTime, recordFetchLimit, recordOffSetCounter).iterator();
+                Iterator<CounterEventData> dailyCounterList =
+                        counterStorage.loadBufferedMetricsPaged(namespace, toDateTime, recordFetchLimit, recordOffSetCounter).iterator();
                 if(Objects.equal(null, dailyCounterList) || !dailyCounterList.hasNext())
                 {
                     fetchMoreRecords = false;
                     break;
                 }
 
-                log.info(String.format("Processing counter events for %s on offset %d", counterSubscription.getAppId(), recordOffSetCounter));
+                log.info(String.format("Processing counter events for %s on offset %d", namespace, recordOffSetCounter));
 
                 // increment recordOffset to fetch next getMaxCounterEventFetchCount
                 recordOffSetCounter += recordFetchLimit;
 
                 while(dailyCounterList.hasNext())
                 {
-                    processCounterEventData(counterSubscription, rolledUpCounterMap, dailyCounterList.next());
+                    processCounterEventData(namespace, rolledUpCounterMap, dailyCounterList.next());
                 }
 
-                log.info(String.format("Roll up completed %s on offset %d", counterSubscription.getAppId(), recordOffSetCounter));
+                log.info(String.format("Roll up completed %s on offset %d", namespace, recordOffSetCounter));
 
             }
 
-            postRollUpProcess(counterSubscription, toDateTime, rolledUpCounterMap);
+            postRollUpProcess(namespace, toDateTime, rolledUpCounterMap);
 
-            log.info(String.format("Roll up process for Counter Subscription [%s] completed successfully!", counterSubscription.getAppId()));
+            log.info(String.format("Roll up process for Counter Subscription [%s] completed successfully!", namespace));
         }
         catch (Exception e) {
-            log.error(String.format("Exception occurred while performing counter roll up for [%s]", counterSubscription.getAppId()),e);
+            log.error(String.format("Exception occurred while performing counter roll up for [%s]", namespace),e);
         }
         finally{
             isProcessing.set(false);
@@ -197,48 +199,52 @@ public class RollUpCounterProcessor
 
     }
 
-    private void postRollUpProcess(final CounterSubscription counterSubscription, final DateTime toDateTime, Map<String, RolledUpCounter> rolledUpCounterMap)
+    private void postRollUpProcess(String namespace, final DateTime toDateTime,
+            Map<String, RolledUpCounter> rolledUpCounterMap)
     {
         if(!rolledUpCounterMap.isEmpty())
         {
-            log.info(String.format("Evaluating Uniques and updating roll up counter for %s", counterSubscription.getAppId()));
+            log.info(String.format("Evaluating Uniques and updating roll up counter for %s", namespace));
             for(RolledUpCounter rolledUpCounter : rolledUpCounterMap.values())
             {
-                // Evaluate Uniqes for rolled up counters
-                rolledUpCounter.evaluateUniques();
-
                 //Save
-                counterStorage.insertOrUpdateRolledUpCounter(counterSubscription.getId(), rolledUpCounter);
+                counterStorage.insertOrUpdateDailyRolledUpCounter(
+                        rolledUpCounter);
             }
 
-            log.info(String.format("Deleting daily counters for %s which are <= %s", counterSubscription.getAppId(), toDateTime));
+            log.info(String.format("Deleting daily counters for %s which are <= %s", namespace, toDateTime));
             // Delete daily metrics which have been accounted for the roll up.
             // There may be more additions done since this process started which is why the evaluation time is passed on.
-            counterStorage.deleteDailyMetrics(counterSubscription.getId(), toDateTime);
+            counterStorage.deleteBufferedMetrics(namespace, toDateTime);
         }
     }
 
-    private void processCounterEventData(final CounterSubscription counterSubscription, Map<String, RolledUpCounter> rolledUpCounterMap, final CounterEventData counterEventData)
+    private void processCounterEventData(String namespace,
+            Map<String, RolledUpCounter> rolledUpCounterMap,
+            final CounterEventData counterEventData)
     {
-        final String rolledUpCounterKey = counterSubscription.getAppId()+counterEventData.getFormattedDate();
+        final String rolledUpCounterKey = namespace
+                + '|' + counterEventData.getFormattedDate();
 
         RolledUpCounter rolledUpCounter = rolledUpCounterMap.get(rolledUpCounterKey);
 
-        if(Objects.equal(null, rolledUpCounter))
-        {
-            rolledUpCounter = counterStorage.loadRolledUpCounterById(rolledUpCounterKey, false, Optional.of(0));
-            if(Objects.equal(null, rolledUpCounter))
-            {
-                rolledUpCounter = new RolledUpCounter(counterSubscription.getAppId(), counterEventData.getCreatedDate(), counterEventData.getCreatedDate());
+        if(Objects.equal(null, rolledUpCounter)) {
+            rolledUpCounter = counterStorage.loadDailyRolledUpCounter(
+                    namespace, counterEventData.getCreatedTime());
+
+            if(null == rolledUpCounter) {
+                rolledUpCounter = new RolledUpCounter(namespace,
+                        counterEventData.getCreatedTime(),
+                        counterEventData.getCreatedTime());
             }
         }
 
-        rolledUpCounter.updateRolledUpCounterData(counterEventData, counterSubscription.getIdentifierDistribution().get(counterEventData.getIdentifierCategory()));
+        rolledUpCounter.updateRolledUpCounterData(counterEventData);
         rolledUpCounterMap.put(rolledUpCounterKey, rolledUpCounter);
     }
 
     public List<RolledUpCounter> loadAggregatedRolledUpCounters(
-            final String appId, final Optional<String> fromDateOpt,
+            final String namespace, final Optional<String> fromDateOpt,
             final Optional<String> toDateOpt,
             final Optional<Set<String>> counterTypesOpt,
             final Optional<Set<CompositeCounter>> compositeCountersOpt,
@@ -248,13 +254,15 @@ public class RollUpCounterProcessor
             final Optional<Set<String>> uniqueIdsOpt,
             final Optional<Integer> distributionLimit)
     {
-        CounterSubscription counterSubscription = counterStorage.loadCounterSubscription(appId);
-        if(counterSubscription == null)
-        {
-            return Lists.newArrayList();
-        }
-        DateTime fromDate = fromDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(fromDateOpt.get()),DateTimeZone.UTC):null;
-        DateTime toDate = toDateOpt.isPresent()?new DateTime(RolledUpCounter.ROLLUP_COUNTER_DATE_FORMATTER.parseMillis(toDateOpt.get()),DateTimeZone.UTC):null;
+
+        DateTime fromDate = fromDateOpt.isPresent()
+                ? new DateTime(RolledUpCounter.DATE_FORMATTER.parseMillis(
+                        fromDateOpt.get()),DateTimeZone.UTC)
+                : null;
+        DateTime toDate = toDateOpt.isPresent()
+                ? new DateTime(RolledUpCounter.DATE_FORMATTER.parseMillis(
+                        toDateOpt.get()),DateTimeZone.UTC)
+                : null;
 
         // If we aggregate the entire date range don't want to limit the
         // distribution returned in the individual time slices.  Instead
@@ -292,8 +300,8 @@ public class RollUpCounterProcessor
         boolean overrideExcludeDistribution = aggregateEntireRange;
 
         List<RolledUpCounter> rolledUpCounterResult =
-                counterStorage.loadRolledUpCounters(
-                        counterSubscription.getId(), fromDate, toDate,
+                counterStorage.queryDailyRolledUpCounters(
+                        namespace, fromDate, toDate,
                         counterTypesOpt,
                         (overrideExcludeDistribution
                                 ? false : excludeDistribution),
@@ -303,7 +311,7 @@ public class RollUpCounterProcessor
         if(Objects.equal(null, rolledUpCounterResult)
                 || rolledUpCounterResult.isEmpty())
         {
-            return Lists.newArrayList();
+            return ImmutableList.of();
         }
 
         if(aggregateByMonth)
@@ -331,7 +339,7 @@ public class RollUpCounterProcessor
                     rolledUpCounterResult, distributionLimit);
         }
 
-        return orderingRolledUpCounterByDate.immutableSortedCopy(rolledUpCounterResult);
+        return rolledUpCounterResult;
     }
 
     /**
@@ -354,8 +362,7 @@ public class RollUpCounterProcessor
 
         RolledUpCounter first = null;
         RolledUpCounter last = null;
-        Table<String, String, RolledUpCounterData> resultSummary =
-                HashBasedTable.create() ;
+        Map<String, RolledUpCounterData> resultSummary = Maps.newHashMap();
 
         // Walk all the time slices
         for (RolledUpCounter currCounter : timeSlicedCounters) {
@@ -365,29 +372,22 @@ public class RollUpCounterProcessor
 
             last = currCounter;
 
-            Table<String, String, RolledUpCounterData> currSummary =
+            Map<String, RolledUpCounterData> currSummary =
                     currCounter.getCounterSummary();
-
-            Map<String, Map<String, RolledUpCounterData>> currRowMap =
-                    currSummary.rowMap();
 
             // Walk all the rows and columns and aggregate the data in each
             // cell.  This corresponds to walking all the categoryIds and
             // counterNames
-            for (Map.Entry<String, Map<String, RolledUpCounterData>> rowEntry :
-                    currRowMap.entrySet()) {
-                String categoryId = rowEntry.getKey();
+            for (Map.Entry<String, RolledUpCounterData> colEntry :
+                    currSummary.entrySet()) {
+                String counterName = colEntry.getKey();
 
-                for (Map.Entry<String, RolledUpCounterData> colEntry :
-                        rowEntry.getValue().entrySet()) {
-                    String counterName = colEntry.getKey();
+                RolledUpCounterData data = colEntry.getValue();
 
-                    RolledUpCounterData data = colEntry.getValue();
-
-                    aggregateSingleRolledUpCounterDatum(data, categoryId,
-                            counterName, resultSummary);
-                }
+                aggregateSingleRolledUpCounterDatum(data,
+                        counterName, resultSummary);
             }
+
         }
 
 
@@ -399,7 +399,7 @@ public class RollUpCounterProcessor
             }
             else if (distributionLimit != null
                     && distributionLimit.isPresent()) {
-                data.applyDistributionLimit(distributionLimit.get());
+                data.setDistributionSerializationLimit(distributionLimit.get());
             }
         }
 
@@ -410,7 +410,7 @@ public class RollUpCounterProcessor
             return null;
         }
 
-        return new RolledUpCounter(first.getAppId(), first.getFromDate(),
+        return new RolledUpCounter(first.getNamespace(), first.getFromDate(),
                 last.getToDate(), resultSummary);
     }
 
@@ -418,23 +418,21 @@ public class RollUpCounterProcessor
      * Aggregate a single rolled-up counter data element into a running
      * aggregate table of row=categoryId, column=counterName
      * @param datum single slice of rolled-up data
-     * @param categoryId rowKey
      * @param counterName columnKey
      * @param aggregate running aggregation of all time-sliced counter data.  It
      *                  is into this table that the datum will be added
      */
     protected void aggregateSingleRolledUpCounterDatum(
-            RolledUpCounterData datum, String categoryId, String counterName,
-            Table<String, String, RolledUpCounterData> aggregate) {
+            RolledUpCounterData datum, String counterName,
+            Map<String, RolledUpCounterData> aggregate) {
 
-        RolledUpCounterData aggregateData = aggregate.get(
-                categoryId, counterName);
+        RolledUpCounterData aggregateData = aggregate.get(counterName);
 
         // This might be the first time we've seen this counter & category combo
         if (aggregateData == null) {
             aggregateData = new RolledUpCounterData(counterName, 0,
-                    (Map)Maps.newHashMap());
-            aggregate.put(categoryId, counterName, aggregateData);
+                    null);
+            aggregate.put(counterName, aggregateData);
         }
 
         aggregateData.incrementCounter(datum.getTotalCount());
@@ -455,7 +453,7 @@ public class RollUpCounterProcessor
      * @param timeSlicedCounters
      * @param distributionLimit
      */
-    protected void addCompositeCounters(Set<CompositeCounter> composites,
+    protected void addCompositeCounters(Collection<CompositeCounter> composites,
             List<RolledUpCounter> timeSlicedCounters,
             Optional<Integer> distributionLimit) {
 
@@ -465,32 +463,19 @@ public class RollUpCounterProcessor
 
         // Walk all the time slices
         for (RolledUpCounter currCounter : timeSlicedCounters) {
-            Table<String, String, RolledUpCounterData> currSummary =
+            Map<String, RolledUpCounterData> currSummary =
                     currCounter.getCounterSummary();
 
-            Map<String, Map<String, RolledUpCounterData>> currRowMap =
-                    currSummary.rowMap();
+            Iterable<RolledUpCounterData> rolledUpComposites
+                    = addCompositeCountersToSummary(composites,
+                            currSummary, distributionLimit);
 
-            // Walk all the rows and columns and aggregate the data in each
-            // cell.  This corresponds to walking all the categoryIds and
-            // counterNames
-            for (Map.Entry<String, Map<String, RolledUpCounterData>> rowEntry :
-                    currRowMap.entrySet()) {
-                String categoryId = rowEntry.getKey();
-
-                Map<String, RolledUpCounterData> countersInCategory
-                        = rowEntry.getValue();
-                Iterable<RolledUpCounterData> rolledUpComposites
-                        = addCompositeCountersToCategory(composites,
-                                countersInCategory, distributionLimit);
-
-                for (RolledUpCounterData rolledUpComposite
-                        : rolledUpComposites) {
-                    currSummary.put(categoryId,
-                            rolledUpComposite.getCounterName(),
-                            rolledUpComposite);
-                }
+            for (RolledUpCounterData rolledUpComposite
+                    : rolledUpComposites) {
+                currSummary.put(rolledUpComposite.getCounterName(),
+                        rolledUpComposite);
             }
+
         }
     }
 
@@ -499,13 +484,13 @@ public class RollUpCounterProcessor
      * category, and return the group of generated composite counters as an
      * iterable
      * @param composites
-     * @param countersInCategory
+     * @param countersInSummary
      * @param distributionLimit
      * @return
      */
-    protected Iterable<RolledUpCounterData> addCompositeCountersToCategory(
-            Set<CompositeCounter> composites,
-            Map<String, RolledUpCounterData> countersInCategory,
+    protected Iterable<RolledUpCounterData> addCompositeCountersToSummary(
+            Collection<CompositeCounter> composites,
+            Map<String, RolledUpCounterData> countersInSummary,
             Optional<Integer> distributionLimit) {
 
         List<RolledUpCounterData> result
@@ -514,8 +499,7 @@ public class RollUpCounterProcessor
         for (CompositeCounter composite : composites) {
 
             RolledUpCounterData currResult =
-                    new RolledUpCounterData(composite.getName(), 0,
-                            (Map)Maps.newHashMap());
+                    new RolledUpCounterData(composite.getName(), 0, null);
 
             result.add(currResult);
 
@@ -524,7 +508,7 @@ public class RollUpCounterProcessor
                 String componentName = composite.getCompositeEvents()[i];
 
                 RolledUpCounterData component
-                        = countersInCategory.get(componentName);
+                        = countersInSummary.get(componentName);
 
                 if (component == null) {
                     continue;
@@ -542,7 +526,7 @@ public class RollUpCounterProcessor
 
             if (distributionLimit != null
                     && distributionLimit.isPresent()) {
-                currResult.applyDistributionLimit(distributionLimit.get());
+                currResult.setDistributionSerializationLimit(distributionLimit.get());
             }
         }
 

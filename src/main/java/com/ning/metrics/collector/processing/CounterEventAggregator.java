@@ -91,7 +91,7 @@ public class CounterEventAggregator {
      */
     public void addEvent(CounterEvent event) {
 
-        String counterGroup = event.getAppId();
+        String counterGroup = event.getNamespace();
 
         int mapToUse = getAggregateMap();
 
@@ -108,22 +108,21 @@ public class CounterEventAggregator {
     private void addEventCounterData(
             String counterGroup, CounterEventData data, int mapToUse) {
 
-        int identifier = data.getIdentifierCategory();
-        DateTime eventDate = data.getCreatedDate();
+        DateTime eventDate = data.getCreatedTime();
         String eventDateString = data.getFormattedDate();
         String uniqueId = data.getUniqueIdentifier();
 
         for (Map.Entry<String, Integer> entry : data.getCounters().entrySet()) {
             String counter = entry.getKey();
             int count = entry.getValue();
-            addEventCounter(counterGroup, counter, identifier,
+            addEventCounter(counterGroup, counter,
                     uniqueId, eventDateString, eventDate, count, mapToUse);
         }
 
     }
 
     private void addEventCounter(String counterGroup, String counterName,
-            int idenfier, String uniqueId, String eventDateString,
+            String uniqueId, String eventDateString,
             DateTime eventDate, int count, int mapToUse) {
 
         ConcurrentHashMap<AggregatedCounterKey, AggregatedCounter> mapInUse
@@ -131,7 +130,7 @@ public class CounterEventAggregator {
 
         AggregatedCounterKey counterKey = new AggregatedCounterKey(
                 counterGroup, eventDateString, eventDate,
-                idenfier, uniqueId);
+                uniqueId);
         AggregatedCounter counter = new AggregatedCounter();
         AggregatedCounter existingCounter;
 
@@ -201,8 +200,7 @@ public class CounterEventAggregator {
         }
 
         CounterEventData data = new CounterEventData(key.getUniqueId(),
-                key.getIdentifierCategory(), key.getCounterDate(),
-                simpleMap);
+                key.getCounterDate(), simpleMap);
 
         List<CounterEventData> dataList = Lists.newLinkedList();
         dataList.add(data);
@@ -217,17 +215,15 @@ public class CounterEventAggregator {
 
         private final String counterGroup;
         private final String counterDateString;
-        private final int identifierCategory;
         private final String uniqueId;
         private final DateTime counterDate;
 
         public AggregatedCounterKey(String counterGroup,
                 String counterDateString, DateTime counterDate,
-                int identifierCategory, String uniqueId) {
+                String uniqueId) {
             this.counterGroup = counterGroup;
             this.counterDateString = counterDateString;
             this.counterDate = counterDate;
-            this.identifierCategory = identifierCategory;
             this.uniqueId = uniqueId;
         }
 
@@ -243,20 +239,6 @@ public class CounterEventAggregator {
          */
         public String getCounterDateString() {
             return counterDateString;
-        }
-
-        /**
-         * @return the identifierCategory
-         */
-        public int getIdentifier() {
-            return getIdentifierCategory();
-        }
-
-        /**
-         * @return the identifierCategory
-         */
-        public int getIdentifierCategory() {
-            return identifierCategory;
         }
 
         /**
@@ -288,9 +270,6 @@ public class CounterEventAggregator {
             if ((this.counterDateString == null) ? (other.counterDateString != null) : !this.counterDateString.equals(other.counterDateString)) {
                 return false;
             }
-            if (this.identifierCategory != other.identifierCategory) {
-                return false;
-            }
             if ((this.uniqueId == null) ? (other.uniqueId != null) : !this.uniqueId.equals(other.uniqueId)) {
                 return false;
             }
@@ -302,7 +281,6 @@ public class CounterEventAggregator {
             int hash = 7;
             hash = 97 * hash + (this.counterGroup != null ? this.counterGroup.hashCode() : 0);
             hash = 97 * hash + (this.counterDateString != null ? this.counterDateString.hashCode() : 0);
-            hash = 97 * hash + this.identifierCategory;
             hash = 97 * hash + (this.uniqueId != null ? this.uniqueId.hashCode() : 0);
             return hash;
         }

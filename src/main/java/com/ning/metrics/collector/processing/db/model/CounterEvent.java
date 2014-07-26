@@ -26,14 +26,14 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CounterEvent
 {
-    private final String appId;
+    private final String namespace;
     private final List<CounterEventData> counterEvents;
 
     @JsonCreator
-    public CounterEvent(@JsonProperty("appId") String appId,
+    public CounterEvent(@JsonProperty("namespace") String namespace,
         @JsonProperty("buckets") List<CounterEventData> counterEvents)
     {
-        this.appId = appId;
+        this.namespace = namespace;
         if (null == counterEvents)        {
             this.counterEvents = null;
         }
@@ -44,9 +44,9 @@ public class CounterEvent
 
     }
 
-    public String getAppId()
+    public String getNamespace()
     {
-        return appId;
+        return namespace;
     }
 
     @JsonProperty("buckets")
@@ -60,7 +60,7 @@ public class CounterEvent
     {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((appId == null) ? 0 : appId.hashCode());
+        result = prime * result + ((namespace == null) ? 0 : namespace.hashCode());
         result = prime * result + ((counterEvents == null) ? 0 : counterEvents.hashCode());
         return result;
     }
@@ -75,11 +75,11 @@ public class CounterEvent
         if (getClass() != obj.getClass())
             return false;
         CounterEvent other = (CounterEvent) obj;
-        if (appId == null) {
-            if (other.appId != null)
+        if (namespace == null) {
+            if (other.namespace != null)
                 return false;
         }
-        else if (!appId.equals(other.appId))
+        else if (!namespace.equals(other.namespace))
             return false;
         if (counterEvents == null) {
             if (other.counterEvents != null)

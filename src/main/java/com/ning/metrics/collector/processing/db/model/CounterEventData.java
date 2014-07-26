@@ -21,87 +21,60 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
-
+import com.google.common.collect.Maps;
+import java.util.Map;
+import java.util.Map.Entry;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-
+/**
+ * Storage and transport class for counter events
+ * @author kguthrie
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CounterEventData
 {
     private final String uniqueIdentifier;
-    private final Integer identifierCategory;
-    private DateTime createdDate;
-    private final Map<String, Integer> counters = new ConcurrentHashMap<String, Integer>();
+    private final DateTime createdTime;
+    private final Map<String, Integer> counters;
     public static final DateTimeFormatter DAILY_COUNTER_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd").withZone(DateTimeZone.UTC);
-    
+
     @JsonCreator
-    public CounterEventData(@JsonProperty("uniqueIdentifier") String uniqueIdentifier, 
-        @JsonProperty("identifierCategory") Integer identifierCategory, 
-        @JsonProperty("createdDate") DateTime createdDate,
+    public CounterEventData(@JsonProperty("uniqueIdentifier") String uniqueIdentifier,
+        @JsonProperty("createdDate") DateTime createdTime,
         @JsonProperty("counters") Map<String, Integer> counters)
     {
-        if(uniqueIdentifier == null)
+        this.uniqueIdentifier = uniqueIdentifier;
+
+        this.counters = Maps.newHashMap(counters);
+
+        if(createdTime != null)
         {
-            this.uniqueIdentifier = UUID.randomUUID().toString();
+            this.createdTime = createdTime;
         }
         else
         {
-            this.uniqueIdentifier = uniqueIdentifier;
-        }
-        
-        if(identifierCategory == null)
-        {
-            this.identifierCategory = 0;
-        }
-        else
-        {
-            this.identifierCategory = identifierCategory;
-        }
-        
-        
-        if(counters != null)
-        {
-            this.counters.putAll(counters);
-        }
-        
-        if(createdDate != null)
-        {
-            this.createdDate = createdDate;
-        }
-        else
-        {
-            this.createdDate = new DateTime(this.createdDate,DateTimeZone.UTC);
+            this.createdTime = new DateTime(DateTimeZone.UTC);
         }
     }
-   
-    public DateTime getCreatedDate(){
-        if(this.createdDate != null)
-        {
-            try {
-                return new DateTime(this.createdDate,DateTimeZone.UTC);
-            }
-            catch (Exception e) {
-                return new DateTime(DateTimeZone.UTC);
-            }
-        }
-        
-        return new DateTime(DateTimeZone.UTC);
+
+    public DateTime getCreatedTime(){
+        return createdTime;
     }
-    
+
     @JsonIgnore
-    public String getFormattedDate()
-    {
-        return DAILY_COUNTER_DATE_FORMATTER.print(getCreatedDate());
+    public String getFormattedDate() {
+        return DAILY_COUNTER_DATE_FORMATTER.print(getCreatedTime());
     }
-    
+
+    /**
+     * Iterate through the given map of counters to counts and increment this
+     * object's local counters by each one
+     * @param mergeFrom
+     */
     @JsonIgnore
     public void mergeCounters(Map<String, Integer> mergeFrom)
     {
@@ -111,31 +84,31 @@ public class CounterEventData
         }
     }
 
-    public String getUniqueIdentifier()
-    {
+    public String getUniqueIdentifier() {
         return uniqueIdentifier;
-    }
-
-    public Integer getIdentifierCategory()
-    {
-        return identifierCategory;
     }
 
     public Map<String, Integer> getCounters()
     {
         return counters;
     }
-    
+
+    /**
+     * This method increases the count for the given counter by the given
+     * increment.  If the given counter is not present, it will be added with
+     * its count set to the given increment
+     * @param counterName
+     * @param increment
+     */
     @JsonIgnore
-    public void incrementCounter(String counterName, Integer count)
+    public void incrementCounter(String counterName, Integer increment)
     {
         Integer counterValue = getCounters().get(counterName);
-        if(Objects.equal(null, counterValue))
-        {
-            counterValue = new Integer(0);
+        if(Objects.equal(null, counterValue)) {
+            counterValue = 0;
         }
-        
-        counterValue += count;
+
+        counterValue += increment;
         counters.put(counterName, counterValue);
     }
 
@@ -144,8 +117,7 @@ public class CounterEventData
     {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((createdDate == null) ? 0 : createdDate.hashCode());
-        result = prime * result + identifierCategory;
+        result = prime * result + ((createdTime == null) ? 0 : createdTime.hashCode());
         result = prime * result + ((uniqueIdentifier == null) ? 0 : uniqueIdentifier.hashCode());
         return result;
     }
@@ -160,13 +132,11 @@ public class CounterEventData
         if (getClass() != obj.getClass())
             return false;
         CounterEventData other = (CounterEventData) obj;
-        if (createdDate == null) {
-            if (other.createdDate != null)
+        if (createdTime == null) {
+            if (other.createdTime != null)
                 return false;
         }
-        else if (!createdDate.equals(other.createdDate))
-            return false;
-        if (identifierCategory != other.identifierCategory)
+        else if (!createdTime.equals(other.createdTime))
             return false;
         if (uniqueIdentifier == null) {
             if (other.uniqueIdentifier != null)

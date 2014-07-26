@@ -19,7 +19,8 @@ import com.ning.metrics.collector.processing.db.model.CounterEventData;
 
 public interface CounterEventCacheProcessor
 {
-    public void addCounterEventData(final Long subscriptionId, final CounterEventData counterEventData);
+    public void addCounterEventData(String namespace,
+            CounterEventData counterEventData);
     public void processRemainingCounters();
     public void cleanUp();
 }

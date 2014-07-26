@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.List;
 import org.joda.time.DateTime;
 import org.testng.Assert;
-import org.testng.annotations.Test;
 
 /**
  *
@@ -49,7 +48,7 @@ public class CounterEventAggregatorTest {
         aggregator = new CounterEventAggregator();
         event1 = new CounterEvent(counterGroup1,
                 Lists.asList(new CounterEventData(
-                                uniqueId1, identifierCategory1, countDate1,
+                                uniqueId1, countDate1,
                                 new HashMap<String, Integer>() {
                                     {
                                         put(counter11, count11);
@@ -58,7 +57,7 @@ public class CounterEventAggregatorTest {
                                 }), new CounterEventData[0]));
     }
 
-    
+
     public void testSingleNonAggregation() {
         aggregator.addEvent(event1);
         Iterable<CounterEvent> aggregatedEvents = aggregator.flush();
@@ -67,14 +66,14 @@ public class CounterEventAggregatorTest {
         for (CounterEvent event : aggregatedEvents) {
             Assert.assertEquals(1, ++i);
             Assert.assertNotSame(event, event1);
-            Assert.assertEquals(counterGroup1, event.getAppId());
+            Assert.assertEquals(counterGroup1, event.getNamespace());
 
             int j = 0;
             for (CounterEventData data : event.getCounterEvents()) {
                 Assert.assertEquals(1, ++j);
                 Assert.assertEquals(uniqueId1, data.getUniqueIdentifier());
                 Assert.assertEquals(countDate1.getMillis(),
-                        data.getCreatedDate().getMillis());
+                        data.getCreatedTime().getMillis());
                 Assert.assertEquals(2, data.getCounters().size());
                 Assert.assertEquals(count11,
                         (int) data.getCounters().get(counter11));
@@ -85,7 +84,7 @@ public class CounterEventAggregatorTest {
         }
     }
 
-    
+
     public void testSingleAggregation() {
         aggregator.addEvent(event1);
         aggregator.addEvent(event1);
@@ -95,14 +94,14 @@ public class CounterEventAggregatorTest {
         for (CounterEvent event : aggregatedEvents) {
             Assert.assertEquals(1, ++i);
             Assert.assertNotSame(event, event1);
-            Assert.assertEquals(counterGroup1, event.getAppId());
+            Assert.assertEquals(counterGroup1, event.getNamespace());
 
             int j = 0;
             for (CounterEventData data : event.getCounterEvents()) {
                 Assert.assertEquals(1, ++j);
                 Assert.assertEquals(uniqueId1, data.getUniqueIdentifier());
                 Assert.assertEquals(countDate1.getMillis(),
-                        data.getCreatedDate().getMillis());
+                        data.getCreatedTime().getMillis());
                 Assert.assertEquals(2, data.getCounters().size());
                 Assert.assertEquals(count11 * 2,
                         (int) data.getCounters().get(counter11));
@@ -113,7 +112,7 @@ public class CounterEventAggregatorTest {
         }
     }
 
-    
+
     public void testMultithreadOnSingleEvent() throws Exception {
 
         final int incrementsPerThreads = 1024 * 8;
@@ -155,14 +154,14 @@ public class CounterEventAggregatorTest {
         for (CounterEvent event : aggregatedEvents) {
             Assert.assertEquals(1, ++i);
             Assert.assertNotSame(event, event1);
-            Assert.assertEquals(counterGroup1, event.getAppId());
+            Assert.assertEquals(counterGroup1, event.getNamespace());
 
             int j = 0;
             for (CounterEventData data : event.getCounterEvents()) {
                 Assert.assertEquals(1, ++j);
                 Assert.assertEquals(uniqueId1, data.getUniqueIdentifier());
                 Assert.assertEquals(countDate1.getMillis(),
-                        data.getCreatedDate().getMillis());
+                        data.getCreatedTime().getMillis());
                 Assert.assertEquals(2, data.getCounters().size());
                 Assert.assertEquals(
                         count11 * incrementsPerThreads * numberOfThreads,
@@ -176,7 +175,7 @@ public class CounterEventAggregatorTest {
 
     }
 
-    
+
     public void testMultithreadingOnMultipleEvents() throws Exception {
 
         final int incrementsPerCounter = 1024 * 4;
@@ -237,13 +236,13 @@ public class CounterEventAggregatorTest {
         for (CounterEvent event : aggregatedEvents) {
             i++;
             Assert.assertNotSame(event, event1);
-            Assert.assertEquals(counterGroup1, event.getAppId());
+            Assert.assertEquals(counterGroup1, event.getNamespace());
 
             int j = 0;
             for (CounterEventData data : event.getCounterEvents()) {
                 Assert.assertEquals(1, ++j);
                 Assert.assertEquals(countDate1.getMillis(),
-                        data.getCreatedDate().getMillis());
+                        data.getCreatedTime().getMillis());
                 Assert.assertEquals(2, data.getCounters().size());
                 Assert.assertEquals(
                         count11 * incrementsPerCounter,
@@ -289,7 +288,7 @@ public class CounterEventAggregatorTest {
             eventsById[i] = new CounterEvent(counterGroup1,
                     Lists.asList(new CounterEventData(
                                     uniqueId1 + i,
-                                    identifierCategory1, countDate1,
+                                    countDate1,
                                     new HashMap<String, Integer>() {
                                         {
                                             put(counter11, count11);
@@ -306,7 +305,7 @@ public class CounterEventAggregatorTest {
         return result;
     }
 
-    
+
     public void testLiveFlush() throws Exception {
         final int incrementsPerCounter = 1024 * 4;
         final int numThreads = 32;
@@ -361,13 +360,13 @@ public class CounterEventAggregatorTest {
         for (CounterEvent event : aggregatedEvents) {
             i++;
             Assert.assertNotSame(event, event1);
-            Assert.assertEquals(counterGroup1, event.getAppId());
+            Assert.assertEquals(counterGroup1, event.getNamespace());
 
             int j = 0;
             for (CounterEventData data : event.getCounterEvents()) {
                 Assert.assertEquals(1, ++j);
                 Assert.assertEquals(countDate1.getMillis(),
-                        data.getCreatedDate().getMillis());
+                        data.getCreatedTime().getMillis());
                 Assert.assertEquals(2, data.getCounters().size());
                 Assert.assertEquals(
                         count11 * incrementsPerCounter,

@@ -19,8 +19,6 @@ import com.google.common.base.Objects;
 import com.google.inject.Inject;
 import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.CounterStorage;
-import com.ning.metrics.collector.processing.db.model.CounterSubscription;
-
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
@@ -37,7 +35,7 @@ public class CounterProcessorRollUpJob implements Job
     private static final Logger log = LoggerFactory.getLogger(CounterProcessorRollUpJob.class);
     private final RollUpCounterProcessor rollUpCounterProcessor;
     private final CounterStorage counterStorage;
-    
+
     @Inject
     public CounterProcessorRollUpJob(final RollUpCounterProcessor rollUpCounterProcessor, final CounterStorage counterStorage)
     {
@@ -50,16 +48,16 @@ public class CounterProcessorRollUpJob implements Job
     {
         JobDataMap dataMap = context.getJobDetail().getJobDataMap();
         int retryCount = 0;
-        
+
         if(dataMap.containsKey("retryCount"))
         {
             retryCount = dataMap.getIntValue("retryCount");
         }
-        
+
         log.debug("Job Started with retry count as: "+retryCount);
         log.debug("Feed Event ID's in the data list: "+dataMap.get("feedEventIdList"));
-       
-        
+
+
         if(retryCount > 2)
         {
             JobExecutionException e = new JobExecutionException("Retries exceeded",false);
@@ -67,24 +65,20 @@ public class CounterProcessorRollUpJob implements Job
             e.setUnscheduleAllTriggers(true);
             throw e;
         }
-        
+
         try {
-            
-            final Long subscriptionId = dataMap.getLong("subscriptionId");
-            
-            if(Objects.equal(null, subscriptionId))
+
+            final String namespace = dataMap.getString("namespace");
+
+            if(Objects.equal(null, namespace))
             {
-                log.info("No subscription id in Job data!");
+                log.info("No namespace in Job data!");
                 return;
             }
-            
-            CounterSubscription counterSubscription = counterStorage.loadCounterSubscriptionById(subscriptionId);
-            
-            if(!Objects.equal(null, counterSubscription))
-            {
-                rollUpCounterProcessor.rollUpStreamingDailyCounters(counterSubscription);
-            }
-            
+
+            rollUpCounterProcessor.rollUpStreamingDailyCounters(namespace);
+
+
         }
         catch (Exception e) {
             log.debug("Retrying "+retryCount);

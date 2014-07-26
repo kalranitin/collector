@@ -17,7 +17,12 @@ package com.ning.metrics.collector.processing.db;
 
 import com.mysql.management.MysqldResource;
 import com.mysql.management.MysqldResourceI;
-
+import java.io.File;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.HashMap;
+import java.util.Map;
+import junit.framework.Assert;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.skife.jdbi.v2.DBI;
@@ -26,14 +31,6 @@ import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.util.HashMap;
-import java.util.Map;
-
-import junit.framework.Assert;
 
 public class CollectorMysqlTestingHelper {
     private static final Logger log = LoggerFactory.getLogger(CollectorMysqlTestingHelper.class);
@@ -79,7 +76,7 @@ public class CollectorMysqlTestingHelper {
         mysqldResource.shutdown();
         FileUtils.deleteQuietly(dbDir);
     }
-    
+
     public void clear(){
         final IDBI dbi = new DBI(getJdbcUrl(), USERNAME, PASSWORD);
         dbi.withHandle(new HandleCallback<Void>() {
@@ -90,15 +87,14 @@ public class CollectorMysqlTestingHelper {
                 handle.execute("delete from subscriptions");
                 handle.execute("delete from feed_events");
                 handle.execute("delete from feeds");
-                handle.execute("delete from metrics_subscription");
+                handle.execute("delete from metrics_buffer");
                 handle.execute("delete from metrics_daily");
-                handle.execute("delete from metrics_daily_roll_up");
                 return null;
             }
-            
+
         });
     }
-    
+
     public String getJdbcUrl(){
         final String jdbcUrl = "jdbc:mysql://localhost:" + port + "/collector_events?createDatabaseIfNotExist=true&allowMultiQueries=true";
         return jdbcUrl;
@@ -109,7 +105,7 @@ public class CollectorMysqlTestingHelper {
         final IDBI dbi = new DBI(jdbcUrl, USERNAME, PASSWORD);
         final String feed_ddl = IOUtils.toString(CollectorMysqlTestingHelper.class.getResourceAsStream("/db/mysql/collector_events.sql"));
         final String counter_ddl = IOUtils.toString(CollectorMysqlTestingHelper.class.getResourceAsStream("/db/mysql/collector_counter_events.sql"));
-        
+
         log.info(String.format("Creating embedded db for url %s", jdbcUrl));
         log.info("Adding tables to the embedded db");
         dbi.withHandle(new HandleCallback<Void>() {
@@ -121,7 +117,7 @@ public class CollectorMysqlTestingHelper {
             }
         });
         log.info("Finished adding tables to the embedded db");
-        
+
         log.info("Finished initializing the embedded db");
     }
 }

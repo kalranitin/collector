@@ -17,32 +17,26 @@ package com.ning.metrics.collector.jaxrs;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import com.ning.metrics.collector.processing.counter.CompositeCounter;
 import com.ning.metrics.collector.processing.counter.RollUpCounterProcessor;
 import com.ning.metrics.collector.processing.db.CounterStorage;
-import com.ning.metrics.collector.processing.db.model.CounterSubscription;
 import com.ning.metrics.collector.processing.db.model.RolledUpCounter;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,46 +80,21 @@ public class MetricsResource
                         + "(?:$|[ \\+])");
     }
 
-    @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
-    @Path("/subscription")
-    public Response createOrUpdateCounterSubscription(final CounterSubscription counterSubscription, @Context UriInfo ui)
-    {
-    	CounterSubscription dbCounterSubscription = counterStorage.loadCounterSubscription(counterSubscription.getAppId());
-
-    	final Long id = dbCounterSubscription == null?counterStorage.createCounterSubscription(counterSubscription):counterStorage.updateCounterSubscription(counterSubscription,dbCounterSubscription.getId());
-        return Response.created(
-            ui.getBaseUriBuilder()
-            .path(MetricsResource.class)
-            .path("{id}")
-            .build(id))
-            .entity(new HashMap<String, Long>(){{put("id",id);}})
-            .build();
-    }
-
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("/subscription/{subscriptionId}")
-    public CounterSubscription getSubscription(@PathParam("subscriptionId") Long subscriptionId){
-        return counterStorage.loadCounterSubscriptionById(subscriptionId);
-    }
-
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    @Path("/{appId}")
-    public List<RolledUpCounter> getRolledUpCounter(@PathParam("appId") final String appId,
-        @QueryParam("fromDate") final String fromDate,
-        @QueryParam("toDate") final String toDate,
-        @QueryParam("aggregateByMonth") final String aggregateByMonth,
-        @QueryParam("includeDistribution") final String includeDistribution,
-        @QueryParam("counterType") final List<String> counterTypes,
-        @DefaultValue("") @QueryParam("uniqueIds") final String uniqueIds,
-        @DefaultValue("0") @QueryParam("distributionLimit") final Integer distributionLimit)
+    @Path("/{namespace}")
+    public List<RolledUpCounter> getRolledUpCounter(
+            @PathParam("namespace") String namespace,
+            @QueryParam("fromDate") String fromDate,
+            @QueryParam("toDate") String toDate,
+            @QueryParam("aggregateByMonth") String aggregateByMonth,
+            @QueryParam("includeDistribution") String includeDistribution,
+            @QueryParam("counterType") List<String> counterTypes,
+            @DefaultValue("") @QueryParam("uniqueIds") String uniqueIds,
+            @DefaultValue("0") @QueryParam("distributionLimit") Integer distributionLimit)
     {
-        if(Strings.isNullOrEmpty(appId))
-        {
-            return Lists.newArrayList();
+        if(Strings.isNullOrEmpty(namespace)) {
+            return ImmutableList.of();
         }
 
         Set<String> counterTypesSet = null;
@@ -168,7 +137,8 @@ public class MetricsResource
             }
         }
 
-        return rollUpCounterProcessor.loadAggregatedRolledUpCounters(appId,
+        return rollUpCounterProcessor.loadAggregatedRolledUpCounters(
+                namespace,
                 Optional.fromNullable(fromDate),
                 Optional.fromNullable(toDate),
                 Optional.fromNullable(counterTypesSet),
@@ -183,9 +153,9 @@ public class MetricsResource
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("/aggregate/{appId}")
+    @Path("/aggregate/{namespace}")
     public List<RolledUpCounter> getAggregatedRolledUpCounter(
-            @PathParam("appId") final String appId,
+            @PathParam("namespace") final String namespace,
             @QueryParam("fromDate") final String fromDate,
             @QueryParam("toDate") final String toDate,
             @QueryParam("aggregateByMonth") final String aggregateByMonth,
@@ -195,9 +165,8 @@ public class MetricsResource
             @DefaultValue("0") @QueryParam("distributionLimit")
                     final Integer distributionLimit) {
 
-        if(Strings.isNullOrEmpty(appId))
-        {
-            return Lists.newArrayList();
+        if(Strings.isNullOrEmpty(namespace)) {
+            return ImmutableList.of();
         }
 
         Set<String> counterTypesSet = null;
@@ -240,7 +209,8 @@ public class MetricsResource
             }
         }
 
-        return rollUpCounterProcessor.loadAggregatedRolledUpCounters(appId,
+        return rollUpCounterProcessor.loadAggregatedRolledUpCounters(
+                namespace,
                 Optional.fromNullable(fromDate),
                 Optional.fromNullable(toDate),
                 Optional.fromNullable(counterTypesSet),

@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ArrayListMultimap;
-
 import javax.annotation.Nullable;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -31,17 +30,17 @@ public class CounterSubscription
     private final Long id;
     private final String appId;
     private final ArrayListMultimap<Integer,String> identifierDistribution;
-    
+
     @JsonCreator
-    public CounterSubscription(@JsonProperty("id") @Nullable Long id, 
-        @JsonProperty("appId") final String appId, 
+    public CounterSubscription(@JsonProperty("id") @Nullable Long id,
+        @JsonProperty("appId") final String appId,
         @JsonProperty("identifierDistribution") final ArrayListMultimap<Integer, String> identifierDistribution)
     {
         this.id = id;
         this.appId = appId;
         this.identifierDistribution = identifierDistribution;
     }
-    
+
     @JsonIgnore
     public Long getId()
     {

@@ -48,7 +48,7 @@ public class CounterEventCleanUpJob implements Job
         log.info("Starting clean up of expired rolled up counters");
         DateTime toDateTime = new DateTime(DateTimeZone.UTC);
         
-        int deletedRolledUpEvents = counterStorage.cleanExpiredRolledUpCounterEvents(toDateTime.minus(config.getRolledUpCounterStorageTimeout().getMillis()));
+        int deletedRolledUpEvents = counterStorage.cleanExpiredDailyRolledUpCounters(toDateTime.minus(config.getRolledUpCounterStorageTimeout().getMillis()));
         log.info(String.format("Deleted %d rolledup events", deletedRolledUpEvents));
         log.info("Expired roll up counter event clean up done");
     }
