@@ -390,7 +390,7 @@ public class DatabaseCounterStorage implements CounterStorage {
                 List<byte[]> distributions = Lists.newArrayList();
 
                 String namespace = rolledUpCounter.getNamespace();
-                String counterDate = rolledUpCounter.getFormattedDate();
+                String counterDate = rolledUpCounter.getFromDate();
 
                 for (Map.Entry<String, RolledUpCounterData> e
                         : rolledUpCounter.getCounterSummary().entrySet()) {
@@ -739,13 +739,14 @@ public class DatabaseCounterStorage implements CounterStorage {
                 throws SQLException, IOException {
             String counterName = r.getString("counter_name");
             int totalCount = r.getInt("total_count");
+            int uniqueCount = r.getInt("unique_count");
             CounterDistribution distriution =
                     deserializeDistribution(r.getBytes("distribution"),
                             Optional.<Set<String>>absent(),
                             Optional.<Integer>absent());
 
             RolledUpCounterData result = new RolledUpCounterData(
-                    counterName, totalCount, distriution);
+                    counterName, totalCount, uniqueCount, distriution);
 
             return result;
         }
@@ -854,6 +855,7 @@ public class DatabaseCounterStorage implements CounterStorage {
                 throws SQLException, IOException {
             String counterName = r.getString("counter_name");
             int totalCount = r.getInt("total_count");
+            int uniqueCount = r.getInt("unique_count");
             CounterDistribution distribution =
                     excludeDistribution
                     ? null
@@ -863,7 +865,7 @@ public class DatabaseCounterStorage implements CounterStorage {
                             distributionLimit);
 
             RolledUpCounterData result = new RolledUpCounterData(
-                    counterName, totalCount, distribution);
+                    counterName, totalCount, uniqueCount, distribution);
 
             return result;
         }

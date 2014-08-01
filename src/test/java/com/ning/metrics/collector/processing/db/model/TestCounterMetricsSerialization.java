@@ -67,7 +67,7 @@ public class TestCounterMetricsSerialization
         distributionMap.increment("member3", 1);
 
         RolledUpCounterData counterData1 = new RolledUpCounterData(
-                "pageView", 6, distributionMap);
+                "pageView", 6, 3, distributionMap);
         counterSummary.put("pageView", counterData1);
 
         RolledUpCounter rolledUpCounter = new RolledUpCounter("app123", new DateTime(), new DateTime(), counterSummary);
@@ -86,6 +86,7 @@ public class TestCounterMetricsSerialization
                     + "\"pageView\":{"
                         + "\"counterName\":\"pageView\","
                         + "\"totalCount\":6,"
+                        + "\"uniqueCount\":3,"
                         + "\"distribution\":{"
                             + "\"member2\":3,"
                             + "\"member3\":1,"

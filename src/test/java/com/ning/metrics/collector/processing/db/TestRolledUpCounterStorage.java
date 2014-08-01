@@ -123,7 +123,7 @@ public class TestRolledUpCounterStorage
         dist.increment("4", 0); // this one will not be serialized
 
         RolledUpCounterData tester = new RolledUpCounterData(
-                "tester", -100333, dist);
+                "tester", -100333, 3, dist);
 
         byte[] serDist = DatabaseCounterStorage.serializeDistribution(tester);
         Map<String, Integer> testDist
@@ -181,7 +181,7 @@ public class TestRolledUpCounterStorage
 
         rolledUpCounter = counterStorage.loadDailyRolledUpCounter(
                 rolledUpCounter.getNamespace(),
-                rolledUpCounter.getFromDate());
+                rolledUpCounter.getFromDateActual());
 
         Assert.assertNotNull(rolledUpCounter);
         Assert.assertEquals(rolledUpCounter.getNamespace(), "network_111");

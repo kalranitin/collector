@@ -59,7 +59,7 @@ public class RollUpCounterProcessor
         @Override
         public int compare(RolledUpCounter left, RolledUpCounter right)
         {
-            return left.getFromDate().compareTo(right.getFromDate());
+            return left.getFromDateActual().compareTo(right.getFromDateActual());
         }};
 
     @Inject
@@ -410,8 +410,8 @@ public class RollUpCounterProcessor
             return null;
         }
 
-        return new RolledUpCounter(first.getNamespace(), first.getFromDate(),
-                last.getToDate(), resultSummary);
+        return new RolledUpCounter(first.getNamespace(), first.getFromDateActual(),
+                last.getToDateActual(), resultSummary);
     }
 
     /**
@@ -430,8 +430,7 @@ public class RollUpCounterProcessor
 
         // This might be the first time we've seen this counter & category combo
         if (aggregateData == null) {
-            aggregateData = new RolledUpCounterData(counterName, 0,
-                    null);
+            aggregateData = new RolledUpCounterData(counterName);
             aggregate.put(counterName, aggregateData);
         }
 
@@ -499,7 +498,7 @@ public class RollUpCounterProcessor
         for (CompositeCounter composite : composites) {
 
             RolledUpCounterData currResult =
-                    new RolledUpCounterData(composite.getName(), 0, null);
+                    new RolledUpCounterData(composite.getName());
 
             result.add(currResult);
 

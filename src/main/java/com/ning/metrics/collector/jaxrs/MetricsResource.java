@@ -91,7 +91,7 @@ public class MetricsResource
             @QueryParam("includeDistribution") String includeDistribution,
             @QueryParam("counterType") List<String> counterTypes,
             @DefaultValue("") @QueryParam("uniqueIds") String uniqueIds,
-            @DefaultValue("0") @QueryParam("distributionLimit") Integer distributionLimit)
+            @QueryParam("distributionLimit") Integer distributionLimit)
     {
         if(Strings.isNullOrEmpty(namespace)) {
             return ImmutableList.of();
@@ -155,15 +155,14 @@ public class MetricsResource
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/aggregate/{namespace}")
     public List<RolledUpCounter> getAggregatedRolledUpCounter(
-            @PathParam("namespace") final String namespace,
-            @QueryParam("fromDate") final String fromDate,
-            @QueryParam("toDate") final String toDate,
-            @QueryParam("aggregateByMonth") final String aggregateByMonth,
-            @QueryParam("includeDistribution") final String includeDistribution,
-            @QueryParam("counterType") final List<String> counterTypes,
-            @DefaultValue("") @QueryParam("uniqueIds") final String uniqueIds,
-            @DefaultValue("0") @QueryParam("distributionLimit")
-                    final Integer distributionLimit) {
+            @PathParam("namespace") String namespace,
+            @QueryParam("fromDate") String fromDate,
+            @QueryParam("toDate") String toDate,
+            @QueryParam("aggregateByMonth") String aggregateByMonth,
+            @QueryParam("includeDistribution") String includeDistribution,
+            @QueryParam("counterType") List<String> counterTypes,
+            @DefaultValue("") @QueryParam("uniqueIds") String uniqueIds,
+            @QueryParam("distributionLimit") Integer distributionLimit) {
 
         if(Strings.isNullOrEmpty(namespace)) {
             return ImmutableList.of();

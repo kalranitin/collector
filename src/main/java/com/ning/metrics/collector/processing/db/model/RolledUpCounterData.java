@@ -33,10 +33,20 @@ public class RolledUpCounterData
     private int uniqueCount = 0;
     private final CounterDistribution distribution;
 
+    /**
+     * convenience constructor for creating a rolled-up counter with just a name
+     * and zero counts
+     * @param counterName
+     */
+    public RolledUpCounterData(String counterName) {
+        this(counterName, 0, 0, null);
+    }
+
     @JsonCreator
     public RolledUpCounterData(
             @JsonProperty("counterName") String counterName,
             @JsonProperty("totalCount") int totalCount,
+            @JsonProperty("uniqueCount") int uniqueCount,
             @JsonProperty("distribution") Map<String, Integer> distMap) {
 
         if (distMap != null) {
@@ -57,7 +67,7 @@ public class RolledUpCounterData
 
         this.counterName = counterName;
         this.totalCount = totalCount;
-        this.uniqueCount = distribution.size();
+        this.uniqueCount = uniqueCount;
     }
 
 

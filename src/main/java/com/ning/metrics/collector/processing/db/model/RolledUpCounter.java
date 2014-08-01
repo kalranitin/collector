@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Maps;
-import com.ning.metrics.collector.processing.counter.CounterDistribution;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.joda.time.DateTime;
@@ -79,11 +78,12 @@ public class RolledUpCounter
      * start date delimited with a '|'
      * @return
      */
+    @JsonIgnore
     public String getId() {
         StringBuilder result = new StringBuilder();
         result.append(namespace);
         result.append('|');
-        result.append(getFormattedDate());
+        result.append(getFromDate());
 
         return result.toString();
     }
@@ -93,20 +93,22 @@ public class RolledUpCounter
         return namespace;
     }
 
-    public DateTime getFromDate()
-    {
+    @JsonIgnore
+    public DateTime getFromDateActual() {
         return fromDate;
     }
 
-    public DateTime getToDate()
-    {
+    @JsonIgnore
+    public DateTime getToDateActual() {
         return toDate;
     }
 
-    @JsonIgnore
-    public String getFormattedDate()
-    {
-        return DATE_FORMATTER.print(getFromDate());
+    public String getFromDate() {
+        return DATE_FORMATTER.print(getFromDateActual());
+    }
+
+    public String getToDate() {
+        return DATE_FORMATTER.print(getToDateActual());
     }
 
     public Map<String, RolledUpCounterData> getCounterSummary()
@@ -130,8 +132,7 @@ public class RolledUpCounter
                     counterSummary.get(counterName);
 
             if(null == rolledUpCounterData) {
-                rolledUpCounterData = new RolledUpCounterData(counterName, 0,
-                        new CounterDistribution());
+                rolledUpCounterData = new RolledUpCounterData(counterName);
 
                 counterSummary.put(counterName, rolledUpCounterData);
             }
