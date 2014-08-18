@@ -15,111 +15,108 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.processing.db.model.Feed;
-import com.ning.metrics.collector.processing.db.model.FeedEvent;
-import com.ning.metrics.collector.processing.db.model.FeedEventData;
-import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
-import com.ning.metrics.collector.processing.db.model.Subscription;
-
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
-
+import com.ning.metrics.collector.processing.db.model.Feed;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import com.ning.metrics.collector.processing.db.model.FeedEventData;
+import com.ning.metrics.collector.processing.db.model.FeedEventMetaData;
+import com.ning.metrics.collector.processing.db.model.Subscription;
+import java.io.IOException;
+import java.util.Arrays;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.util.Arrays;
-
 @Test(groups = {"slow", "database"})
 public class TestFeedStorage
 {
     private CollectorMysqlTestingHelper helper;
     private static final ObjectMapper mapper = new ObjectMapper();
-    
+
     @Inject
     FeedStorage feedStorage;
-    
+
     final String topic = "topic";
     final String channel = "channel";
     final String feed = "feed";
     final String eventData = "{"
             + "\""+FeedEventData.FEED_EVENT_ID_KEY+"\": \"123:Meal:456\","
             + "\"content-type\": \"Meal\","
-            + "\""+FeedEventData.TOPICS_KEY+"\": [\""+topic+"\"]"                
+            + "\""+FeedEventData.TOPICS_KEY+"\": [\""+topic+"\"]"
      + "}";
-    
+
     @BeforeClass(groups = {"slow", "database"})
     public void startDB() throws Exception{
         helper = new CollectorMysqlTestingHelper();
         helper.startMysql();
         helper.initDb();
-        
+
         System.setProperty("collector.spoolWriter.jdbc.url", helper.getJdbcUrl());
         System.setProperty("collector.spoolWriter.jdbc.user", CollectorMysqlTestingHelper.USERNAME);
         System.setProperty("collector.spoolWriter.jdbc.password", CollectorMysqlTestingHelper.PASSWORD);
-        
+
         Guice.createInjector(new DBConfigModule()).injectMembers(this);
-                
+
     }
-    
+
     @BeforeMethod(groups = {"slow", "database"})
     public void clearDB(){
         helper.clear();
     }
-    
+
     @AfterClass(groups = {"slow", "database"})
     public void stopDB() throws Exception{
         helper.stopMysql();
     }
-    
+
     @Test
     public void testFeedDBOperations() throws Exception{
         Feed feeds = new Feed(Arrays.asList(getFeedEvent(getSubscription(1L, topic, channel, feed), eventData)));
         feedStorage.addOrUpdateFeed(feed, feeds);
-        
+
         feeds = feedStorage.loadFeedByKey(feed);
-        
+
         Assert.assertNotNull(feeds);
         Assert.assertEquals(feeds.getFeedEvents().size(), 1);
         Assert.assertEquals(feeds.getFeedEvents().iterator().next().getChannel(), channel);
-        
+
         feedStorage.deleteFeed(feed);
         feeds = feedStorage.loadFeedByKey(feed);
         Assert.assertNull(feeds);
     }
-    
+
     @Test
     public void testMaxFeedSize() throws Exception{
         Feed feeds = new Feed(Arrays.asList(getFeedEvent(getSubscription(1L, topic, channel, feed), eventData)));
         feeds.deleteFeedEvent("123:Meal:456");
-        
+
         Assert.assertEquals(feeds.getFeedEvents().size(), 0);
-        
+
         for(int i=1;i<=5;i++){
-            feeds.addFeedEvents(Arrays.asList(getFeedEvent(getSubscription((long)i, topic, channel, feed), eventData)), 3);            
+            feeds.addFeedEvents(Arrays.asList(getFeedEvent(getSubscription((long)i, topic, channel, feed), eventData)), 3);
         }
-        
+
         Assert.assertEquals(feeds.getFeedEvents().size(), 3);
-        Assert.assertEquals((long)feeds.getFeedEvents().iterator().next().getSubscriptionId(),3);
-        
+        Assert.assertEquals((long)feeds.getFeedEvents().iterator().next().getSubscriptionId(),5);
+
     }
-    
+
     private Subscription getSubscription(Long id, String topic, String channel, String feed){
         FeedEventMetaData metadata = new FeedEventMetaData(feed);
         Subscription subscription = new Subscription(id,topic, metadata, channel);
         return subscription;
     }
-    
-    private FeedEvent getFeedEvent(Subscription subscription, String eventData) throws JsonParseException, JsonMappingException, IOException{        
-        return new FeedEvent(mapper.readValue(eventData, FeedEventData.class), 
-            subscription.getChannel(), 
-            subscription.getId(), 
+
+    private FeedEvent getFeedEvent(Subscription subscription, String eventData) throws JsonParseException, JsonMappingException, IOException{
+        return new FeedEvent(mapper.readValue(eventData, FeedEventData.class),
+            subscription.getChannel(),
+            subscription.getId(),
             subscription.getMetadata());
     }
 

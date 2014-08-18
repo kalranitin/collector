@@ -23,11 +23,6 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.Strings;
-
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeUtils;
-import org.joda.time.DateTimeZone;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -35,6 +30,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeUtils;
+import org.joda.time.DateTimeZone;
 
 @JsonSerialize(using = FeedEventData.FeedEventDataSerializer.class)
 public class FeedEventData
@@ -42,9 +40,10 @@ public class FeedEventData
     private final Map<String, Object> data = new ConcurrentHashMap<String, Object>();
     private final List<String> topics = new CopyOnWriteArrayList<String>();
     private final List<String> removalTargets = new CopyOnWriteArrayList<String>();
-    private String feedEventId = "";
-    private String eventType = "";
-    private String rollupKey = "";
+    private String feedEventId;
+    private String eventType;
+    private String rollupKey;
+    private Integer rollupKeepLast;
     public final static String FEED_EVENT_ID_KEY = "feedEventId";
     public final static String EVENT_TYPE_KEY = "eventType";
     public final static String CREATED_DATE_KEY = "createdDate";
@@ -52,7 +51,8 @@ public class FeedEventData
     public final static String REMOVAL_TARGETS = "removalTargets";
     public final static String EVENT_TYPE_SUPPRESS = "eventSuppress";
     public final static String ROLLUP_KEY = "rollupKey";
-    
+    public final static String ROLLUP_KEEP_LAST_KEY = "rollupKeepLast";
+
     //    @JsonCreator
     public FeedEventData()
     {
@@ -88,6 +88,9 @@ public class FeedEventData
         else if(ROLLUP_KEY.equals(key)){
             this.rollupKey = (String) value;
         }
+        else if(ROLLUP_KEEP_LAST_KEY.equals(key)){
+            this.rollupKeepLast = value != null ? (Integer) value : null;
+        }
         else {
             data.put(key, value);
         }
@@ -106,15 +109,15 @@ public class FeedEventData
         }
         return feedEventId;
     }
-    
+
     public String getEventType(){
         return eventType;
     }
-    
+
     public String getRollupKey(){
         return rollupKey;
     }
-    
+
     public DateTime getCreatedDate(){
         if(data.get(CREATED_DATE_KEY) != null)
         {
@@ -125,7 +128,7 @@ public class FeedEventData
                 return new DateTime(DateTimeZone.UTC);
             }
         }
-        
+
         return new DateTime(DateTimeZone.UTC);
     }
 
@@ -133,10 +136,36 @@ public class FeedEventData
     {
         return topics;
     }
-    
+
     public List<String> getRemovalTargets()
     {
         return removalTargets;
+    }
+
+    /**
+     * Indicates whether or not the rollupKeepLastProperty is present for this
+     * event
+     * @return
+     */
+    public boolean isRollupKeepLastPresent() {
+        return null != rollupKeepLast;
+    }
+
+    /**
+     * gets the integer value of the rollupKeepLast property.  If this property
+     * is absent, 0 is returned
+     * @return
+     */
+    public int getRollupKeepLast() {
+        return isRollupKeepLastPresent() ? rollupKeepLast : 0;
+    }
+
+    /**
+     * Set the rollupKeepLastProperty
+     * @param rollupKeepLast
+     */
+    public void setRollupKeepLast(int rollupKeepLast) {
+        this.rollupKeepLast = rollupKeepLast;
     }
 
     @Override
@@ -197,14 +226,20 @@ public class FeedEventData
             jgen.writeObject(event.getEventType());
             jgen.writeFieldName(REMOVAL_TARGETS);
             jgen.writeObject(event.getRemovalTargets());
-            jgen.writeFieldName(ROLLUP_KEY);
-            jgen.writeObject(event.getRollupKey());
+            if (event.getRollupKey() != null) {
+                jgen.writeFieldName(ROLLUP_KEY);
+                jgen.writeObject(event.getRollupKey());
+            }
+            if (event.isRollupKeepLastPresent()) {
+                jgen.writeFieldName(ROLLUP_KEEP_LAST_KEY);
+                jgen.writeObject(event.getRollupKeepLast());
+            }
             jgen.writeFieldName(CREATED_DATE_KEY);
             jgen.writeObject(DateTimeUtils.getInstantMillis(event.getCreatedDate()));
-            
+
             for (Map.Entry<String, Object> entry : event.getData().entrySet()) {
-                if (!TOPICS_KEY.equals(entry.getKey()) 
-                        && !FEED_EVENT_ID_KEY.equals(entry.getKey()) 
+                if (!TOPICS_KEY.equals(entry.getKey())
+                        && !FEED_EVENT_ID_KEY.equals(entry.getKey())
                         && !EVENT_TYPE_KEY.equals(entry.getKey())
                         && !ROLLUP_KEY.equals(entry.getKey())
                         && !CREATED_DATE_KEY.equals(entry.getKey())

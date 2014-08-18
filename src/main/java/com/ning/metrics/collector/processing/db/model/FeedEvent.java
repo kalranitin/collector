@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
-
 import java.io.IOException;
 import java.util.Map;
 
@@ -32,6 +31,9 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class FeedEvent
 {
+    public static final java.util.Comparator<FeedEvent> COMPARATOR
+            = new Comparator();
+
     private final String channel;
     private final FeedEventMetaData metadata;
     private final FeedEventData event;
@@ -51,7 +53,7 @@ public class FeedEvent
         this.metadata = metadata;
         this.id = "";
     }
-    
+
     public FeedEvent(String id, String channel, String metadata, String event, long subscriptionId) throws IOException{
         this.subscriptionId = subscriptionId;
         this.event = mapper.readValue(event, FeedEventData.class);
@@ -59,7 +61,7 @@ public class FeedEvent
         this.channel = channel;
         this.id = id;
     }
-    
+
     public String getChannel()
     {
         return channel;
@@ -78,13 +80,13 @@ public class FeedEvent
     public FeedEventMetaData getMetadata() {
         return metadata;
     }
-    
+
     @JsonIgnore
     public String getId()
     {
         return id;
     }
-    
+
     @JsonIgnore
     public static Predicate<FeedEvent> isAnyKeyValuMatching(final Map<String,Object> filterMap){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
@@ -96,13 +98,13 @@ public class FeedEvent
                 {
                     return true;
                 }
-                
+
                 return !Maps.difference(filterMap, input.getEvent().getData()).entriesInCommon().isEmpty();
             }};
-            
+
             return feedEventPredicate;
     }
-    
+
     @JsonIgnore
     public static Predicate<FeedEvent> findFeedEventsByType(final String eventType){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
@@ -112,12 +114,12 @@ public class FeedEvent
             {
                return Objects.equal(eventType, input.getEvent().getEventType());
             }
-            
+
         };
-        
+
         return feedEventPredicate;
     }
-    
+
     @JsonIgnore
     public static Predicate<FeedEvent> findFeedEventsByRollupKey(final String rollupKey){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
@@ -127,12 +129,12 @@ public class FeedEvent
             {
                return Objects.equal(rollupKey, input.getEvent().getRollupKey());
             }
-            
+
         };
-        
+
         return feedEventPredicate;
     }
-    
+
     @JsonIgnore
     public static Predicate<FeedEvent> findByFeedEventId(final String feedEventId){
         Predicate<FeedEvent> feedEventPredicate = new Predicate<FeedEvent>() {
@@ -142,9 +144,9 @@ public class FeedEvent
             {
                 return Objects.equal(feedEventId, input.getEvent().getFeedEventId());
             }};
-            
+
             return feedEventPredicate;
-        
+
     }
 
     @Override
@@ -203,5 +205,14 @@ public class FeedEvent
         return true;
     }
 
-    
+    private static final class Comparator implements java.util.Comparator<FeedEvent> {
+
+        @Override
+        public int compare(FeedEvent feedEvent1, FeedEvent feedEvent2) {
+            // Sort feed events by descending date
+            return feedEvent2.getEvent().getCreatedDate().compareTo(feedEvent1.getEvent().getCreatedDate());
+        }
+
+    }
+
 }

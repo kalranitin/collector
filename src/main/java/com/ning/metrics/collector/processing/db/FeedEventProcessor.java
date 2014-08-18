@@ -15,19 +15,15 @@
  */
 package com.ning.metrics.collector.processing.db;
 
-import com.ning.metrics.collector.binder.config.CollectorConfig;
-import com.ning.metrics.collector.processing.db.model.FeedEvent;
-import com.ning.metrics.collector.processing.db.model.Feed;
-
-import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.inject.Inject;
-
+import com.ning.metrics.collector.binder.config.CollectorConfig;
+import com.ning.metrics.collector.processing.db.model.Feed;
+import com.ning.metrics.collector.processing.db.model.FeedEvent;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 public class FeedEventProcessor
 {
@@ -35,17 +31,17 @@ public class FeedEventProcessor
     private final DatabaseFeedStorage databaseFeedStorage;
     private final DatabaseFeedEventStorage databaseFeedEventStorage;
     private final CollectorConfig config;
-    
+
     @Inject
     public FeedEventProcessor(final DatabaseFeedStorage databaseFeedStorage, final DatabaseFeedEventStorage databaseFeedEventStorage, final CollectorConfig config){
         this.databaseFeedEventStorage = databaseFeedEventStorage;
         this.databaseFeedStorage = databaseFeedStorage;
         this.config = config;
     }
-    
+
     public void process(List<FeedEvent> feedEvents){
-        
-        ArrayListMultimap<String, FeedEvent> multimap = sortEventsByFeedKey(feedEvents);            
+
+        ArrayListMultimap<String, FeedEvent> multimap = sortEventsByFeedKey(feedEvents);
         for(String feedKey : multimap.keySet())
         {
             Feed feed = databaseFeedStorage.loadFeedByKey(feedKey);
@@ -55,14 +51,14 @@ public class FeedEventProcessor
             }
             else
             {
-                // TODO make the max feed count configurable
-                feed.addFeedEvents(multimap.get(feedKey), 1000);
+                feed.addFeedEvents(multimap.get(feedKey),
+                        config.getMaxStoredFeedEvents());
             }
-            
+
             databaseFeedStorage.addOrUpdateFeed(feedKey, feed);
         }
     }
-    
+
     private ArrayListMultimap<String, FeedEvent> sortEventsByFeedKey(List<FeedEvent> feedEvents)
     {
         ArrayListMultimap<String, FeedEvent> multimap = ArrayListMultimap.create();
@@ -73,11 +69,11 @@ public class FeedEventProcessor
             {
                 continue;
             }
-            
+
             multimap.put(feedKey, feedEvent);
-            
+
         }
-        
+
         return multimap;
     }
 }

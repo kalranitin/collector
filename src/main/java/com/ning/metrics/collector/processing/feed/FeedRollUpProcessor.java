@@ -26,8 +26,6 @@ import com.ning.metrics.collector.processing.db.model.Feed;
 import com.ning.metrics.collector.processing.db.model.FeedEvent;
 import com.ning.metrics.collector.processing.db.model.FeedEventData;
 import com.ning.metrics.collector.processing.db.model.RolledUpFeedEvent;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -49,9 +47,6 @@ public class FeedRollUpProcessor {
         if (feedEventList.isEmpty()) {
             return new Feed(compiledFeedEventList);
         }
-
-        FeedEventComparator feedEventComparator = new FeedEventComparator();
-        Collections.sort(feedEventList, feedEventComparator);
 
         ArrayListMultimap<String, FeedEvent> rolledEventMultiMap
                 = ArrayListMultimap.create();
@@ -90,7 +85,9 @@ public class FeedRollUpProcessor {
                     compareFeedEvent = rolledUpEventList.get(0);
                 }
 
-                // If there is an event to compare this one to, only roll
+                // If there is an event to compare this one to, only roll up
+                // this event if it is within 24 hours from the most recent
+                // and if
                 if (compareFeedEvent == null
                         || feedEvent.getEvent().getCreatedDate().plusHours(24)
                         .isAfter(compareFeedEvent.getEvent().getCreatedDate())) {
@@ -107,17 +104,9 @@ public class FeedRollUpProcessor {
             compiledFeedEventList.add(feedEvent);
         }
 
-        return new Feed(compiledFeedEventList);
+        // return a new unprocessed feed using the given list of feed events
+        return new Feed(compiledFeedEventList, true);
     }
 
-    private static final class FeedEventComparator implements Comparator<FeedEvent> {
-
-        @Override
-        public int compare(FeedEvent feedEvent1, FeedEvent feedEvent2) {
-            // Sort feed events by descending date
-            return feedEvent2.getEvent().getCreatedDate().compareTo(feedEvent1.getEvent().getCreatedDate());
-        }
-
-    }
 
 }
