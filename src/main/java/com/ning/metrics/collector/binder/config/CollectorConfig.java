@@ -16,10 +16,8 @@
 
 package com.ning.metrics.collector.binder.config;
 
-import com.ning.metrics.serialization.writer.CompressionCodec;
-
 import com.googlecode.jsendnsca.encryption.Encryption;
-
+import com.ning.metrics.serialization.writer.CompressionCodec;
 import org.skife.config.Config;
 import org.skife.config.Default;
 import org.skife.config.DefaultNull;
@@ -60,7 +58,7 @@ public interface CollectorConfig
              "collector.activemq.messagesTTLmilliseconds" })
     @Default("300000")
     int getMessagesTTLMilliseconds();
-    
+
     // Length of the internal buffer for passing events of a specific type to activemq
     @Config({"collector.activemq.${category}.bufferLength",
              "collector.activemq.bufferLength"})
@@ -79,14 +77,14 @@ public interface CollectorConfig
     // NOTE: global setting, no per-topic overrides
     @Config("collector.activemq.useBytesMessage")
     @Default("false")
-    boolean getActiveMQUseBytesMessage();    
+    boolean getActiveMQUseBytesMessage();
 
     // Whether we are to use async send or not
     // note: currently used in global way, thus no per-category override
     @Config("collector.activemq.asyncSend")
     @Default("false")
-    boolean getActiveMQUseAsyncSend();    
-    
+    boolean getActiveMQUseAsyncSend();
+
     @Config("collector.scribe.enabled")
     @Default("true")
     boolean isScribeCollectionEnabled();
@@ -282,9 +280,9 @@ public interface CollectorConfig
     @Config("collector.filters.event-type")
     @Default("CounterEvent,FeedEvent")
     String getFiltersEventType();
-    
+
     /**
-     * If true, events specified in collector.filters.event-type 
+     * If true, events specified in collector.filters.event-type
      * will only be included else excluded
      *
      * @return whether to include or exclude the event types
@@ -412,45 +410,69 @@ public interface CollectorConfig
     @Config("collector.arecibo.profile")
     @Default("com.ning.arecibo.jmx:name=AreciboProfile")
     String getAreciboProfile();
-    
+
     /**
      * Comma (,) seperated class names for processing the events.
      * */
     @Config("collector.spoolWriter.classes")
-    @Default("com.ning.metrics.collector.processing.db.FeedEventSpoolProcessor,com.ning.metrics.collector.processing.db.CounterEventSpoolProcessor")
+    @DefaultNull
     String getSpoolWriterClassNames();
-    
+
     /**
-     * Total number of threads that can run in parallel. 
+     * Total number of threads that can run in parallel.
      * Typically it would be 5 times the number of processor classes.
      * */
     @Config("collector.spoolWriter.fileprocessor.threads.count")
     @Default("10")
     int getFileProcessorThreadCount();
-    
+
     /**
      * Shutdown wait time for the executor to let the existing threads finish the processing.
      * */
     @Config("collector.spoolWriter.executor.shutdown.waitTime")
     @Default("5s")
     TimeSpan getSpoolWriterExecutorShutdownTime();
-    
+
+    /**
+     * @return Comma (,) seperated class names for processing the event of the
+     * given type.  This parameter is meant as an overload
+     * */
+    @Config("collector.spoolWriter.${eventName}.classes")
+    @DefaultNull
+    String getEventSpoolWriterClassNames();
+
+    /**
+     * Maximum age of events of the given type in the file being written
+     * (_tmp directory).  This is meant as an override to the global
+     * configuration parameter of the same name
+     * <p/>
+     * Maximum number of seconds before events are promoted from the temporary spooling area to the final spool queue.
+     * This is used in the ThresholdEventWriter (delay between commits).
+     *
+     * @return maxixmum age of events in seconds in the temporary spool queue
+     *          for events for the given type
+     * @see com.ning.metrics.serialization.writer.ThresholdEventWriter
+     */
+    @Config("collector.diskspool.${eventName}.max-uncommitted-period-seconds")
+    @DefaultNull
+    Integer getEventMaxUncommittedPeriodInSeconds();
+
     /**
      * Per event Flush time. THe property would be like collector.spoolWriter.eventFoo.flushtime=120s
      * */
     @Config("collector.spoolWriter.${eventName}.flushTime")
     @Default("60s")
     TimeSpan getEventFlushTime();
-    
+
     @Config("collector.spoolWriter.db.enabled")
     @Default("true")
     boolean isSpoolWriterDbEnabled();
-    
+
     @Description("The jdbc url for the database")
     @Config("collector.spoolWriter.jdbc.url")
     @Default("jdbc:mysql://127.0.0.1:3306/collector")
     String getJdbcUrl();
-    
+
     @Description("The jdbc user name for the database")
     @Config("collector.spoolWriter.jdbc.user")
     @Default("root")
@@ -475,69 +497,75 @@ public interface CollectorConfig
     @Config("collector.spoolWriter.jdbc.connectionTimeout")
     @Default("10s")
     TimeSpan getConnectionTimeout();
-    
+
     @Description("The TransactionHandler to use for all Handle instances")
     @Config("com.ning.jetty.jdbi.transactionHandler")
     @Default("com.ning.jetty.jdbi.RestartTransactionRunner")
     String getTransactionHandlerClass();
-    
+
     @Description("How long the Subscription should be in the cache")
     @Config("collector.spoolWriter.subscription.cache.timeout")
     @Default("24h")
     TimeSpan getSubscriptionCacheTimeout();
-    
+
     @Description("The maximum allowed number of subscriptions in the cache")
     @Config("collector.spoolWriter.subscription.cache.limit")
     @Default("1000")
     long getMaxSubscriptionCacheCount();
-    
+
     @Description("Time period for Feed events to reside in the database before they are cleaned up")
     @Config("collector.spoolWriter.feedEvent.retention.period")
     @Default("1d")
     TimeSpan getFeedEventRetentionPeriod();
-    
+
     @Description("How long the Counter Events should reside in cache")
     @Config("collector.spoolWriter.counterEvent.memory.flush.time")
     @Default("15m")
     TimeSpan getCounterEventMemoryFlushTime();
-    
+
     @Description("The maximum allowed number of counter subscriptions in the cache")
     @Config("collector.spoolWriter.counterEvent.subscription.cache.limit")
     @Default("1000")
     long getMaxCounterSubscriptionCacheCount();
-    
+
     @Description("The maximum allowed number of counter events in the cache for each subscription id before flush is done")
     @Config("collector.spoolWriter.counterEvent.cache.flush.limit")
     @Default("1000")
     long getMaxCounterEventFlushCacheCount();
-    
+
     @Description("The maximum allowed number of counter events to be fetched in bulk while performing roll up operation")
     @Config("collector.spoolWriter.counterEvent.db.fetch.limit")
     @Default("1000")
     int getMaxCounterEventFetchCount();
-    
+
     @Description("Cron Trigger for roll up processor execution")
     @Config("collector.spoolWriter.counterEvent.rollup.process.cron")
     @Default("0 0/30 * * * ?")
     String getCounterRollUpProcessorCronExpression();
-    
+
     @Description("Cron Trigger for expired roll up events clean up")
     @Config("collector.spoolWriter.rollupCounterEvent.cleanup.cron")
     @Default("0 0 0 * * ?")
     String getRolledUpCounterCleanupCronExpression();
-    
+
     @Description("How long should the rolled up counters be in the storage")
     @Config("collector.spoolWriter.rollupCounterEvent.cleanup.timeout")
     @Default("30d")
     TimeSpan getRolledUpCounterStorageTimeout();
-    
+
     @Description("Cron Trigger for feed events clean up")
     @Config("collector.spoolWriter.feedEvent.cleanup.cron")
     @Default("0 0 0 * * ?")
     String getFeedEventsCleanupCronExpression();
-    
+
     @Description("The limit for deleting old feed events in one shot")
     @Config("collector.spoolWriter.feedEvent.cleanup.limit")
     @Default("10000")
     long getFeedEventCleanUpLimit();
+
+    @Description("The limit for stored feed events (events with the same rollupKey count as a single event)")
+    @Config("collector.spoolWriter.feedEvent.storage.limit")
+    @Default("1000")
+    int getMaxStoredFeedEvents();
+
 }

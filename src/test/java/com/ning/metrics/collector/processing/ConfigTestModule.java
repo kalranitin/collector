@@ -20,7 +20,7 @@ import com.google.inject.AbstractModule;
 import com.ning.metrics.collector.FastCollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.collector.binder.config.CollectorConfigurationObjectFactory;
-
+import org.mockito.Mockito;
 import org.skife.config.ConfigurationObjectFactory;
 
 public class ConfigTestModule extends AbstractModule
@@ -35,11 +35,21 @@ public class ConfigTestModule extends AbstractModule
         System.setProperty("collector.event-output-directory", hadoopPath);
 
         ConfigurationObjectFactory configFactory = new CollectorConfigurationObjectFactory(System.getProperties());
-        bind(ConfigurationObjectFactory.class).toInstance(configFactory);
-        
-        final CollectorConfig collectorConfig = configFactory.build(FastCollectorConfig.class);
+        final CollectorConfig collectorConfig
+                = configFactory.build(FastCollectorConfig.class);
+
+        ConfigurationObjectFactory mockConfig
+                = Mockito.mock(CollectorConfigurationObjectFactory.class);
+
+        Mockito.when(mockConfig.buildWithReplacements(
+                Mockito.any(Class.class), Mockito.anyMap()))
+                        .thenReturn(collectorConfig);
+
+        bind(ConfigurationObjectFactory.class).toInstance(mockConfig);
+
+
         bind(CollectorConfig.class).toInstance(collectorConfig);
-        
-        
+
+
     }
 }

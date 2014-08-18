@@ -15,6 +15,12 @@
  */
 package com.ning.metrics.collector.processing;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.inject.Inject;
+import com.mogwee.executors.FailsafeScheduledExecutor;
+import com.mogwee.executors.LoggingExecutor;
+import com.mogwee.executors.NamedThreadFactory;
 import com.ning.arecibo.jmx.Monitored;
 import com.ning.metrics.collector.binder.config.CollectorConfig;
 import com.ning.metrics.serialization.writer.CallbackHandler;
@@ -23,19 +29,6 @@ import com.ning.metrics.serialization.writer.EventHandler;
 import com.ning.metrics.serialization.writer.EventWriter;
 import com.ning.metrics.serialization.writer.SyncType;
 import com.ning.metrics.serialization.writer.ThresholdEventWriter;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
-import com.mogwee.executors.FailsafeScheduledExecutor;
-import com.mogwee.executors.LoggingExecutor;
-import com.mogwee.executors.NamedThreadFactory;
-
-import org.skife.config.ConfigurationObjectFactory;
-import org.skife.config.TimeSpan;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.weakref.jmx.Managed;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,27 +45,106 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.skife.config.ConfigurationObjectFactory;
+import org.skife.config.TimeSpan;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.weakref.jmx.Managed;
 
 public class EventSpoolWriterFactory implements PersistentWriterFactory
 {
     private static final Logger log = LoggerFactory.getLogger(EventSpoolWriterFactory.class);
     private final CollectorConfig config;
     private final AtomicBoolean flushEnabled;
-    private final Set<EventSpoolProcessor> eventSpoolProcessorSet;
+    private final Set<EventSpoolProcessor> defaultSpoolProcessorSet;
+    private final Map<String, Set<EventSpoolProcessor>> perEventSpoolProcessors;
     private long cutoffTime = 7200000L;
     private final TimeSpan executorShutdownTimeOut;
     private final ExecutorService executorService;
     private final ConfigurationObjectFactory configFactory;
-    
+
+    /**
+     * convenience constructor (used for testing) that ensures that all events
+     * use the default set of spool processors
+     * @param defaultEventSpoolProcessorSet
+     * @param config
+     * @param configFactory
+     */
+    public EventSpoolWriterFactory(
+            Set<EventSpoolProcessor> defaultEventSpoolProcessorSet,
+            CollectorConfig config,
+            ConfigurationObjectFactory configFactory) {
+        this(defaultEventSpoolProcessorSet
+                , Maps.<String, Set<EventSpoolProcessor>>newHashMap()
+                , config
+                , configFactory);
+    }
+
     @Inject
-    public EventSpoolWriterFactory(final Set<EventSpoolProcessor> eventSpoolProcessorSet, final CollectorConfig config, final ConfigurationObjectFactory configFactory)
+    public EventSpoolWriterFactory(
+            Set<EventSpoolProcessor> defaultEventSpoolProcessorSet,
+            Map<String, Set<EventSpoolProcessor>> perEventSpoolProcessors,
+            CollectorConfig config,
+            ConfigurationObjectFactory configFactory)
     {
-        this.eventSpoolProcessorSet = eventSpoolProcessorSet;
+        this.defaultSpoolProcessorSet = defaultEventSpoolProcessorSet;
+        this.perEventSpoolProcessors = perEventSpoolProcessors;
         this.config = config;
         this.configFactory = configFactory;
         this.flushEnabled = new AtomicBoolean(config.isFlushEnabled());
         this.executorShutdownTimeOut = config.getSpoolWriterExecutorShutdownTime();
         executorService = new LoggingExecutor(0, config.getFileProcessorThreadCount() , 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), new NamedThreadFactory("EventSpool-Processor-Threads"),new ThreadPoolExecutor.CallerRunsPolicy());
+    }
+
+    /**
+     * @param replacedConfig config object that has been replaced to select
+     *          configurations specific to the current event type
+     * @return time in seconds to flush completed spool files to spool writers
+     */
+    private long getFlushTimeForEventInSeconds(CollectorConfig replacedConfig) {
+        return TimeUnit.SECONDS.convert(
+                replacedConfig.getEventFlushTime().getPeriod(),
+                replacedConfig.getEventFlushTime().getUnit());
+    }
+
+
+    /**
+     * This method gets the maximum time events can go uncommitted.  Thie means
+     * the maximum time one temporary caching file can be used without closing
+     * it and writing to a new one.  This is important because events cannot be
+     * flushed to spool processors until they have been committed.
+     * @param replacedConfig config object that has been replaced to select
+     *          configurations specific to the current event type
+     * @return maximum time events can go uncommitted.
+     */
+    private int getMaxUncommittedTimeForEventInSeconds(
+            CollectorConfig replacedConfig) {
+
+        Integer result = replacedConfig.getEventMaxUncommittedPeriodInSeconds();
+
+        if (result == null) {
+            result = replacedConfig.getMaxUncommittedPeriodInSeconds();
+        }
+
+        return result;
+    }
+
+    /**
+     * Get the set of spool processors to be used with the given event name.  If
+     * no set of event processors is explicitely defined for that event then the
+     * default set of spool processors will be used
+     * @param eventName
+     * @return
+     */
+    private Set<EventSpoolProcessor> getSpoolProcessors(String eventName) {
+        Set<EventSpoolProcessor> result
+                = perEventSpoolProcessors.get(eventName);
+
+        if (result == null) {
+            result = defaultSpoolProcessorSet;
+        }
+
+        return result;
     }
 
     @Override
@@ -82,8 +154,11 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
 
         final Map<String,String> replacements = ImmutableMap.of("eventName", eventName);
 
-        final CollectorConfig replacementConfig = configFactory.buildWithReplacements(CollectorConfig.class, replacements);        
-        
+        final CollectorConfig replacementConfig = configFactory.buildWithReplacements(CollectorConfig.class, replacements);
+
+        final Set<EventSpoolProcessor> spoolProcessors
+                = getSpoolProcessors(eventName);
+
         final EventWriter eventWriter = new DiskSpoolEventWriter(new EventHandler()
         {
             private int flushCount = 0;
@@ -94,11 +169,11 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 if (!flushEnabled.get()) {
                     return; // Flush Disabled?
                 }
-                
-                final String outputPath = spoolManager.toHadoopPath(flushCount);                
-                
+
+                final String outputPath = spoolManager.toHadoopPath(flushCount);
+
                 // If the processors are not able to process the file then handle error
-                if(!executeSpoolProcessors(spoolManager, file, outputPath))
+                if(!executeSpoolProcessors(spoolProcessors, spoolManager, file, outputPath))
                 {
                     handler.onError(new RuntimeException("Execution Failed!"), file);
                     // Increment flush count in case the file was created on HDFS
@@ -111,12 +186,16 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 stats.registerHdfsFlush();
                 flushCount++;
             }
-        }, spoolManager.getSpoolDirectoryPath(), config.isFlushEnabled(), 
-        TimeUnit.SECONDS.convert(replacementConfig.getEventFlushTime().getPeriod(), replacementConfig.getEventFlushTime().getUnit()), 
-        new FailsafeScheduledExecutor(1, eventOutputDirectory + "-EventSpool-writer"), SyncType.valueOf(config.getSyncType()), 
-        config.getSyncBatchSize(), config.getCompressionCodec(), serializationType.getSerializer());
-        
-        return new ThresholdEventWriter(eventWriter, config.getMaxUncommittedWriteCount(), config.getMaxUncommittedPeriodInSeconds());
+        }, spoolManager.getSpoolDirectoryPath(), config.isFlushEnabled(),
+        getFlushTimeForEventInSeconds(replacementConfig),
+        new FailsafeScheduledExecutor(1, eventOutputDirectory + "-EventSpool-writer"), SyncType.valueOf(config.getSyncType()),
+        config.getSyncBatchSize(),
+        config.getCompressionCodec(),
+        serializationType.getSerializer());
+
+        return new ThresholdEventWriter(eventWriter
+                , config.getMaxUncommittedWriteCount()
+                , getMaxUncommittedTimeForEventInSeconds(replacementConfig));
     }
 
     /**
@@ -154,14 +233,17 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 }
 
                 incrementFlushCount(flushesPerEvent, spoolManager.getEventName());
-                final String outputPath = spoolManager.toHadoopPath(flushesPerEvent.get(spoolManager.getEventName()));
-                
+                String outputPath = spoolManager.toHadoopPath(flushesPerEvent.get(spoolManager.getEventName()));
+
+                Set<EventSpoolProcessor> spoolProcessors
+                        = getSpoolProcessors(spoolManager.getEventName());
+
                 // Execute the file in parallel using all spool processors. This was put in a separate condition as not all files will be processed.
-                if(!executeSpoolProcessors(spoolManager,file,outputPath))
+                if(!executeSpoolProcessors(spoolProcessors, spoolManager,file,outputPath))
                 {
                     log.warn(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
                 }
-                
+
                 // Make sure the file is deleted.
                 if (!file.delete()) {
                     log.warn(String.format("Exception cleaning up left below file: %s. We might have DUPS!", file.toString()));
@@ -171,16 +253,19 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
 
         LocalSpoolManager.cleanupOldSpoolDirectories(potentialOldDirectories);
     }
-    
+
     /*
      * Execute the processors in parallel for the given file and event
      * */
-    private boolean executeSpoolProcessors(final LocalSpoolManager spoolManager, final File file, final String outputPath)
-    {
+    private boolean executeSpoolProcessors(
+            Set<EventSpoolProcessor> spoolProcessors,
+            final LocalSpoolManager spoolManager,
+            final File file,
+            final String outputPath) {
         List<Future<Boolean>> callerFutureList = new ArrayList<Future<Boolean>>();
         boolean executionResult = true;
         log.info("Starting Spool Process");
-        for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
+        for(final EventSpoolProcessor eventSpoolProcessor : spoolProcessors)
         {
             log.info("Submitting task for "+eventSpoolProcessor.getProcessorName());
             callerFutureList.add(executorService.submit(new Callable<Boolean>() {
@@ -190,9 +275,9 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                 {
                     try {
                         log.info(String.format("Processing Event %s via spooler %s at path %s ",spoolManager.getEventName(),eventSpoolProcessor.getProcessorName(),outputPath));
-                        
+
                         eventSpoolProcessor.processEventFile(spoolManager.getEventName(), spoolManager.getSerializationType(), file, outputPath);
-                        
+
                         log.info(String.format("Completed Processing Event  %s via spooler %s",spoolManager.getEventName(),eventSpoolProcessor.getProcessorName()));
                     }
                     catch (IOException e) {
@@ -201,15 +286,15 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
                     }
                     return true;
                 }
-                
+
             }));
-            
+
         }
-        
+
         log.debug("Spool Process Completed, now waiting for the parallel task to complete.");
-        
-        
-        
+
+
+
         try {
             for(Future<Boolean> future : callerFutureList)
             {
@@ -244,7 +329,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             catch (IOException e) {
                 log.warn("Got IOException trying to process left below files: " + e.getLocalizedMessage());
             }
-            
+
             // Give some time for the flush to happen
             final File spoolDirectory = new File(config.getSpoolDirectoryName());
             int nbOfSleeps = 0;
@@ -268,9 +353,9 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             else {
                 log.info("All local files have been flushed");
             }
-            
+
             /*Making sure to close all spool processors for clean up purpose*/
-            for(final EventSpoolProcessor eventSpoolProcessor : eventSpoolProcessorSet)
+            for(final EventSpoolProcessor eventSpoolProcessor : defaultSpoolProcessorSet)
             {
                 eventSpoolProcessor.close();
             }
@@ -278,7 +363,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
         finally{
             log.info("Shutting Down Executor Service");
             executorService.shutdown();
-            
+
             try {
                 executorService.awaitTermination(executorShutdownTimeOut.getPeriod(), executorShutdownTimeOut.getUnit());
             }
@@ -288,7 +373,7 @@ public class EventSpoolWriterFactory implements PersistentWriterFactory
             executorService.shutdownNow();
         }
     }
-    
+
     /**
      * Increment flushes count for this event
      *

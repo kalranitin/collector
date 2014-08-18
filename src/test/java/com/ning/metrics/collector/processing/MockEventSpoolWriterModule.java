@@ -15,12 +15,9 @@
  */
 package com.ning.metrics.collector.processing;
 
-import com.ning.metrics.collector.processing.EventSpoolProcessor;
-import com.ning.metrics.collector.processing.EventSpoolWriterFactory;
-import com.ning.metrics.collector.processing.PersistentWriterFactory;
-
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 
 public class MockEventSpoolWriterModule implements Module
@@ -30,5 +27,7 @@ public class MockEventSpoolWriterModule implements Module
     {
         binder.bind(PersistentWriterFactory.class).to(EventSpoolWriterFactory.class);
         Multibinder.newSetBinder(binder,EventSpoolProcessor.class);
+        MapBinder.newMapBinder(binder,
+                String.class, EventSpoolProcessor.class).permitDuplicates();
     }
 }
