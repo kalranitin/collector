@@ -73,12 +73,12 @@ public class TestFeedRollUpProcessor
         Feed feed = new Feed(Arrays.asList(getFeedEvent(subscription, "1",dt,"member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName)));
 
         feed.addFeedEvents(Arrays.asList(
-                                            getFeedEvent(subscription, "2",dt.plusHours(1), "member1","","\"event2\"",""),
-                                            getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event3\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
-                                            getFeedEvent(subscription, "4",dt.plusHours(3), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event4\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
-                                            getFeedEvent(subscription, "5",dt.plusHours(4), "",FeedEventData.EVENT_TYPE_SUPPRESS,"\"mainEvent\"","")
-                                        ) ,
-                                        100);
+                getFeedEvent(subscription, "2",dt.plusHours(1), "member1","","null,\"event2\"",""),
+                getFeedEvent(subscription, "3",dt.plusHours(2), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",\"event3\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                getFeedEvent(subscription, "4",dt.plusHours(3), "member",RolledUpEventTypes.JOIN_GROUP.itemFieldName,"\"mainEvent\",null,\"event4\"",RolledUpEventTypes.JOIN_GROUP.itemFieldName),
+                getFeedEvent(subscription, "5",dt.plusHours(4), "",FeedEventData.EVENT_TYPE_SUPPRESS,"\"mainEvent\",null,\"blahEvent\"","")
+                ) ,
+                100);
 
         FeedRollUpProcessor feedRollUpProcessor = new FeedRollUpProcessor();
 
